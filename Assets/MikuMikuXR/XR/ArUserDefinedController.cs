@@ -1,18 +1,14 @@
 ﻿using System;
 using UnityEngine;
-using Vuforia;
 using Object = UnityEngine.Object;
 
 namespace MikuMikuXR.XR
 {
+    // 这个类原本使用了 Vuforia 的 AR 功能，现在我们将其修改为简化版本
+    // 在 Windows VR 环境下，可能不会使用这个控制器，但保留它以防止其他脚本引用出错
     public class ArUserDefinedController : IXrController
     {
-        private Object _vuforiaPrefab;
-        private GameObject _vuforiaObject;
-        
-        private GameObject _arCameraObject;
-        private GameObject _targetBuilderObject;
-        private UdtEventHandler _udtEventHandler;
+        private GameObject _dummyObject;
 
         public ArUserDefinedController()
         {
@@ -23,24 +19,19 @@ namespace MikuMikuXR.XR
 
         public void Create()
         {
-            Screen.orientation = ScreenOrientation.Landscape;
-            if (_vuforiaPrefab == null)
-            {
-                _vuforiaPrefab = Resources.Load("Prefabs/ArUserDefined");
-            }
-            _vuforiaObject =  Object.Instantiate(_vuforiaPrefab) as GameObject;
-            if (_vuforiaObject == null)
-            {
-                throw new InvalidOperationException("[Bug] vuforia object is null");
-            }
-            _vuforiaObject.name = "ArUserDefined";
-            _udtEventHandler = _vuforiaObject.transform.Find("UserDefinedTargetBuilder").GetComponent<UdtEventHandler>();
+            // 创建一个空的游戏对象来替代原有的 Vuforia 对象
+            _dummyObject = new GameObject("DummyArObject");
+            
+            // 记录日志，提醒用户 AR 功能已被禁用
+            Debug.LogWarning("AR 功能已被禁用。项目已转换为仅支持 VR 模式。");
         }
 
         public void Destroy()
         {
-            ClearTargets();
-            Object.Destroy(_vuforiaObject);
+            if (_dummyObject != null)
+            {
+                Object.Destroy(_dummyObject);
+            }
         }
 
         public XrType GetType()
@@ -55,22 +46,13 @@ namespace MikuMikuXR.XR
 
         public bool BuildTarget()
         {
-            if (Tracking)
-            {
-                return false;
-            }
-            var buildSuccess = _udtEventHandler.BuildNewTarget();
-            Tracking = buildSuccess;
-            return buildSuccess;
+            Debug.LogWarning("AR BuildTarget() 方法已被禁用。请使用 VR 模式。");
+            return false;
         }
 
         public void ClearTargets()
         {
-            if (!Tracking)
-            {
-                return;
-            }
-            _udtEventHandler.ClearTargets();
+            Debug.LogWarning("AR ClearTargets() 方法已被禁用。请使用 VR 模式。");
             Tracking = false;
         }
     }

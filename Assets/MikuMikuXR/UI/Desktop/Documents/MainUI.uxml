@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xsi="http://www.w3.org/2001/XMLSchema-instance" engine="UnityEngine.UIElements" editor="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
+    <Style src="../Styles/MainStyle.uss" />
+    <ui:VisualElement name="MainContainer" class="main-container">
+        <!-- 顶部工具栏 -->
+        <ui:VisualElement name="TopToolbar" class="top-toolbar">
+            <ui:VisualElement name="LeftControls" style="flex-direction: row; align-items: center;">
+                <ui:Button text="添加模型" display-tooltip-when-elided="true" name="AddModelButton" />
+                <ui:Button text="选择动作" display-tooltip-when-elided="true" name="SelectMotionButton" />
+                <ui:Button text="选择音乐" display-tooltip-when-elided="true" name="SelectMusicButton" />
+            </ui:VisualElement>
+            <ui:VisualElement name="RightControls" style="flex-direction: row; align-items: center;">
+                <ui:Button text="设置" display-tooltip-when-elided="true" name="SettingsButton" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+        
+        <!-- 左侧面板 (模型列表) -->
+        <ui:VisualElement name="LeftPanel" class="side-panel left">
+            <ui:Label text="模型列表" display-tooltip-when-elided="true" style="font-size: 16px; margin-bottom: 10px;" />
+            <ui:ListView name="ModelList" selection-type="Single" style="flex-grow: 1;" />
+            <ui:Button text="关闭面板" display-tooltip-when-elided="true" name="CloseLeftPanelButton" style="margin-top: 10px;" />
+        </ui:VisualElement>
+        
+        <!-- 右侧面板 (设置) -->
+        <ui:VisualElement name="RightPanel" class="side-panel right">
+            <ui:Label text="设置" display-tooltip-when-elided="true" style="font-size: 16px; margin-bottom: 10px;" />
+            
+            <ui:Foldout text="画质设置" value="false">
+                <ui:SliderInt label="渲染质量" value="2" high-value="5" name="QualityLevelSlider" />
+                <ui:SliderInt label="抗锯齿" value="2" high-value="4" name="AntiAliasingSlider" />
+                <ui:DropdownField label="阴影质量" index="1" choices="关闭,硬阴影,软阴影" name="ShadowQualityDropdown" />
+            </ui:Foldout>
+            
+            <ui:Foldout text="物理设置" value="false">
+                <ui:DropdownField label="物理质量" index="1" choices="关闭,低,中,高" name="PhysicsQualityDropdown" />
+                <ui:SliderInt label="物理更新率" value="60" high-value="120" name="PhysicsUpdateRateSlider" />
+            </ui:Foldout>
+            
+            <ui:Foldout text="界面设置" value="false">
+                <ui:Toggle label="自动隐藏控制栏" name="AutoHideControlsToggle" />
+                <ui:SliderInt label="UI透明度" value="70" high-value="100" name="UIOpacitySlider" />
+            </ui:Foldout>
+            
+            <ui:VisualElement style="flex-direction: row; justify-content: space-between; margin-top: 20px;">
+                <ui:Button text="恢复默认" display-tooltip-when-elided="true" name="ResetSettingsButton" />
+                <ui:Button text="应用" display-tooltip-when-elided="true" name="ApplySettingsButton" />
+            </ui:VisualElement>
+            
+            <ui:Button text="关闭面板" display-tooltip-when-elided="true" name="CloseRightPanelButton" style="margin-top: 10px;" />
+        </ui:VisualElement>
+        
+        <!-- 底部控制栏 -->
+        <ui:VisualElement name="BottomControls" class="bottom-controls">
+            <!-- 时间轴 -->
+            <ui:VisualElement name="TimelineContainer" class="timeline-container">
+                <ui:Label text="00:00" display-tooltip-when-elided="true" name="CurrentTimeLabel" />
+                <ui:Slider picking-mode="Ignore" value="0" high-value="100" name="TimelineSlider" />
+                <ui:Label text="00:00" display-tooltip-when-elided="true" name="TotalTimeLabel" />
+            </ui:VisualElement>
+            
+            <!-- 播放控制 -->
+            <ui:VisualElement name="PlaybackControls" class="playback-controls">
+                <ui:Button display-tooltip-when-elided="true" name="PrevButton" class="icon-button" text="⏮" />
+                <ui:Button display-tooltip-when-elided="true" name="PlayButton" class="icon-button" text="▶" />
+                <ui:Button display-tooltip-when-elided="true" name="PauseButton" class="icon-button hidden" text="⏸" />
+                <ui:Button display-tooltip-when-elided="true" name="StopButton" class="icon-button" text="⏹" />
+                <ui:Button display-tooltip-when-elided="true" name="NextButton" class="icon-button" text="⏭" />
+                
+                <ui:VisualElement style="width: 20px;" />
+                
+                <ui:VisualElement name="VolumeControl" style="flex-direction: row; align-items: center;">
+                    <ui:Button display-tooltip-when-elided="true" name="MuteButton" class="icon-button" text="🔊" />
+                    <ui:Slider picking-mode="Ignore" value="0.8" high-value="1" name="VolumeSlider" style="width: 100px;" />
+                </ui:VisualElement>
+                
+                <ui:VisualElement style="flex-grow: 1;" />
+                
+                <ui:Button text="模型列表" display-tooltip-when-elided="true" name="ShowModelListButton" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

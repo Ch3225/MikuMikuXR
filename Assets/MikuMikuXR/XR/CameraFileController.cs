@@ -15,7 +15,7 @@ namespace MikuMikuXR.XR
 
         public void Create()
         {
-            Screen.orientation = ScreenOrientation.Landscape;
+            Screen.orientation = ScreenOrientation.LandscapeLeft;
             _playPauseListener = playing =>
             {
                 CameraObject.Playing = playing;

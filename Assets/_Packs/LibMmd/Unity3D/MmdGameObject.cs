@@ -983,11 +983,11 @@ namespace LibMMD.Unity3D
             unityCollider.height = mmdRigidBody.Dimemsions.y + mmdRigidBody.Dimemsions.x * 2.0f;
         }
 
-        private PhysicMaterial CreatePhysicMaterial(MmdRigidBody[] rigidbodys, uint index)
+        private PhysicsMaterial CreatePhysicMaterial(MmdRigidBody[] rigidbodys, uint index)
         {
             var mmdRigidBody = rigidbodys[index];
 
-            return new PhysicMaterial(_model.Name + "_r" + mmdRigidBody.Name)
+            return new PhysicsMaterial(_model.Name + "_r" + mmdRigidBody.Name)
             {
                 bounciness = mmdRigidBody.Restitution,
                 staticFriction = mmdRigidBody.Friction,
@@ -1082,16 +1082,16 @@ namespace LibMMD.Unity3D
             if (null != unityRigidBody)
             {
                 unityRigidBody.mass += mmdRigidBody.Mass;
-                unityRigidBody.drag = (unityRigidBody.drag + mmdRigidBody.TranslateDamp) * 0.5f;
-                unityRigidBody.angularDrag = (unityRigidBody.angularDrag + mmdRigidBody.RotateDamp) * 0.5f;
+                unityRigidBody.linearDamping = (unityRigidBody.linearDamping + mmdRigidBody.TranslateDamp) * 0.5f;
+                unityRigidBody.angularDamping = (unityRigidBody.angularDamping + mmdRigidBody.RotateDamp) * 0.5f;
             }
             else
             {
                 unityRigidBody = target.AddComponent<Rigidbody>();
                 unityRigidBody.isKinematic = MmdRigidBody.RigidBodyType.RigidTypeKinematic == mmdRigidBody.Type;
                 unityRigidBody.mass = Mathf.Max(float.Epsilon, mmdRigidBody.Mass);
-                unityRigidBody.drag = mmdRigidBody.TranslateDamp;
-                unityRigidBody.angularDrag = mmdRigidBody.RotateDamp;
+                unityRigidBody.linearDamping = mmdRigidBody.TranslateDamp;
+                unityRigidBody.angularDamping = mmdRigidBody.RotateDamp;
             }
         }
 

@@ -15,7 +15,7 @@ namespace MikuMikuXR.XR
             var gesture = MainSceneController.Instance.GetCameraManualTransform().gameObject.GetComponent<CameraTransformGesture>();
             gesture.EnableRotation = false;
             gesture.EnableTranslation = true;
-            Screen.orientation = ScreenOrientation.Landscape;
+            Screen.orientation = ScreenOrientation.LandscapeLeft;
             var vrCameraObj = new GameObject("VrGlass");
             vrCameraObj.transform.SetParent(MainSceneController.Instance.GetCameraManualTransform(), false);
             UnityUtils.ResetTransform(vrCameraObj.transform);

@@ -318,16 +318,11 @@ namespace Newtonsoft.Json.Serialization
         if (_dynamicCodeGeneration == null)
         {
 #if !(UNITY_ANDROID || UNITY_WEBPLAYER || (UNITY_IOS || UNITY_IPHONE) || (UNITY_WP8 || UNITY_WP_8_1) || (UNITY_WINRT && !UNITY_EDITOR))
-            try
+          // 在新版 Unity 中，移除对已废弃或不可用的安全权限 API 的调用
+          // 简化为始终设置 _dynamicCodeGeneration = false
+          try
           {
-            new ReflectionPermission(ReflectionPermissionFlag.MemberAccess).Demand();
-            new ReflectionPermission(ReflectionPermissionFlag.RestrictedMemberAccess).Demand();
-#pragma warning disable 618
-			new SecurityPermission(SecurityPermissionFlag.SkipVerification).Demand();
-            new SecurityPermission(SecurityPermissionFlag.UnmanagedCode).Demand();
-#pragma warning restore 108
-			new SecurityPermission(PermissionState.Unrestricted).Demand();
-            _dynamicCodeGeneration = true;
+            _dynamicCodeGeneration = false;
           }
           catch (Exception)
           {

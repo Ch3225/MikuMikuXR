@@ -1,0 +1,123 @@
+/* 极简样式文件 - 避免任何可能导致类型错误的属性 */
+
+/* 基础样式 */
+.unity-base-field__label {
+    color: white;
+    margin-right: 8px;
+    min-width: 100px;
+}
+
+.unity-base-field__input {
+    background-color: rgb(40, 40, 50);
+    border-width: 1px;
+    border-color: rgb(80, 80, 100);
+    padding: 4px;
+    color: white;
+}
+
+/* 主容器 */
+.main-container {
+    width: 100%;
+    height: 100%;
+}
+
+/* 顶部工具栏 */
+.top-toolbar {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    height: 60px;
+    background-color: rgb(30, 30, 40);
+    border-bottom-width: 1px;
+    border-color: rgb(80, 80, 100);
+}
+
+/* 底部控制栏 */
+.bottom-controls {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 80px;
+    padding: 10px;
+    background-color: rgb(30, 30, 40);
+    flex-direction: column;
+}
+
+/* 底部控制栏隐藏状态 */
+.bottom-controls.hidden {
+    display: none;
+}
+
+/* 播放控制区域 */
+.playback-controls {
+    flex-direction: row;
+    align-items: center;
+    height: 40px;
+}
+
+/* 时间轴区域 */
+.timeline-container {
+    flex-direction: row;
+    align-items: center;
+    margin: 5px 0;
+}
+
+/* 按钮样式 */
+.unity-button {
+    background-color: rgb(40, 40, 50);
+    border-width: 0;
+    padding: 8px;
+    color: white;
+}
+
+.icon-button {
+    width: 36px;
+    height: 36px;
+    padding: 6px;
+    margin: 0 5px;
+}
+
+/* 滑块样式 - 极简 */
+.unity-slider {
+    flex-grow: 1;
+    margin: 0 10px;
+}
+
+/* 标签样式 */
+.unity-label {
+    color: white;
+    font-size: 14px;
+    margin: 0 5px;
+}
+
+/* 侧面板 */
+.side-panel {
+    position: absolute;
+    top: 60px;
+    bottom: 80px;
+    width: 300px;
+    background-color: rgb(30, 30, 40);
+    border-width: 1px;
+    border-color: rgb(80, 80, 100);
+    padding: 10px;
+    display: none;
+}
+
+.side-panel.left {
+    left: 0;
+}
+
+.side-panel.right {
+    right: 0;
+}
+
+.side-panel.visible {
+    display: flex;
+}
+
+/* 通用隐藏类 - 用于隐藏元素如播放/暂停按钮 */
+.hidden {
+    display: none;
+}

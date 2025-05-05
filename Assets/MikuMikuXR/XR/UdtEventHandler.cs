@@ -1,160 +1,56 @@
-﻿using System.Linq;
-using Boo.Lang;
+﻿using System.Collections.Generic;
 using MikuMikuXR.SceneController;
 using UnityEngine;
-using Vuforia;
 
 namespace MikuMikuXR.XR
 {
-    public class UdtEventHandler : MonoBehaviour, IUserDefinedTargetEventHandler
+    public class UdtEventHandler : MonoBehaviour
     {
-        public ImageTargetBehaviour ImageTargetTemplate;
+        // 移除了对 Vuforia 类型的引用并替换为 GameObject
+        public GameObject ImageTargetTemplate;
+        
+        private int _targetCounter;
 
         public int LastTargetIndex
         {
-            get { return (_targetCounter - 1) % MaxTargets; }
+            get { return (_targetCounter - 1) % 5; }
         }
-
-        private const int MaxTargets = 5;
-        private UserDefinedTargetBuildingBehaviour _targetBuildingBehaviour;
-        private ObjectTracker _objectTracker;
-
-        // DataSet that newly defined targets are added to
-        private DataSet _udtDataSet;
-
-        // Currently observed frame quality
-        private ImageTargetBuilder.FrameQuality _frameQuality = ImageTargetBuilder.FrameQuality.FRAME_QUALITY_NONE;
-
-        private int _targetCounter;
-
 
         private void Start()
         {
-            _targetBuildingBehaviour = GetComponent<UserDefinedTargetBuildingBehaviour>();
-
-            if (_targetBuildingBehaviour)
-            {
-                _targetBuildingBehaviour.RegisterEventHandler(this);
-                Debug.Log("Registering User Defined Target event handler.");
-            }
-            VuforiaARController.Instance.RegisterVuforiaStartedCallback(OnVuforiaStarted);
-            VuforiaARController.Instance.RegisterOnPauseCallback(OnPaused);
+            Debug.LogWarning("UdtEventHandler: AR 功能已被禁用，只支持 VR 模式。");
         }
 
-        /// <summary>
-        /// Called when UserDefinedTargetBuildingBehaviour has been initialized successfully
-        /// </summary>
+        // 简化的接口方法，不再依赖 Vuforia
         public void OnInitialized()
         {
-            _objectTracker = TrackerManager.Instance.GetTracker<ObjectTracker>();
-            if (_objectTracker != null)
-            {
-                // Create a new dataset
-                _udtDataSet = _objectTracker.CreateDataSet();
-                _objectTracker.ActivateDataSet(_udtDataSet);
-            }
+            Debug.LogWarning("UdtEventHandler: AR 初始化已跳过。");
         }
 
-        /// <summary>
-        /// Updates the current frame quality
-        /// </summary>
-        public void OnFrameQualityChanged(ImageTargetBuilder.FrameQuality frameQuality)
+        // 使用我们自定义的 FrameQuality 枚举
+        public void OnFrameQualityChanged(MainSceneController.FrameQuality frameQuality)
         {
             Debug.Log("Frame quality changed: " + frameQuality);
-            _frameQuality = frameQuality;
             MainSceneController.Instance.OnArFrameQualityChanged.Invoke(frameQuality);
-
         }
 
-        /// <summary>
-        /// Takes a new trackable source and adds it to the dataset
-        /// This gets called automatically as soon as you 'BuildNewTarget with UserDefinedTargetBuildingBehaviour
-        /// </summary>
-        public void OnNewTrackableSource(TrackableSource trackableSource)
+        // 简化版本，不再创建 AR 跟踪目标
+        public void OnNewTrackableSource(object trackableSource)
         {
-            _targetCounter++;
-
-            // Deactivates the dataset first
-            _objectTracker.DeactivateDataSet(_udtDataSet);
-
-            // Destroy the oldest target if the dataset is full or the dataset
-            // already contains five user-defined targets.
-            if (_udtDataSet.HasReachedTrackableLimit() || _udtDataSet.GetTrackables().Count() >= MaxTargets)
-            {
-                var trackables = _udtDataSet.GetTrackables();
-                Trackable oldest = null;
-                foreach (var trackable in trackables)
-                {
-                    if (oldest == null || trackable.ID < oldest.ID)
-                        oldest = trackable;
-                }
-
-                if (oldest != null)
-                {
-                    Debug.Log("Destroying oldest trackable in UDT dataset: " + oldest.Name);
-                    _udtDataSet.Destroy(oldest, true);
-                }
-            }
-
-            // Get predefined trackable and instantiate it
-            var imageTargetCopy = Instantiate(ImageTargetTemplate);
-            imageTargetCopy.gameObject.name = "UserDefinedTarget-" + _targetCounter;
-
-            // Add the duplicated trackable to the data set and activate it
-            _udtDataSet.CreateTrackable(trackableSource, imageTargetCopy.gameObject);
-
-            // Activate the dataset again
-            _objectTracker.ActivateDataSet(_udtDataSet);
-
-            // Make sure TargetBuildingBehaviour keeps scanning...
-            _targetBuildingBehaviour.StartScanning();
+            Debug.LogWarning("UdtEventHandler: AR 创建跟踪目标已跳过。");
         }
 
-        /// <summary>
-        /// Instantiates a new user-defined target and is also responsible for dispatching callback to
-        /// IUserDefinedTargetEventHandler::OnNewTrackableSource
-        /// </summary>
+        // 返回 false，表示无法创建 AR 目标
         public bool BuildNewTarget()
         {
-            if (_frameQuality == ImageTargetBuilder.FrameQuality.FRAME_QUALITY_MEDIUM ||
-                _frameQuality == ImageTargetBuilder.FrameQuality.FRAME_QUALITY_HIGH)
-            {
-                // create the name of the next target.
-                // the TrackableName of the original, linked ImageTargetBehaviour is extended with a continuous number to ensure unique names
-                var targetName = string.Format("{0}-{1}", ImageTargetTemplate.TrackableName, _targetCounter);
-
-                // generate a new target:
-                _targetBuildingBehaviour.BuildNewTarget(targetName, ImageTargetTemplate.GetSize().x);
-                return true;
-            }
-            Debug.Log("Cannot build new target, due to poor camera image quality");
+            Debug.LogWarning("UdtEventHandler: 无法创建 AR 目标，AR 功能已禁用。");
             return false;
         }
 
+        // 空方法，保留接口
         public void ClearTargets()
         {
-            _objectTracker.DeactivateDataSet(_udtDataSet);
-            var trackables = _udtDataSet.GetTrackables();
-            var trackableList = new List<Trackable>(trackables);
-            foreach (var trackable in trackableList)
-            {
-                _udtDataSet.Destroy(trackable, true);
-            }
-            _objectTracker.ActivateDataSet(_udtDataSet);
+            Debug.LogWarning("UdtEventHandler: 清理 AR 目标已跳过。");
         }
-      
-        private static void OnVuforiaStarted()
-        {
-            CameraDevice.Instance.SetFocusMode(CameraDevice.FocusMode.FOCUS_MODE_CONTINUOUSAUTO);
-        }
-      
-        private static void OnPaused(bool paused)
-        {
-            if (!paused) 
-            {
-                CameraDevice.Instance.SetFocusMode(CameraDevice.FocusMode.FOCUS_MODE_CONTINUOUSAUTO);
-            }
-        }
-
     }
 }

@@ -25,19 +25,15 @@ namespace MikuMikuXR.UI.Page
             {
                 ChangeXrType(XrType.VrGlass);
             });
-            SetButtonListener("BtnPyramid", () =>
-            {
-                ChangeXrType(XrType.Pyramid);
-                OnceTipPage.ShowOnceTip(TipNames.Pyramid);
-            });
             SetButtonListener("BtnCameraFile", () =>
             {
                 ChangeXrType(XrType.CameraFile);
             });
-            SetButtonListener("BtnArUserDefined", () =>
-            {
-                ChangeXrType(XrType.ArUserDefined);
-            });
+            
+            // 隐藏不需要的按钮
+            HideButton("BtnArUserDefined");
+            HideButton("BtnPyramid");
+            
             SetButtonListener("BtnBack", ClosePage);
         }
 
@@ -45,6 +41,15 @@ namespace MikuMikuXR.UI.Page
         {
             MainSceneController.Instance.ChangeXrType(xrType);
             ClosePage();
+        }
+        
+        private void HideButton(string buttonName)
+        {
+            Transform button = transform.Find(buttonName);
+            if (button != null)
+            {
+                button.gameObject.SetActive(false);
+            }
         }
     }
 }

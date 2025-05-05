@@ -68,7 +68,8 @@ namespace TinyTeam.UI {
 
          //add audio listener
          camObj.AddComponent<AudioListener>();
-         camObj.AddComponent<GUILayer>();
+         // 删除过时的 GUILayer
+         // camObj.AddComponent<GUILayer>();
 
          CanvasScaler cs = go.AddComponent<CanvasScaler>();
          cs.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;

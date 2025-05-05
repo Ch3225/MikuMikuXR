@@ -18,7 +18,7 @@ using TinyTeam.UI;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
-using Vuforia;
+// 移除 Vuforia 引用
 using Object = UnityEngine.Object;
 
 namespace MikuMikuXR.SceneController
@@ -37,7 +37,16 @@ namespace MikuMikuXR.SceneController
         {
         }
 
-        public class ArFrameQualityChangedEvent : UnityEvent<ImageTargetBuilder.FrameQuality>
+        // 将 ImageTargetBuilder.FrameQuality 替换为自定义枚举
+        public enum FrameQuality
+        {
+            FRAME_QUALITY_NONE,
+            FRAME_QUALITY_LOW,
+            FRAME_QUALITY_MEDIUM,
+            FRAME_QUALITY_HIGH
+        }
+
+        public class ArFrameQualityChangedEvent : UnityEvent<FrameQuality>
         {
         }
 
@@ -93,7 +102,7 @@ namespace MikuMikuXR.SceneController
             OnceTipPage.ShowOnceTip(TipNames.HowToStart);
             InitUiLayer();
             InitXrTypes();
-            ChangeXrType(XrType.VrManual);
+            ChangeXrType(XrType.VrManual); // 确保默认使用 VrManual 模式
         }
 
         private void OnDestroy()
@@ -433,8 +442,9 @@ namespace MikuMikuXR.SceneController
             typeDic[xrController.GetType()] = xrController;
             xrController = new CameraFileController();
             typeDic[xrController.GetType()] = xrController;
-            xrController = new ArUserDefinedController();
-            typeDic[xrController.GetType()] = xrController;
+            // 移除 AR 控制器，我们不再需要它
+            // xrController = new ArUserDefinedController();
+            // typeDic[xrController.GetType()] = xrController;
             _xrControllers = typeDic;
         }
 

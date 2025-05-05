@@ -4,7 +4,6 @@ using MikuMikuXR.Utils;
 using MikuMikuXR.XR;
 using UnityEngine;
 using UnityEngine.UI;
-using Vuforia;
 
 namespace MikuMikuXR.UI.Page
 {
@@ -12,10 +11,7 @@ namespace MikuMikuXR.UI.Page
     {
         private GameObject _cameraFilePanel;
         private GameObject _arUserDefinedPanel;
-        private GameObject _arUserDefinedInitPanel;
-        private GameObject _arUserDefinedResetPanel;
-        private Text _frameQualityText;
-
+        
         public MmdStagePanel()
         {
             uiPath = PrefabPaths.MmdStagePanelPath;
@@ -23,22 +19,42 @@ namespace MikuMikuXR.UI.Page
 
         public override void Awake(GameObject go)
         {
+            // 获取界面元素引用
             _cameraFilePanel = transform.Find("MmdCamera").gameObject;
             _arUserDefinedPanel = transform.Find("ArUserDefined").gameObject;
-            _arUserDefinedInitPanel = transform.Find("ArUserDefined/Init").gameObject;
-            _arUserDefinedResetPanel = transform.Find("ArUserDefined/Reset").gameObject;
-            _frameQualityText = transform.Find("ArUserDefined/Init/FrameQuality").GetComponent<Text>();
+            
+            // 隐藏AR相关面板
+            if (_arUserDefinedPanel != null)
+            {
+                _arUserDefinedPanel.SetActive(false);
+            }
+            
+            // 设置XR模式切换监听器
             MainSceneController.Instance.OnXrTypeChanged.AddListener(xrType =>
             {
-                _cameraFilePanel.SetActive(xrType == XrType.CameraFile);
-                _arUserDefinedPanel.SetActive(xrType == XrType.ArUserDefined);
+                // 只在相机文件模式下显示相机文件面板
+                if (_cameraFilePanel != null)
+                {
+                    _cameraFilePanel.SetActive(xrType == XrType.CameraFile);
+                }
+                
+                // 如果尝试切换到AR模式，自动切换回VR手动模式
                 if (xrType == XrType.ArUserDefined)
                 {
-                    _arUserDefinedInitPanel.SetActive(true);
-                    _arUserDefinedResetPanel.SetActive(false);
+                    MainSceneController.Instance.ChangeXrType(XrType.VrManual);
                 }
             });
-            MainSceneController.Instance.OnArFrameQualityChanged.AddListener(OnQualityChanged);
+
+            // 保留必要的按钮功能
+            SetupModelButtons();
+            SetupMusicButtons();
+            SetupControlButtons();
+            SetupCameraFileButtons();
+        }
+        
+        private void SetupModelButtons()
+        {
+            // 添加模型按钮
             SetButtonListener("Functions/BtnAddModel", () =>
             {
                 ShowPage<MmdFileSelector>(new MmdFileSelector.Context
@@ -67,8 +83,9 @@ namespace MikuMikuXR.UI.Page
                         });
                     }
                 });
-                OnceTipPage.ShowOnceTip(TipNames.ExportCustomMmdFiles);
             });
+            
+            // 选择模型按钮
             SetButtonListener("Functions/BtnSelectModel", () =>
             {
                 if (MainSceneController.Instance.GetModelCount() > 0)
@@ -76,6 +93,11 @@ namespace MikuMikuXR.UI.Page
                     ShowPage<MmdModelSelectPanel>();
                 }
             });
+        }
+        
+        private void SetupMusicButtons()
+        {
+            // 选择音乐按钮
             SetButtonListener("Functions/BtnSelectMusic", () =>
             {
                 ShowPage<MmdFileSelector>(new MmdFileSelector.Context
@@ -98,8 +120,12 @@ namespace MikuMikuXR.UI.Page
                             });
                     }
                 });
-                OnceTipPage.ShowOnceTip(TipNames.ExportCustomMmdFiles);
             });
+        }
+        
+        private void SetupControlButtons()
+        {
+            // 播放按钮
             SetButtonListener("Functions/BtnPlay", () =>
             {
                 if (MainSceneController.Instance.GetXrType().Equals(XrType.VrGlass))
@@ -111,10 +137,19 @@ namespace MikuMikuXR.UI.Page
                     MainSceneController.Instance.SwitchPlayPause(true);
                 }
             });
+            
+            // XR模式选择按钮
             SetButtonListener("Functions/BtnXR", ShowPage<XrSelecror>);
+            
+            // 底部按钮
             SetButtonListener("Bottom/BtnQuit", ShowPage<ConfirmReturnTitlePage>);
             SetButtonListener("Bottom/BtnSave", ShowPage<SaveSceneDialog>);
             SetButtonListener("Bottom/BtnLoad", ShowPage<LoadSceneDilog>);
+        }
+        
+        private void SetupCameraFileButtons()
+        {
+            // 相机数据选择按钮
             SetButtonListener("MmdCamera/BtnSelectCamera", () =>
             {
                 ShowPage<MmdFileSelector>(new MmdFileSelector.Context
@@ -159,50 +194,7 @@ namespace MikuMikuXR.UI.Page
                         });
                     }
                 });
-                OnceTipPage.ShowOnceTip(TipNames.ExportCustomMmdFiles);
             });
-            SetButtonListener("ArUserDefined/Init/BtnStartAR", () =>
-            {
-                var arController = MainSceneController.Instance.GetXrController() as ArUserDefinedController;
-                if (arController == null) return;
-                if (!arController.BuildTarget()) return;
-                _arUserDefinedInitPanel.SetActive(false);
-                _arUserDefinedResetPanel.SetActive(true);
-            });
-            SetButtonListener("ArUserDefined/Reset/BtnResetAR", () =>
-            {
-                var arController = MainSceneController.Instance.GetXrController() as ArUserDefinedController;
-                if (arController == null) return;
-                arController.ClearTargets();
-                _arUserDefinedInitPanel.SetActive(true);
-                _arUserDefinedResetPanel.SetActive(false);
-            });
-        }
-
-        private void OnQualityChanged(ImageTargetBuilder.FrameQuality quality)
-        {
-            if (_frameQualityText.IsDestroyed())
-            {
-                return;
-            }
-            switch (quality)
-            {
-                case ImageTargetBuilder.FrameQuality.FRAME_QUALITY_NONE:
-                case ImageTargetBuilder.FrameQuality.FRAME_QUALITY_LOW:
-                    _frameQualityText.text = "识别度：低";
-                    _frameQualityText.color = Color.red;
-                    break;
-                case ImageTargetBuilder.FrameQuality.FRAME_QUALITY_MEDIUM:
-                    _frameQualityText.text = "识别度：中";
-                    _frameQualityText.color = Color.yellow;
-                    break;
-                case ImageTargetBuilder.FrameQuality.FRAME_QUALITY_HIGH:
-                    _frameQualityText.text = "识别度：高";
-                    _frameQualityText.color = Color.green;
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException("quality", quality, null);
-            }
         }
 
         private static void ShowAddModelFailTip()
