@@ -33,6 +33,23 @@
     border-color: rgb(80, 80, 100);
 }
 
+/* 下拉列表样式 */
+.control-dropdown {
+    margin: 0 8px;
+    width: 150px;
+    background-color: rgb(40, 40, 50);
+    border-width: 1px;
+    border-color: rgb(80, 80, 100);
+    color: white;
+}
+
+.unity-popup-field__input {
+    background-color: rgb(40, 40, 50);
+    border-width: 1px;
+    border-color: rgb(80, 80, 100);
+    color: white;
+}
+
 /* 底部控制栏 */
 .bottom-controls {
     position: absolute;

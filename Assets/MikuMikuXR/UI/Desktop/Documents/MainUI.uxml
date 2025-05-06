@@ -5,9 +5,14 @@
         <!-- 顶部工具栏 -->
         <ui:VisualElement name="TopToolbar" class="top-toolbar">
             <ui:VisualElement name="LeftControls" style="flex-direction: row; align-items: center;">
-                <ui:Button text="添加模型" display-tooltip-when-elided="true" name="AddModelButton" />
-                <ui:Button text="选择动作" display-tooltip-when-elided="true" name="SelectMotionButton" />
-                <ui:Button text="选择音乐" display-tooltip-when-elided="true" name="SelectMusicButton" />
+                <ui:Label text="模型" style="margin-right: 4px;" />
+                <ui:DropdownField name="ModelDropdown" choices="加载模型" value="加载模型" style="min-width: 180px; margin-right: 16px;" />
+                <ui:Label text="动作" style="margin-right: 4px;" />
+                <ui:DropdownField name="MotionDropdown" choices="加载动作" value="加载动作" style="min-width: 180px; margin-right: 16px;" />
+                <ui:Label text="音乐" style="margin-right: 4px;" />
+                <ui:DropdownField name="MusicDropdown" choices="加载音乐" value="加载音乐" style="min-width: 180px; margin-right: 16px;" />
+                <ui:Label text="相机" style="margin-right: 4px;" />
+                <ui:DropdownField name="CameraDropdown" choices="加载相机" value="加载相机" style="min-width: 180px; margin-right: 16px;" />
             </ui:VisualElement>
             <ui:VisualElement name="RightControls" style="flex-direction: row; align-items: center;">
                 <ui:Button text="设置" display-tooltip-when-elided="true" name="SettingsButton" />
@@ -74,8 +79,6 @@
                 </ui:VisualElement>
                 
                 <ui:VisualElement style="flex-grow: 1;" />
-                
-                <ui:Button text="模型列表" display-tooltip-when-elided="true" name="ShowModelListButton" />
             </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>
