@@ -64,13 +64,14 @@ namespace MikuMikuXR.SceneController
 
         private readonly IList<GameObject> _mmdObjects = new List<GameObject>();
 
-        private int _selectedMmdIndex = 0;
+        public int _selectedMmdIndex = 0; // Changed from private to public
 
         private AudioSource _audioSource;
 
         private AudioClip _audioClip;
 
         private bool _playing;
+        public bool IsPlaying => _playing;
 
         private string _musicPath;
 

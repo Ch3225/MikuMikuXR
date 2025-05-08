@@ -65,6 +65,10 @@ namespace MikuMikuXR.UI.Desktop
         // 默认空白选项，防止下拉列表为空
         private const string EMPTY_OPTION = " ";
         
+        // --- 新增：动作播放进度变量 ---
+        private float _motionTime = 0f; // 仅无音乐时使用
+        private float _lastUpdateTime = 0f;
+
         private void Start()
         {
             // 确保UI Toolkit文档已分配
@@ -320,6 +324,9 @@ namespace MikuMikuXR.UI.Desktop
             if (_timelineSlider != null)
             {
                 _timelineSlider.RegisterValueChangedCallback(evt => {
+                    // 无音乐时，设置动作播放进度
+                    _motionTime = evt.newValue;
+                    SetMmdMotionTime(_motionTime);
                     UpdateTimeDisplay(evt.newValue);
                 });
             }
@@ -597,50 +604,32 @@ namespace MikuMikuXR.UI.Desktop
         public void UpdateMusicDropdown()
         {
             if (_musicDropdown == null) return;
-            
             try
             {
                 List<string> choices = new List<string>();
-                
-                // 添加当前音乐
                 if (_currentMusic != null && !string.IsNullOrEmpty(_currentMusic.Name))
                 {
                     choices.Add(_currentMusic.Name);
                 }
-                
-                // 总是添加"选择音乐"选项
                 choices.Add(ADD_MUSIC_TEXT);
-                
-                // 如果没有选项，添加空白选项防止错误
                 if (choices.Count == 0)
                 {
                     choices.Add(EMPTY_OPTION);
                 }
-                
-                // 更新下拉列表选项
                 _musicDropdown.Choices = choices;
-                
-                // 确定要设置的值
                 string valueToSet;
-                
-                if (_currentMusic != null && !string.IsNullOrEmpty(_currentMusic.Name) && 
-                    choices.Contains(_currentMusic.Name))
+                if (_currentMusic != null && !string.IsNullOrEmpty(_currentMusic.Name) && choices.Contains(_currentMusic.Name))
                 {
-                    // 如果有当前音乐且在选项中，选择它
                     valueToSet = _currentMusic.Name;
                 }
                 else if (choices.Contains(ADD_MUSIC_TEXT))
                 {
-                    // 否则默认到"选择音乐"选项
                     valueToSet = ADD_MUSIC_TEXT;
                 }
                 else
                 {
-                    // 兜底到第一个选项
                     valueToSet = choices[0];
                 }
-                
-                // 设置新值
                 _musicDropdown.Value = valueToSet;
             }
             catch (System.Exception e)
@@ -659,15 +648,18 @@ namespace MikuMikuXR.UI.Desktop
                     try
                     {
                         MainSceneController.Instance.ChangeMusic(filePath);
-                        
-                        // 设置当前音乐
+                        var audioSource = MainSceneController.Instance.GetComponent<AudioSource>();
+                        float duration = 0f;
+                        if (audioSource != null && audioSource.clip != null)
+                        {
+                            duration = audioSource.clip.length;
+                        }
                         _currentMusic = new MusicInfo
                         {
                             Name = Path.GetFileNameWithoutExtension(filePath),
                             FilePath = filePath,
-                            Duration = 100f // 默认时长
+                            Duration = duration
                         };
-                        
                         UpdateMusicDropdown();
                         SetTimelineDuration(_currentMusic.Duration);
                     }
@@ -693,23 +685,34 @@ namespace MikuMikuXR.UI.Desktop
         
         private void Update()
         {
-            // 如果时间线滑块存在且音乐正在播放，则更新滑块位置
-            if (_timelineSlider != null && MainSceneController.Instance != null)
+            if (_timelineSlider == null || MainSceneController.Instance == null)
+                return;
+            float totalTime = 0f;
+            float currentTime = 0f;
+            if (_activeModel != null && _activeModel.CurrentMotion != null)
             {
-                if (IsPlaying())
-                {
-                    float currentTime = GetCurrentPlayTime();
-                    
-                    // 避免用户拖动时更新时间线
-                    if (_timelineSlider.focusController == null || _timelineSlider.focusController.focusedElement != _timelineSlider)
-                    {
-                        _timelineSlider.value = currentTime;
-                        UpdateTimeDisplay(currentTime);
-                    }
-                }
+                int frameCount = GetCurrentMotionFrameCount();
+                totalTime = frameCount > 0 ? frameCount / 30f : 0f;
             }
+            if (_timelineSlider.highValue != totalTime)
+                _timelineSlider.highValue = totalTime;
+            if (IsPlaying())
+            {
+                float delta = Time.time - _lastUpdateTime;
+                _motionTime += delta;
+                if (_motionTime > totalTime) _motionTime = totalTime;
+                SetMmdMotionTime(_motionTime);
+            }
+            if (!_isSliderDragging)
+                _timelineSlider.value = _motionTime;
+            UpdateTimeDisplay(_timelineSlider.value);
+            UpdateTotalTimeLabel(totalTime);
+            _lastUpdateTime = Time.time;
         }
-        
+
+        // 新增：拖拽状态标记
+        private bool _isSliderDragging = false;
+
         /// <summary>
         /// 获取当前是否正在播放
         /// </summary>
@@ -832,6 +835,64 @@ namespace MikuMikuXR.UI.Desktop
                 Title = title,
                 OnFileSelect = onFileSelect
             });
+        }
+
+        private bool HasMusic()
+        {
+            var audioSource = MainSceneController.Instance.GetComponent<AudioSource>();
+            return audioSource != null && audioSource.clip != null;
+        }
+
+        private int GetCurrentMotionFrameCount()
+        {
+            var mmdObj = MainSceneController.Instance.GetComponentInChildren<LibMMD.Unity3D.MmdGameObject>();
+            if (mmdObj != null)
+            {
+                // 尝试通过反射获取_motionPlayer的帧数，否则用动作时长*30
+                var type = mmdObj.GetType();
+                var motionPlayerField = type.GetField("_motionPlayer", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                if (motionPlayerField != null)
+                {
+                    var motionPlayer = motionPlayerField.GetValue(mmdObj);
+                    if (motionPlayer != null)
+                    {
+                        var getFrameLength = motionPlayer.GetType().GetMethod("GetMotionFrameLength");
+                        if (getFrameLength != null)
+                        {
+                            object frameCount = getFrameLength.Invoke(motionPlayer, null);
+                            if (frameCount is int fc)
+                                return fc;
+                        }
+                    }
+                }
+                // fallback: 2分钟动作，30fps
+                return 2 * 60 * 30;
+            }
+            return 0;
+        }
+
+        private void SetMmdMotionTime(float time)
+        {
+            var mmdObj = MainSceneController.Instance.GetComponentInChildren<LibMMD.Unity3D.MmdGameObject>();
+            if (mmdObj != null)
+            {
+                mmdObj.SetMotionPos(time); // 直接用秒为单位设置
+            }
+        }
+
+        private void UpdateTotalTimeLabel(float totalTime)
+        {
+            if (_totalTimeLabel != null)
+            {
+                int minutes = (int)(totalTime / 60);
+                int seconds = (int)(totalTime % 60);
+                _totalTimeLabel.text = $"{minutes:00}:{seconds:00}";
+            }
+        }
+
+        private bool IsSliderDragging()
+        {
+            return _timelineSlider != null && _timelineSlider.focusController != null && _timelineSlider.focusController.focusedElement == _timelineSlider;
         }
     }
     

@@ -98,7 +98,7 @@ namespace LibMMD.Motion
         
         public double GetMotionTimeLength()
         {
-            return _motion.Length * 30.0;
+            return _motion.Length / 30.0;
         }
 
         public int GetMotionFrameLength()
