@@ -61,8 +61,23 @@ namespace LibMMD.Motion
                     }
                 }
 
+                // --------- 禁用指定IK骨骼（临时演示用） ---------
+                // 你可以根据需要修改下方的骨骼名称列表
+                string[] disabledIkNames = {
+                    "右足ＩＫ親", "右足ＩＫ", "右つま先ＩＫ",
+                    "左足ＩＫ親", "左足ＩＫ", "左つま先ＩＫ"
+                };
+                if (disabledIkNames.Contains(bone.Name))
+                {
+                    image.HasIk = false;
+                    // [DEMO注释] 这里临时禁用IK，防止腿部指向原点。后续可做成UI或配置。
+                }
+                else
+                {
+                    image.HasIk = bone.HasIk;
+                }
+                // --------- END ---------
 
-                image.HasIk = bone.HasIk;
                 if (image.HasIk)
                 {
                     var ikLinkNum = bone.IkInfoVal.IkLinks.Length;
