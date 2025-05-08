@@ -23,7 +23,10 @@ namespace MikuMikuXR.UI.Desktop
         public Slider PlaySlider;
         public TextMeshProUGUI Timer;
         public TextMeshProUGUI PlayButtonText; // 播放按钮下方的文字
-        private AudioSource musicSource;
+        public Button BtnMute;
+        public Slider VolumnBar;
+        [Header("音乐播放器")]
+        public AudioSource musicSource; // Inspector可拖拽绑定
         private double currentTime = 0;
         private double totalTime = 0;
         private string currentMusicName = null; // 当前音乐文件名
@@ -95,7 +98,43 @@ namespace MikuMikuXR.UI.Desktop
                 if (playTextObj != null)
                     PlayButtonText = playTextObj.GetComponent<TextMeshProUGUI>();
             }
-            musicSource = FindObjectOfType<AudioSource>();
+            // 优先使用Inspector绑定的musicSource，否则自动查找
+            if (musicSource == null)
+            {
+                var audioSourceObj = GameObject.Find("AudioSource");
+                if (audioSourceObj != null)
+                    musicSource = audioSourceObj.GetComponent<AudioSource>();
+                else
+                    Debug.LogWarning("未找到名为 'AudioSource' 的对象，音乐功能将不可用");
+            }
+            // 音量和静音按钮绑定
+            if (BtnMute != null && musicSource != null)
+            {
+                BtnMute.onClick.AddListener(() => {
+                    musicSource.mute = !musicSource.mute;
+                    BtnMute.GetComponentInChildren<TMPro.TextMeshProUGUI>().text = musicSource.mute ? "Unmute" : "Mute";
+                });
+                BtnMute.GetComponentInChildren<TMPro.TextMeshProUGUI>().text = musicSource.mute ? "Unmute" : "Mute";
+            }
+            if (VolumnBar != null && musicSource != null)
+            {
+                VolumnBar.value = musicSource.volume;
+                VolumnBar.onValueChanged.AddListener((value) => {
+                    musicSource.volume = value;
+                    if (musicSource.volume == 0f)
+                    {
+                        musicSource.mute = true;
+                        if (BtnMute != null)
+                            BtnMute.GetComponentInChildren<TMPro.TextMeshProUGUI>().text = "Unmute";
+                    }
+                    else
+                    {
+                        musicSource.mute = false;
+                        if (BtnMute != null)
+                            BtnMute.GetComponentInChildren<TMPro.TextMeshProUGUI>().text = "Mute";
+                    }
+                });
+            }
         }
 
         void Update()
@@ -415,10 +454,18 @@ namespace MikuMikuXR.UI.Desktop
                 if (www.result == UnityEngine.Networking.UnityWebRequest.Result.Success)
                 {
                     var clip = UnityEngine.Networking.DownloadHandlerAudioClip.GetContent(www);
+                    // 优先使用Inspector绑定的musicSource，否则自动查找
                     if (musicSource == null)
-                        musicSource = FindObjectOfType<AudioSource>();
+                    {
+                        var audioSourceObj = GameObject.Find("AudioSource");
+                        if (audioSourceObj != null)
+                            musicSource = audioSourceObj.GetComponent<AudioSource>();
+                    }
                     if (musicSource == null)
-                        musicSource = gameObject.AddComponent<AudioSource>();
+                    {
+                        Debug.LogError("未找到名为 'AudioSource' 的对象，无法播放音乐");
+                        yield break;
+                    }
                     bool wasPlaying = isPlaying;
                     musicSource.Stop();
                     musicSource.clip = clip;

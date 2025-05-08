@@ -25,7 +25,7 @@ namespace MikuMikuXR.XR
                 CameraObject.Playing = false;
                 CameraObject.SetPlayPos(0.0);
             };
-            CameraObject = MmdCameraObject.CreateGameObject().GetComponent<MmdCameraObject>();
+            CameraObject = MmdCameraController.CreateGameObject().GetComponent<MmdCameraController>();
             CameraObject.transform.localPosition = new Vector3(0, 18, -40);
             CameraObject.transform.localRotation = Quaternion.identity;
             MainSceneController.Instance.SwitchPlayPause(false);
@@ -59,6 +59,6 @@ namespace MikuMikuXR.XR
             return false;
         }
 
-        public MmdCameraObject CameraObject { get; private set; }
+        public MmdCameraController CameraObject { get; private set; }
     }
 }

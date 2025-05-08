@@ -1314,7 +1314,7 @@ GameObject:
   - component: {fileID: 210676575}
   - component: {fileID: 210676574}
   m_Layer: 5
-  m_Name: Button
+  m_Name: BtnMute
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2539,6 +2539,7 @@ MonoBehaviour:
   PlayButton: {fileID: 603528780}
   PlaySlider: {fileID: 1659624879}
   Timer: {fileID: 292930434}
+  PlayButtonText: {fileID: 0}
   modelFileLoader: {fileID: 0}
 --- !u!1 &457029427
 GameObject:
@@ -3192,7 +3193,7 @@ GameObject:
   - component: {fileID: 603528781}
   - component: {fileID: 603528780}
   m_Layer: 5
-  m_Name: PlayButton
+  m_Name: BtnPlay
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -4346,7 +4347,7 @@ GameObject:
   - component: {fileID: 739380205}
   - component: {fileID: 739380204}
   m_Layer: 5
-  m_Name: Button (2)
+  m_Name: BtnAddCamera
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -4540,7 +4541,7 @@ GameObject:
   - component: {fileID: 769188226}
   - component: {fileID: 769188227}
   m_Layer: 5
-  m_Name: Slider
+  m_Name: VolumnBar
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -9101,7 +9102,7 @@ GameObject:
   - component: {fileID: 2035753498}
   - component: {fileID: 2035753497}
   m_Layer: 5
-  m_Name: Dropdown (2)
+  m_Name: CameraDropdown
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
