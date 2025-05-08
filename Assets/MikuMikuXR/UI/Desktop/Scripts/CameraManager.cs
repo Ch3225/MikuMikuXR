@@ -13,7 +13,7 @@ namespace MikuMikuXR.UI.Desktop
 
         [Header("相机控制组件")]
         public FreeCameraController freeCameraController;
-        public MmdCameraController mmdCameraController;
+        public MmdCameraObject mmdCameraController;
 
         [Header("当前相机模式")]
         public CameraMode currentMode = CameraMode.Free;

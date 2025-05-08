@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace LibMMD.Unity3D
 {
-    public class MmdCameraController : MonoBehaviour
+    public class MmdCameraObject : MonoBehaviour
     {
         private CameraMotion _cameraMotion = null; 
         public bool Playing = false;
@@ -20,8 +20,8 @@ namespace LibMMD.Unity3D
             cameraComponent.clearFlags = CameraClearFlags.Color;
             var obj = new GameObject(name);
             cameraComponent.transform.SetParent(obj.transform);
-            var mmdCameraController = obj.AddComponent<MmdCameraController>();
-            mmdCameraController._camera = cameraComponent;            
+            var mmdCameraObject = obj.AddComponent<MmdCameraObject>();
+            mmdCameraObject._camera = cameraComponent;            
             return obj;
         }
         

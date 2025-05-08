@@ -25,8 +25,9 @@ namespace MikuMikuXR.UI.Desktop
         public TextMeshProUGUI PlayButtonText; // 播放按钮下方的文字
         public Button BtnMute;
         public Slider VolumnBar;
-        [Header("音乐播放器")]
-        public AudioSource musicSource; // Inspector可拖拽绑定
+        public TMP_Dropdown CameraDropdown; // 摄像机动作下拉框
+        public Button BtnAddCamera;         // 添加摄像机动作按钮
+        private AudioSource musicSource;
         private double currentTime = 0;
         private double totalTime = 0;
         private string currentMusicName = null; // 当前音乐文件名
@@ -38,6 +39,9 @@ namespace MikuMikuXR.UI.Desktop
 
         // 每个模型的动作列表，key为模型GameObject，value为动作路径列表
         private System.Collections.Generic.Dictionary<GameObject, System.Collections.Generic.List<string>> modelMotions = new System.Collections.Generic.Dictionary<GameObject, System.Collections.Generic.List<string>>();
+        // 全局摄像机动作路径列表
+        private System.Collections.Generic.List<string> cameraVmdPaths = new System.Collections.Generic.List<string>();
+        private int currentCameraIndex = -1;
 
         private bool isPlaying = false;
         private bool isSliderDragging = false;
@@ -98,43 +102,48 @@ namespace MikuMikuXR.UI.Desktop
                 if (playTextObj != null)
                     PlayButtonText = playTextObj.GetComponent<TextMeshProUGUI>();
             }
-            // 优先使用Inspector绑定的musicSource，否则自动查找
-            if (musicSource == null)
-            {
-                var audioSourceObj = GameObject.Find("AudioSource");
-                if (audioSourceObj != null)
-                    musicSource = audioSourceObj.GetComponent<AudioSource>();
-                else
-                    Debug.LogWarning("未找到名为 'AudioSource' 的对象，音乐功能将不可用");
-            }
-            // 音量和静音按钮绑定
-            if (BtnMute != null && musicSource != null)
+            musicSource = FindObjectOfType<AudioSource>();
+            // 获取Canvas下的AudioSource
+            var canvasGo = GameObject.Find("Canvas");
+            AudioSource canvasAudioSource = null;
+            if (canvasGo != null)
+                canvasAudioSource = canvasGo.GetComponent<AudioSource>();
+            // 找到实际播放音乐的AudioSource（有clip的那个）
+            AudioSource realAudioSource = null;
+            var audioSourceObj = GameObject.Find("AudioSource");
+            if (audioSourceObj != null)
+                realAudioSource = audioSourceObj.GetComponent<AudioSource>();
+            if (BtnMute != null && realAudioSource != null)
             {
                 BtnMute.onClick.AddListener(() => {
-                    musicSource.mute = !musicSource.mute;
-                    BtnMute.GetComponentInChildren<TMPro.TextMeshProUGUI>().text = musicSource.mute ? "Unmute" : "Mute";
+                    realAudioSource.mute = !realAudioSource.mute;
+                    BtnMute.GetComponentInChildren<TMPro.TextMeshProUGUI>().text = realAudioSource.mute ? "Unmute" : "Mute";
                 });
-                BtnMute.GetComponentInChildren<TMPro.TextMeshProUGUI>().text = musicSource.mute ? "Unmute" : "Mute";
+                BtnMute.GetComponentInChildren<TMPro.TextMeshProUGUI>().text = realAudioSource.mute ? "Unmute" : "Mute";
             }
-            if (VolumnBar != null && musicSource != null)
+            if (VolumnBar != null && realAudioSource != null)
             {
-                VolumnBar.value = musicSource.volume;
+                VolumnBar.value = realAudioSource.volume;
                 VolumnBar.onValueChanged.AddListener((value) => {
-                    musicSource.volume = value;
-                    if (musicSource.volume == 0f)
+                    realAudioSource.volume = value;
+                    if (realAudioSource.volume == 0f)
                     {
-                        musicSource.mute = true;
+                        realAudioSource.mute = true;
                         if (BtnMute != null)
                             BtnMute.GetComponentInChildren<TMPro.TextMeshProUGUI>().text = "Unmute";
                     }
                     else
                     {
-                        musicSource.mute = false;
+                        realAudioSource.mute = false;
                         if (BtnMute != null)
                             BtnMute.GetComponentInChildren<TMPro.TextMeshProUGUI>().text = "Mute";
                     }
                 });
             }
+            if (BtnAddCamera != null)
+                BtnAddCamera.onClick.AddListener(OnAddCameraClicked);
+            if (CameraDropdown != null)
+                CameraDropdown.onValueChanged.AddListener(OnCameraDropdownChanged);
         }
 
         void Update()
@@ -332,6 +341,14 @@ namespace MikuMikuXR.UI.Desktop
                         mmdGo.Playing = isPlaying;
                 }
             }
+            // 同步MMD相机播放状态
+            var mainCamera = GameObject.Find("MainCamera");
+            if (mainCamera != null)
+            {
+                var mmdCam = mainCamera.GetComponent<MmdCameraObject>();
+                if (mmdCam != null && mmdCam.enabled)
+                    mmdCam.Playing = isPlaying;
+            }
             if (musicSource != null && musicSource.clip != null)
             {
                 if (isPlaying) musicSource.Play();
@@ -411,6 +428,14 @@ namespace MikuMikuXR.UI.Desktop
                     }
                 }
             }
+            // 同步MMD相机进度
+            var mainCamera = GameObject.Find("MainCamera");
+            if (mainCamera != null)
+            {
+                var mmdCam = mainCamera.GetComponent<MmdCameraObject>();
+                if (mmdCam != null && mmdCam.enabled)
+                    mmdCam.SetPlayPos(time);
+            }
         }
 
         private void UpdateTimerText()
@@ -454,18 +479,10 @@ namespace MikuMikuXR.UI.Desktop
                 if (www.result == UnityEngine.Networking.UnityWebRequest.Result.Success)
                 {
                     var clip = UnityEngine.Networking.DownloadHandlerAudioClip.GetContent(www);
-                    // 优先使用Inspector绑定的musicSource，否则自动查找
                     if (musicSource == null)
-                    {
-                        var audioSourceObj = GameObject.Find("AudioSource");
-                        if (audioSourceObj != null)
-                            musicSource = audioSourceObj.GetComponent<AudioSource>();
-                    }
+                        musicSource = FindObjectOfType<AudioSource>();
                     if (musicSource == null)
-                    {
-                        Debug.LogError("未找到名为 'AudioSource' 的对象，无法播放音乐");
-                        yield break;
-                    }
+                        musicSource = gameObject.AddComponent<AudioSource>();
                     bool wasPlaying = isPlaying;
                     musicSource.Stop();
                     musicSource.clip = clip;
@@ -505,6 +522,93 @@ namespace MikuMikuXR.UI.Desktop
                 musicDropdown.value = 0;
             else
                 musicDropdown.value = 1;
+        }
+
+        private void OnAddCameraClicked()
+        {
+            FileBrowser.SetFilters(true, new FileBrowser.Filter("MMD相机", ".vmd"));
+            FileBrowser.SetDefaultFilter(".vmd");
+            FileBrowser.SetExcludedExtensions(".lnk", ".tmp", ".zip", ".rar", ".exe");
+            FileBrowser.ShowLoadDialog(
+                (paths) => { OnCameraFileSelected(paths); },
+                () => { Debug.Log("取消选择相机动作文件"); },
+                FileBrowser.PickMode.Files,
+                false,
+                null, null, "选择MMD相机动作", "加载"
+            );
+        }
+
+        private void OnCameraFileSelected(string[] paths)
+        {
+            if (paths == null || paths.Length == 0) return;
+            lastResourcePath = System.IO.Path.GetDirectoryName(paths[0]);
+            string cameraPath = paths[0];
+            cameraVmdPaths.Add(cameraPath);
+            RefreshCameraDropdown();
+            CameraDropdown.value = cameraVmdPaths.Count - 1;
+            CameraDropdown.RefreshShownValue();
+            // TODO: 实际加载VMD到相机，后续实现
+        }
+
+        private void RefreshCameraDropdown()
+        {
+            if (CameraDropdown == null) return;
+            CameraDropdown.ClearOptions();
+            var options = new System.Collections.Generic.List<string>();
+            foreach (var path in cameraVmdPaths)
+                options.Add(System.IO.Path.GetFileName(path));
+            options.Add("Free Camera"); // 始终加在最后
+            if (options.Count == 1) // 只有Free Camera
+                CameraDropdown.value = 0;
+            CameraDropdown.AddOptions(options);
+        }
+
+        private void OnCameraDropdownChanged(int index)
+        {
+            if (index == cameraVmdPaths.Count) // Free Camera
+            {
+                currentCameraIndex = -1;
+                SwitchToFreeCamera();
+                return;
+            }
+            if (index < 0 || index >= cameraVmdPaths.Count) {
+                currentCameraIndex = -1;
+                SwitchToFreeCamera();
+                return;
+            }
+            currentCameraIndex = index;
+            string cameraPath = cameraVmdPaths[index];
+            SwitchToMmdCamera(cameraPath);
+        }
+
+        // 切换到自由相机
+        private void SwitchToFreeCamera()
+        {
+            var mainCamera = GameObject.Find("MainCamera");
+            if (mainCamera == null) return;
+            var free = mainCamera.GetComponent<FreeCameraController>();
+            var mmd = mainCamera.GetComponent<MmdCameraObject>();
+            if (free != null) free.enabled = true;
+            if (mmd != null) {
+                mmd.enabled = false;
+                mmd.Playing = false;
+            }
+        }
+
+        // 切换到MMD相机
+        private void SwitchToMmdCamera(string vmdPath)
+        {
+            var mainCamera = GameObject.Find("MainCamera");
+            if (mainCamera == null) return;
+            var free = mainCamera.GetComponent<FreeCameraController>();
+            var mmd = mainCamera.GetComponent<MmdCameraObject>();
+            if (free != null) free.enabled = false;
+            if (mmd != null)
+            {
+                mmd.enabled = true;
+                mmd.LoadCameraMotion(vmdPath);
+                mmd.Playing = true;
+            }
         }
     }
 }
