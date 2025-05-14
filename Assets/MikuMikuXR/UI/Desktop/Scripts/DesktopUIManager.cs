@@ -547,7 +547,8 @@ namespace MikuMikuXR.UI.Desktop
             RefreshCameraDropdown();
             CameraDropdown.value = cameraVmdPaths.Count - 1;
             CameraDropdown.RefreshShownValue();
-            // TODO: 实际加载VMD到相机，后续实现
+            // 自动切换到MMD相机并加载VMD
+            SwitchToMmdCamera(cameraPath);
         }
 
         private void RefreshCameraDropdown()
@@ -585,27 +586,29 @@ namespace MikuMikuXR.UI.Desktop
         private void SwitchToFreeCamera()
         {
             var mainCamera = GameObject.Find("MainCamera");
-            if (mainCamera == null) return;
-            var free = mainCamera.GetComponent<FreeCameraController>();
-            var mmd = mainCamera.GetComponent<MmdCameraObject>();
-            if (free != null) free.enabled = true;
-            if (mmd != null) {
-                mmd.enabled = false;
-                mmd.Playing = false;
-            }
+            if (mainCamera != null) mainCamera.SetActive(true);
+            // 查找并禁用/销毁MmdCameraObject
+            var mmdCameraObj = GameObject.Find("MmdCameraObject_Instance");
+            if (mmdCameraObj != null) mmdCameraObj.SetActive(false);
         }
 
         // 切换到MMD相机
         private void SwitchToMmdCamera(string vmdPath)
         {
             var mainCamera = GameObject.Find("MainCamera");
-            if (mainCamera == null) return;
-            var free = mainCamera.GetComponent<FreeCameraController>();
-            var mmd = mainCamera.GetComponent<MmdCameraObject>();
-            if (free != null) free.enabled = false;
+            if (mainCamera != null) mainCamera.SetActive(false);
+            // 查找或创建MmdCameraObject
+            var mmdCameraObj = GameObject.Find("MmdCameraObject_Instance");
+            if (mmdCameraObj == null)
+            {
+                mmdCameraObj = LibMMD.Unity3D.MmdCameraObject.CreateGameObject("MmdCameraObject_Instance");
+                mmdCameraObj.transform.position = new Vector3(0, 18, -40); // 可根据需要调整
+                mmdCameraObj.transform.rotation = Quaternion.identity;
+            }
+            mmdCameraObj.SetActive(true);
+            var mmd = mmdCameraObj.GetComponent<LibMMD.Unity3D.MmdCameraObject>();
             if (mmd != null)
             {
-                mmd.enabled = true;
                 mmd.LoadCameraMotion(vmdPath);
                 mmd.Playing = true;
             }
