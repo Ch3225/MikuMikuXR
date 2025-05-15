@@ -133,6 +133,8 @@ namespace MMDVR.Managers
 
             if (volumeSlider != null)
                 volumeSlider.value = 1f;
+            // 启动时主动刷新所有下拉框，保证有初始项
+            RefreshAllDropdowns();
         }
 
         private void SetDropdownEllipsis(TMP_Dropdown dropdown)
@@ -406,6 +408,15 @@ namespace MMDVR.Managers
                 musicDropdown.value = names.Count - 1;
                 musicDropdown.RefreshShownValue();
             }
+        }
+
+        // 统一刷新所有下拉框
+        public void RefreshAllDropdowns()
+        {
+            RefreshModelDropdown();
+            RefreshMotionDropdown();
+            RefreshCameraDropdown();
+            RefreshMusicDropdown();
         }
 
         void Update()

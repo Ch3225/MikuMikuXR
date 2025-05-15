@@ -1,0 +1,5 @@
+I tried to reduce the clipping in this model as much as I could, but if you have issues with skin clipping though the dress the stomach area, you can try using the "Clipping" morph.
+Just remember to turn it off when removing the clothes, since it deforms the body underneath.
+
+If you think you can help improve this model in any way feel free to message me.
+-Kiidosan

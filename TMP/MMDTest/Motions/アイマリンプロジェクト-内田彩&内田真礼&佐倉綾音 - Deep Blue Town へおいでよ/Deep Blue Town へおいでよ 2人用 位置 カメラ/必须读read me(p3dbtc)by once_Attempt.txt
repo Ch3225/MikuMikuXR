@@ -1,0 +1,10 @@
+DEEP BLUE TOWN 双人镜头及模型位置修正 by once_Attempt(ONCEATTEMPT)
+
+放入动作后再放入模型位置修正，位置修正1是前的模型，位置修正2是后面的模型
+
+
+
+演示用：https://www.bilibili.com/video/av13543576/
+            弱音使用的是位置修正1，初音是位置修正2
+
+d3dbtc
