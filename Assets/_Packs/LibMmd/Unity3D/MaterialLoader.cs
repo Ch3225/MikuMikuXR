@@ -29,6 +29,11 @@ namespace LibMMD.Unity3D
 			var isTransparent = mmdMaterial.DiffuseColor.a < 0.9999f || mmdMaterial.EdgeColor.a < 0.9999f ||
 			                     IsTextireTransparent(mainTexture);
 			var material = new UnityEngine.Material (GetShader (mmdMaterial, config, isTransparent));
+			// 设置材质名为PMX原始材质名，方便调试
+			if (!string.IsNullOrEmpty(mmdMaterial.Name))
+				material.name = mmdMaterial.Name;
+			else
+				material.name = "MMDMaterial";
 			ConfigMaterial(mmdMaterial, config, material, mainTexture);
 			return material;
 		}

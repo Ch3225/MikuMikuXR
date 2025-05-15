@@ -43,7 +43,7 @@ Shader "MMD/Transparent/PMDMaterial-with-Outline-CullBack-NoCastShadow"
 		
 		// Surface Shader Pass
 		Cull Back
-		ZWrite On
+		ZWrite Off
 		Blend SrcAlpha OneMinusSrcAlpha
 		AlphaTest Greater 0.0
 		CGPROGRAM
