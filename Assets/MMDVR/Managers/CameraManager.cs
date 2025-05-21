@@ -2,8 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 namespace MMDVR.Managers
-{
-    public class CameraManager : MonoBehaviour
+{    public class CameraManager : MonoBehaviour
     {
         public static CameraManager Instance { get; private set; }
 
@@ -14,6 +13,8 @@ namespace MMDVR.Managers
         public GameObject freeCamera;
         [Header("MMD相机（MMD Camera）")]
         public GameObject mmdCamera;
+        [Header("VR相机（VR Camera）")]
+        public GameObject vrCamera;
 
         private void Awake()
         {
@@ -43,15 +44,21 @@ namespace MMDVR.Managers
         {
             if (index < 0 || index >= cameras.Count) return null;
             return cameras[index];
-        }
-
-        public void ActivateCamera(int index)
+        }        public void ActivateCamera(int index)
         {
-            // index==0: FreeCamera，index>0: MMDCamera
+            // index==0: FreeCamera，index==1: MMDCamera，index==2: VRCamera
             if (freeCamera != null)
                 freeCamera.SetActive(index == 0);
             if (mmdCamera != null)
-                mmdCamera.SetActive(index > 0);
+                mmdCamera.SetActive(index == 1);
+            if (vrCamera != null)
+                vrCamera.SetActive(index == 2);
+            
+            // 如果启用了VR相机，通知VR系统
+            if (index == 2 && vrCamera != null && MMDVR.VR.VRCameraController.Instance != null)
+            {
+                MMDVR.VR.VRCameraController.Instance.InitializeVRCamera();
+            }
         }
 
         // 加载MMD相机（VMD），添加到MMDCameraManager
