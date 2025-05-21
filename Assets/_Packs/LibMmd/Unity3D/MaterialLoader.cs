@@ -26,9 +26,7 @@ namespace LibMMD.Unity3D
 
 		public UnityEngine.Material LoadMaterial(MmdMaterial mmdMaterial, MmdUnityConfig config) {
 			var mainTexture = _textureLoader.LoadTexture(mmdMaterial.Texture);
-			var isTransparent = mmdMaterial.DiffuseColor.a < 0.9999f || mmdMaterial.EdgeColor.a < 0.9999f ||
-			                     IsTextireTransparent(mainTexture);
-			var material = new UnityEngine.Material (GetShader (mmdMaterial, config, isTransparent));
+			var material = new UnityEngine.Material(GetShader(mmdMaterial, config, false));
 			// 设置材质名为PMX原始材质名，方便调试
 			if (!string.IsNullOrEmpty(mmdMaterial.Name))
 				material.name = mmdMaterial.Name;
@@ -37,64 +35,80 @@ namespace LibMMD.Unity3D
 			ConfigMaterial(mmdMaterial, config, material, mainTexture);
 			return material;
 		}
-		public void RefreshMaterialConfig(MmdMaterial mmdMaterial,MmdUnityConfig config, UnityEngine.Material material)
+		public void RefreshMaterialConfig(MmdMaterial mmdMaterial, MmdUnityConfig config, UnityEngine.Material material)
 		{
 			var mainTexture = _textureLoader.LoadTexture(mmdMaterial.Texture);
-			var isTransparent = mmdMaterial.DiffuseColor.a < 0.9999f || mmdMaterial.EdgeColor.a < 0.9999f ||
-			                    IsTextireTransparent(mainTexture);
-			var shaderName = BuildShaderName(mmdMaterial, config, isTransparent);
-			if (!material.shader.name.Equals(shaderName))
-			{
-				material.shader = Shader.Find(shaderName);
-			}
-			ConfigMaterial(mmdMaterial, config, material,mainTexture);
+			ConfigMaterial(mmdMaterial, config, material, mainTexture);
 		}
 		
 		private void ConfigMaterial(MmdMaterial mmdMaterial, MmdUnityConfig config, UnityEngine.Material material, Texture mainTexture)
 		{
-			material.SetColor("_Color", mmdMaterial.DiffuseColor);
-			material.SetFloat("_Opacity", mmdMaterial.DiffuseColor.a);
-			material.SetColor("_AmbColor", mmdMaterial.AmbientColor);
-			material.SetColor("_SpecularColor", mmdMaterial.SpecularColor);
-			material.SetFloat("_Shininess", mmdMaterial.Shiness);
-			material.SetFloat("_OutlineWidth", mmdMaterial.EdgeSize);
-			material.SetColor("_OutlineColor", mmdMaterial.EdgeColor);
+			// 设置默认值，防止全黑/全透明
+			var diffuse = mmdMaterial.DiffuseColor;
+			var ambient = mmdMaterial.AmbientColor;
+			var specular = mmdMaterial.SpecularColor;
+			var edgeColor = mmdMaterial.EdgeColor;
+			float alpha = diffuse.a > 0 ? diffuse.a : 1.0f;
+			float specularStrength = 5.0f;
+			float edgeWidth = mmdMaterial.EdgeSize > 0 ? mmdMaterial.EdgeSize : 0.0f;
+
+			material.SetColor("_Color_DiffuseColor", diffuse);
+			material.SetColor("_Color_SpecularColor", specular);
+			material.SetFloat("_Float_SpecularStrength", specularStrength);
+			material.SetColor("_Color_AmbientColor", ambient);
+			material.SetColor("_Color_EdgeColor", edgeColor);
+			material.SetFloat("_Float_EdgeWidth", edgeWidth);
+			material.SetFloat("_Float_Alpha", alpha);
+			material.SetInt("_Boolean_DoubleSided", mmdMaterial.DrawDoubleFace ? 1 : 0);
+			material.SetInt("_Boolean_SelfShadow", mmdMaterial.DrawSelfShadow ? 1 : 0);
 			if (mainTexture != null)
 			{
-				material.mainTexture = mainTexture;
-				material.mainTextureScale = new Vector2(1, 1);
+				material.SetTexture("_Texture2D_MainTex", mainTexture);
 			}
-
-
-			if (mmdMaterial.SubTextureType != MmdMaterial.SubTextureTypeEnum.MatSubTexOff)
-			{
-				var additionalTexture =
-					mmdMaterial.SubTexture == null ? null : _textureLoader.LoadTexture(mmdMaterial.SubTexture);
-				if (additionalTexture != null)
-				{
-					additionalTexture.wrapMode = TextureWrapMode.Clamp;
-					switch (mmdMaterial.SubTextureType)
-					{
-						case MmdMaterial.SubTextureTypeEnum.MatSubTexSpa:
-							material.SetTexture("_SphereAddTex", additionalTexture);
-							material.SetTextureScale("_SphereAddTex", new Vector2(1, 1));
-							break;
-						case MmdMaterial.SubTextureTypeEnum.MatSubTexSph:
-							material.SetTexture("_SphereMulTex", additionalTexture);
-							material.SetTextureScale("_SphereMulTex", new Vector2(1, 1));
-							break;
-					}
-				}
-			}
-
-			RefreshShaderKeywords(mmdMaterial, config, material);
-
 			var toonTexture = _textureLoader.LoadTexture(mmdMaterial.Toon);
 			if (toonTexture != null)
 			{
-				toonTexture.wrapMode = TextureWrapMode.Clamp;
-				material.SetTexture("_ToonTex", toonTexture);
-				material.SetTextureScale("_ToonTex", new Vector2(1, 1));
+				material.SetTexture("_Texture2D_Toon", toonTexture);
+			}
+			// 只用一个SphereMap槽，Spa/Sph都塞进去
+			if (mmdMaterial.SubTextureType != MmdMaterial.SubTextureTypeEnum.MatSubTexOff)
+			{
+				var additionalTexture = mmdMaterial.SubTexture == null ? null : _textureLoader.LoadTexture(mmdMaterial.SubTexture);
+				if (additionalTexture != null)
+				{
+					material.SetTexture("_Texture2D_SphereMap", additionalTexture);
+				}
+			}
+			// 传递SphereMap用法到shader
+			switch (mmdMaterial.SubTextureType)
+			{
+				case MmdMaterial.SubTextureTypeEnum.MatSubTexOff:
+					material.SetInt("_Boolean_MatSubTexOff", 1);
+					material.SetInt("_Boolean_MatSubTexSph", 0);
+					material.SetInt("_Boolean_MatSubTexSpa", 0);
+					material.SetInt("_Boolean_MatSubTexSub", 0);
+					break;
+				case MmdMaterial.SubTextureTypeEnum.MatSubTexSph:
+					material.SetInt("_Boolean_MatSubTexOff", 0);
+					material.SetInt("_Boolean_MatSubTexSph", 1);
+					material.SetInt("_Boolean_MatSubTexSpa", 0);
+					material.SetInt("_Boolean_MatSubTexSub", 0);
+					break;
+				case MmdMaterial.SubTextureTypeEnum.MatSubTexSpa:
+					material.SetInt("_Boolean_MatSubTexOff", 0);
+					material.SetInt("_Boolean_MatSubTexSph", 0);
+					material.SetInt("_Boolean_MatSubTexSpa", 1);
+					material.SetInt("_Boolean_MatSubTexSub", 0);
+					break;
+				case MmdMaterial.SubTextureTypeEnum.MatSubTexSub:
+					material.SetInt("_Boolean_MatSubTexOff", 0);
+					material.SetInt("_Boolean_MatSubTexSph", 0);
+					material.SetInt("_Boolean_MatSubTexSpa", 0);
+					material.SetInt("_Boolean_MatSubTexSub", 1);
+					break;
+				default:
+					Debug.LogWarning("Unknown SubTextureType: " + mmdMaterial.SubTextureType);
+					break;
 			}
 		}
 
@@ -127,11 +141,11 @@ namespace LibMMD.Unity3D
 			
 		private static Shader GetShader(MmdMaterial mmdMaterial, MmdUnityConfig config, bool isTransparent)
 		{
-			//"MMD/Transparent/PMDMaterial-with-Outline-CullBack-NoCastShadow"
-			var shaderName = BuildShaderName(mmdMaterial, config, isTransparent);
-			var ret = Shader.Find (shaderName);
-			if (ret == null) {
-				Debug.LogWarning("Can't find shader "+ shaderName);
+			// 强制使用HDRP MMDUnlitShader
+			var ret = Shader.Find("Shader Graphs/MMDUnlitShader");
+			if (ret == null)
+			{
+				Debug.LogWarning("Can't find shader Shader Graphs/MMDLitShader");
 			}
 			return ret;
 		}
