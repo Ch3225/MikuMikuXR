@@ -29,8 +29,45 @@ namespace MMDVR.Managers
             if (Instance == this)
             {
                 MMDVR.Managers.EventManager.OnModelLoadRequest -= LoadModel;
+                CleanupAllModels();
             }
         }
+        
+        private void OnApplicationQuit()
+        {
+            CleanupAllModels();
+        }
+        
+        private void CleanupAllModels()
+        {
+            // 在应用退出或组件销毁时，清理所有模型资源
+            foreach (var actor in actors)
+            {
+                if (actor != null)
+                {
+                    var mmdComponent = actor.GetComponent<MmdGameObject>();
+                    if (mmdComponent != null)
+                    {
+                        // 尝试提前调用Release逻辑
+                        try
+                        {
+                            // 使用反射调用私有的Release方法
+                            var releaseMethod = typeof(MmdGameObject).GetMethod("Release", 
+                                System.Reflection.BindingFlags.NonPublic | 
+                                System.Reflection.BindingFlags.Instance);
+                                
+                            if (releaseMethod != null)
+                            {
+                                releaseMethod.Invoke(mmdComponent, null);
+                            }
+                        }
+                        catch (System.Exception e)
+                        {
+                            Debug.LogError("Error releasing MmdGameObject: " + e.Message);
+                        }
+                    }
+                }
+            }        }
 
         // 加载MMD模型
         public void LoadModel(string path)

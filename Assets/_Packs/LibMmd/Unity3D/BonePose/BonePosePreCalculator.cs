@@ -121,14 +121,24 @@ namespace LibMMD.Unity3D.BonePose
             {
                 _worker.Start(this);
             }
-        }
-
-        public void Stop()
+        }        public void Stop()
         {
             lock (this)
             {
                 _stopped = true;
-                _worker.Stop(this);
+                try
+                {
+                    _worker.Stop(this);
+                    // 清空队列以释放资源
+                    if (_bonePoseImagesStore != null)
+                    {
+                        _bonePoseImagesStore.Clear();
+                    }
+                }
+                catch (System.Exception e)
+                {
+                    UnityEngine.Debug.LogError("Error stopping bone pose calculator: " + e.Message);
+                }
             }
         }
 

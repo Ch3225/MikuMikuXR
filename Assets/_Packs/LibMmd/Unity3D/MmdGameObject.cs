@@ -190,9 +190,7 @@ namespace LibMMD.Unity3D
                 new BonePosePreCalculator(BonePoseCalculatorWorker, pose, _poser, _physicsReactor, (float)stepLength, 0.0f, PhysicsCacheFrameSize,
                     AutoPhysicsStepLength);
             _bonePosePreCalculator.Start();
-        }
-
-        private void StopBonePoseCalculation()
+        }        private void StopBonePoseCalculation()
         {
             if (PhysicsMode != PhysicsModeEnum.Bullet)
             {
@@ -200,7 +198,14 @@ namespace LibMMD.Unity3D
             }
             if (_bonePosePreCalculator != null)
             {
-                _bonePosePreCalculator.Stop();
+                try
+                {
+                    _bonePosePreCalculator.Stop();
+                }
+                catch (System.Exception e)
+                {
+                    Debug.LogError("Error stopping bone pose calculation: " + e.Message);
+                }
             }
             _bonePosePreCalculator = null;
         }
@@ -298,12 +303,39 @@ namespace LibMMD.Unity3D
                 {
                     UpdateBones();
                 }
-                UpdateMesh(_playTime);
-            }
+                UpdateMesh(_playTime);            }
         }
 
         private void OnDestroy()
         {
+            // 确保彻底释放所有资源
+            Release();
+            
+            // 额外释放未管理的资源
+            if (_motionPlayer != null)
+            {
+                _motionPlayer = null;
+            }
+            
+            if (_poser != null)
+            {
+                _poser = null;
+            }
+              if (_physicsReactor != null)
+            {
+                _physicsReactor = null;
+            }
+        }
+        
+        private void OnDisable()
+        {
+            // 组件被禁用时停止骨骼姿势计算
+            StopBonePoseCalculation();
+        }
+        
+        private void OnApplicationQuit()
+        {
+            // 应用退出时释放资源
             Release();
         }
 
@@ -764,9 +796,7 @@ namespace LibMMD.Unity3D
                 ret[i] = new Vector2(uv[iCoord], 1.0f - uv[iCoord + 1]);
             }
             return ret;
-        }
-
-        private void Release()
+        }        private void Release()
         {
             if (_materialLoader != null)
             {
@@ -781,6 +811,22 @@ namespace LibMMD.Unity3D
             }
 
             StopBonePoseCalculation();
+            
+            // 确保物理引擎资源被释放
+            if (_physicsReactor != null)
+            {
+                if (_poser != null)
+                {
+                    try
+                    {
+                        _physicsReactor.RemovePoser(_poser);
+                    }
+                    catch (System.Exception e)
+                    {
+                        Debug.LogError("Error removing poser from physics reactor: " + e.Message);
+                    }
+                }
+            }
         }
 
         public void ResetMotion()

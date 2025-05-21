@@ -29,5 +29,13 @@ namespace LibMMD.Util
                 return _queue.Count;
             }
         }
+        
+        public void Clear()
+        {
+            lock (_queue)
+            {
+                _queue.Clear();
+            }
+        }
     }
 }

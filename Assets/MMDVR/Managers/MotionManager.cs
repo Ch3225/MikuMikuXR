@@ -22,6 +22,30 @@ namespace MMDVR.Managers
             }
             Instance = this;
         }
+        
+        private void OnDestroy()
+        {
+            // 确保资源被释放
+            CleanupAllMotions();
+        }
+        
+        private void OnApplicationQuit()
+        {
+            // 应用退出时清理资源
+            CleanupAllMotions();
+        }
+        
+        private void CleanupAllMotions()
+        {
+            // 清理所有动作相关资源
+            foreach (var motion in motions)
+            {
+                if (motion != null)
+                {
+                    // 如果有需要特别清理的资源，可以在这里处理
+                }
+            }
+        }
 
         public void AddMotion(GameObject motion)
         {
@@ -53,23 +77,44 @@ namespace MMDVR.Managers
                 MMDVR.Managers.EventManager.OnMotionListChanged?.Invoke();
             }
             return path;
-        }
-
-        // 将动作分配给指定模型
+        }        // 将动作分配给指定模型
         public void AssignMotionToActor(GameObject actor, string motionPath)
         {
             if (actor == null || string.IsNullOrEmpty(motionPath)) return;
             var mmd = actor.GetComponent<MmdGameObject>();
             if (mmd != null)
             {
-                mmd.LoadMotion(motionPath);
-                // 维护模型-动作映射
-                var motionGo = motions.Find(go => go.name == System.IO.Path.GetFileNameWithoutExtension(motionPath));
-                if (motionGo != null)
+                try
                 {
-                    SceneStatesManager.Instance?.AddModelMotion(actor, motionGo);
-                    // 分配动作后刷新动作下拉列表
-                    MMDVR.Managers.EventManager.OnMotionListChanged?.Invoke();
+                    mmd.LoadMotion(motionPath);
+                    // 维护模型-动作映射
+                    var motionGo = motions.Find(go => go.name == System.IO.Path.GetFileNameWithoutExtension(motionPath));
+                    if (motionGo != null)
+                    {
+                        SceneStatesManager.Instance?.AddModelMotion(actor, motionGo);
+                        // 分配动作后刷新动作下拉列表
+                        MMDVR.Managers.EventManager.OnMotionListChanged?.Invoke();
+                    }
+                }
+                catch (System.Exception e)
+                {
+                    Debug.LogError($"加载动作时出错: {e.Message}");
+                    // 如果发生错误，尝试清理资源
+                    try
+                    {
+                        var stopMethod = typeof(MmdGameObject).GetMethod("StopBonePoseCalculation", 
+                            System.Reflection.BindingFlags.NonPublic | 
+                            System.Reflection.BindingFlags.Instance);
+                            
+                        if (stopMethod != null)
+                        {
+                            stopMethod.Invoke(mmd, null);
+                        }
+                    }
+                    catch
+                    {
+                        // 忽略二次错误
+                    }
                 }
             }
         }
