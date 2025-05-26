@@ -12,6 +12,8 @@ EditorBuildSettings:
     path: Assets/_Scenes/Old/Main.unity
     guid: e0d005264212841aa9f45064c47e5920
   m_configObjects:
+    com.unity.xr.management.loader_settings: {fileID: 11400000, guid: 8d9b8f1e6c60d814994adb69d9e5cc59,
+      type: 2}
     com.unity.xr.openxr.settings4: {fileID: 11400000, guid: c2c7f72b99106a344954a7d13b67eed3,
       type: 2}
   m_UseUCBPForAssetBundles: 0
