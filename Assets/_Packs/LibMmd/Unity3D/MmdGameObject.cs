@@ -115,6 +115,9 @@ namespace LibMMD.Unity3D
                 return false;
             }
 
+            // 自动缩放MMD模型到Unity推荐比例
+            transform.localScale = Vector3.one / 12.5f;
+
             if (_bonePoseFileStorage != null)
             {
                 _bonePoseFileStorage.Release();

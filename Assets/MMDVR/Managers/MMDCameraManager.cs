@@ -64,8 +64,9 @@ namespace MMDVR.Managers
         private void ApplyCameraFrame(int frame)
         {
             var data = camFrames[frame];
-            // 直接使用VMD原始单位（无需除以12.5）
-            targetCamera.transform.position = new Vector3(data.Pos_x, data.Pos_y, data.Pos_z + data.distans);
+            // 统一缩放到与MMD模型一致（1/12.5）
+            const float scale = 1f / 12.5f;
+            targetCamera.transform.position = new Vector3(data.Pos_x * scale, data.Pos_y * scale, (data.Pos_z + data.distans) * scale);
             targetCamera.transform.rotation = Quaternion.Euler(-data.Rot_x, -data.Rot_y, -data.Rot_z);
             targetCamera.fieldOfView = data.viewAngle;
         }

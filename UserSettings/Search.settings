@@ -9,9 +9,9 @@ onBoardingDoNotAskAgain = true
 showPackageIndexes = false
 showStatusBar = false
 scopes = {
-	"picker_window_position_offset.075BCD15" = "44;468;320;550.4"
+	"picker_window_position_offset.075BCD15" = "44;468;320;550.6667"
 	"picker_visibility_flags.075BCD15" = "264"
-	"picker_item_size.075BCD15" = "96"
+	"picker_item_size.075BCD15" = "32"
 	"picker_inspector.075BCD15" = "0"
 }
 providers = {
@@ -69,6 +69,10 @@ providers = {
 objectSelectors = {
 }
 recentSearches = [
+	"snap tur"
+	"snap tu"
+	"xri left locomotion"
+	"xri left"
 ]
 searchItemFavorites = [
 ]
