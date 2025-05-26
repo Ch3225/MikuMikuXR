@@ -59,6 +59,7 @@ namespace MMDVR.Managers
         {
             MMDCameraManager.Instance?.AddVmdCamera(vmdPath);
             EventManager.OnCameraListChanged?.Invoke();
+            ActivateCamera(1); // 激活MMD相机
         }
     }
 }
