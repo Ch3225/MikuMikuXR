@@ -1515,15 +1515,11 @@ namespace SimpleFileBrowser
 										{
 											if( !validFileEntries[i].IsDirectory && validFileEntries[i].Name.Length >= filename.Length + 2 && validFileEntries[i].Name[filename.Length] == '.' )
 											{
-												if( validFileEntries[i].Name.StartsWith( filename ) ) // Case-sensitive filename query
+												if( validFileEntries[i].Name.StartsWith( filename ) // Case-sensitive filename query
+												|| validFileEntries[i].Name.IndexOf( filename, StringComparison.OrdinalIgnoreCase ) == 0 ) // Case-insensitive filename query
 												{
 													fileEntryIndex = i;
 													break;
-												}
-												else if( textComparer.IsPrefix( validFileEntries[i].Name, filename, textCompareOptions ) ) // Case-insensitive filename query
-												{
-													// Don't exit the loop immediately because case-sensitive query takes precedence, we need to check all files to see if there's a case-sensitive match
-													fileEntryIndex = i;
 												}
 											}
 										}
@@ -2453,8 +2449,8 @@ namespace SimpleFileBrowser
 			else if( windowTopRight.y > canvasSize.y )
 				windowPos.y -= windowTopRight.y - canvasSize.y;
 
-			windowTR.anchoredPosition = windowPos;
-			windowTR.sizeDelta = windowSize;
+			// windowTR.anchoredPosition = windowPos;
+			// windowTR.sizeDelta = windowSize;
 		}
 
 		// Handles responsive user interface
