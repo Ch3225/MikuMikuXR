@@ -12,8 +12,10 @@ namespace MMDVR
     {
         [Header("需要跟随的UI面板（如MainUI）")]
         public GameObject uiPanel;
+        [Header("（可选）VR摄像机，不设置则尝试Camera.main")]
+        public Camera vrCamera; // User can assign this in Inspector for reliability
         [Header("距离头盔的偏移（米）")]
-        public Vector3 offset = new Vector3(0, 0.0f, 0.5f); // Adjusted Z for typical HMD distance
+        public Vector3 offset = new Vector3(0, 0.0f, 3.0f); // Increased Z to 3.0f
         [Header("只在VR模式下激活")]
         public bool onlyInVR = true;
         [Header("可选：同步UI按钮（ToggleUISectionButton）")]
@@ -21,33 +23,48 @@ namespace MMDVR
 
         private List<InputDevice> devices = new List<InputDevice>();
         private Dictionary<uint, bool> lastButtonStates = new Dictionary<uint, bool>();
-        private Camera mainCamera;
+        // private Camera mainCamera; // This field seems redundant if vrCamera is used and falls back to Camera.main
+        private Quaternion fixedUIRotation; 
+        private Vector3 worldOffsetFromHmd; // To store the fixed world-space offset vector from HMD
 
         void Start()
         {
             if (uiPanel != null)
                 uiPanel.SetActive(false);
             
-            mainCamera = Camera.main;
-            if (mainCamera == null)
+            if (vrCamera == null) // If user hasn't assigned it
             {
-                Debug.LogError("VRDesktopUIAdapter: Main Camera not found! UI positioning will not work correctly.");
+                vrCamera = Camera.main;
+            }
+
+            if (vrCamera == null)
+            {
+                Debug.LogError("VRDesktopUIAdapter: VR Camera not found or assigned! UI positioning will not work correctly. Please assign the VR Camera in the Inspector or ensure a Camera is tagged 'MainCamera'.");
             }
         }
 
         void Update()
         {
-            if (mainCamera == null)
+            if (vrCamera == null) 
             {
-                mainCamera = Camera.main; // Try to get camera if it wasn't available at Start
-                if (mainCamera == null) return; // Still no camera, can't proceed
+                if (Camera.main != null) 
+                {
+                    vrCamera = Camera.main;
+                }
+                else
+                {
+                    if (uiPanel != null && uiPanel.activeSelf && onlyInVR) uiPanel.SetActive(false); 
+                    return; 
+                }
             }
 
-            if (onlyInVR && !IsVRActive())
+            if (onlyInVR && !IsVRActive()) 
             {
                 if (uiPanel != null && uiPanel.activeSelf) uiPanel.SetActive(false);
                 return;
             }
+
+            bool wasActive = (uiPanel != null) && uiPanel.activeSelf; // Capture state before input processing
 
             devices.Clear();
             InputDevices.GetDevicesWithCharacteristics(InputDeviceCharacteristics.Controller, devices);
@@ -77,20 +94,25 @@ namespace MMDVR
                 lastButtonStates[deviceKey] = pressed;
             }
 
-            // UI Positioning Logic - now relative to HMD (mainCamera)
-            if (uiPanel != null && uiPanel.activeSelf && mainCamera != null)
-            {
-                // Position the panel in front of the camera
-                uiPanel.transform.position = mainCamera.transform.position +
-                                             mainCamera.transform.right * offset.x +
-                                             mainCamera.transform.up * offset.y +
-                                             mainCamera.transform.forward * offset.z;
+            bool isActive = (uiPanel != null) && uiPanel.activeSelf; // Capture state after input processing
 
-                // Make the panel look at the camera
-                // The panel's "forward" should point towards the camera, or its "back" should point along camera's forward
-                // This makes the panel's +Z axis point towards the camera.
-                // If your panel's content is on its -Z face, you might need to adjust the rotation.
-                uiPanel.transform.rotation = Quaternion.LookRotation(uiPanel.transform.position - mainCamera.transform.position, mainCamera.transform.up);
+            if (isActive && vrCamera != null)
+            {
+                if (!wasActive) // UI Panel was just activated in this frame
+                {
+                    // Determine and set the fixed world rotation based on HMD's current orientation
+                    fixedUIRotation = Quaternion.LookRotation(vrCamera.transform.forward, vrCamera.transform.up);
+                    uiPanel.transform.rotation = fixedUIRotation;
+
+                    // Calculate and store the fixed world-space offset from the HMD
+                    worldOffsetFromHmd = vrCamera.transform.rotation * offset;
+                    uiPanel.transform.position = vrCamera.transform.position + worldOffsetFromHmd;
+                }
+                else // UI Panel was already active, update position and maintain fixed rotation & world offset
+                {
+                    uiPanel.transform.position = vrCamera.transform.position + worldOffsetFromHmd;
+                    uiPanel.transform.rotation = fixedUIRotation; // Apply the stored fixed rotation
+                }
             }
         }
 
