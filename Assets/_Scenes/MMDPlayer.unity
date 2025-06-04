@@ -7962,6 +7962,12 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 484903858}
   m_CullTransparentMesh: 1
+--- !u!4 &497077509 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 202364688, guid: f6336ac4ac8b4d34bc5072418cdc62a0,
+    type: 3}
+  m_PrefabInstance: {fileID: 709074210}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &497202465
 GameObject:
   m_ObjectHideFlags: 0
@@ -15469,6 +15475,52 @@ Light:
   m_LightUnit: 2
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!1 &952755811
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 952755813}
+  - component: {fileID: 952755814}
+  m_Layer: 0
+  m_Name: AutoVRCameraSwitcher
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &952755813
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 952755811}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &952755814
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 952755811}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b9a66660a55e3254db1c9a3580250051, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  desktopCameras: {fileID: 1938804030}
+  xrOrigin: {fileID: 1712961531}
 --- !u!1 &970369639
 GameObject:
   m_ObjectHideFlags: 0
@@ -19023,6 +19075,12 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1214464633}
   m_CullTransparentMesh: 1
+--- !u!4 &1227518037 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 1670256625, guid: f6336ac4ac8b4d34bc5072418cdc62a0,
+    type: 3}
+  m_PrefabInstance: {fileID: 709074210}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1234094168
 GameObject:
   m_ObjectHideFlags: 0
@@ -23930,6 +23988,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   targetUI: {fileID: 1661031264}
   button: {fileID: 1688637306}
+--- !u!1 &1712961531 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 1717954561962503725, guid: f6336ac4ac8b4d34bc5072418cdc62a0,
+    type: 3}
+  m_PrefabInstance: {fileID: 709074210}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1727934274
 GameObject:
   m_ObjectHideFlags: 0
@@ -28757,6 +28821,7 @@ GameObject:
   - component: {fileID: 2066710086}
   - component: {fileID: 2066710085}
   - component: {fileID: 2066710084}
+  - component: {fileID: 2066710089}
   m_Layer: 5
   m_Name: MainUI
   m_TagString: Untagged
@@ -28875,6 +28940,24 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0, y: 0}
+--- !u!114 &2066710089
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2066710083}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 88a118ca85659044d941647497f5406d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  uiPanel: {fileID: 2066710083}
+  leftHandController: {fileID: 497077509}
+  rightHandController: {fileID: 1227518037}
+  offset: {x: 0, y: 0, z: 0.3}
+  onlyInVR: 0
+  followHand: 0
 --- !u!1 &2074922291
 GameObject:
   m_ObjectHideFlags: 0
@@ -29663,6 +29746,7 @@ SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
   - {fileID: 807123698}
+  - {fileID: 952755813}
   - {fileID: 1583207516}
   - {fileID: 1898262746}
   - {fileID: 105268605}
