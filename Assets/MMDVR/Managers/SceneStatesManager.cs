@@ -62,7 +62,23 @@ namespace MMDVR.Managers
                 if (mmd != null) mmd.Playing = true;
             }
             MMDCameraManager.Instance?.Play();
-            MusicManager.Instance?.Play(MusicManager.Instance.currentIndex >= 0 ? MusicManager.Instance.currentIndex : 0);
+            // MusicManager.Instance?.Play(MusicManager.Instance.currentIndex >= 0 ? MusicManager.Instance.currentIndex : 0);
+            if (MusicManager.Instance != null)
+            {
+                var currentTrack = MusicManager.Instance.GetCurrentTrackInfo();
+                if (currentTrack != null)
+                {
+                    MusicManager.Instance.PlayMusicById(currentTrack.ID);
+                }
+                else
+                {
+                    var tracks = MusicManager.Instance.GetLoadedMusicTrackInfos();
+                    if (tracks != null && tracks.Count > 0)
+                    {
+                        MusicManager.Instance.PlayMusicById(tracks[0].ID); // Play the first loaded track if no current track
+                    }
+                }
+            }
         }
         // 统一控制：暂停
         public void Pause()
@@ -81,8 +97,9 @@ namespace MMDVR.Managers
         {
             playTime = time;
             // 音乐
-            var audio = MusicManager.Instance?.musics.Count > 0 ? MusicManager.Instance.musics[0] : null;
-            if (audio != null && audio.clip != null) audio.time = time;
+            // var audio = MusicManager.Instance?.musics.Count > 0 ? MusicManager.Instance.musics[0] : null;
+            // if (audio != null && audio.clip != null) audio.time = time;
+            MusicManager.Instance?.SetTime(time); // Use the new SetTime method
             // 所有模型
             foreach (var actor in ActorManager.Instance.actors)
             {

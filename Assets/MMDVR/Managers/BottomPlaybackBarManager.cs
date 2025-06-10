@@ -61,7 +61,9 @@ namespace MMDVR.Managers
         void Update()
         {
             var musicMgr = MusicManager.Instance;
-            if (musicMgr != null && musicMgr.musics.Count > 0 && musicMgr.currentIndex >= 0)
+            // if (musicMgr != null && musicMgr.musics.Count > 0 && musicMgr.currentIndex >= 0)
+            var currentTrackInfo = musicMgr?.GetCurrentTrackInfo();
+            if (currentTrackInfo != null && currentTrackInfo.AudioSource != null && currentTrackInfo.AudioSource.clip != null)            
             {
                 float cur = musicMgr.GetCurrentTime();
                 float total = musicMgr.GetCurrentLength();
@@ -123,9 +125,13 @@ namespace MMDVR.Managers
         private void OnMuteClicked()
         {
             var musicMgr = MusicManager.Instance;
-            if (musicMgr != null && musicMgr.musics.Count > 0)
+            // if (musicMgr != null && musicMgr.musics.Count > 0)
+            // {
+            //     var audio = musicMgr.musics[0];
+            var currentTrack = musicMgr?.GetCurrentTrackInfo();
+            if (currentTrack != null && currentTrack.AudioSource != null)
             {
-                var audio = musicMgr.musics[0];
+                var audio = currentTrack.AudioSource;
                 audio.mute = !audio.mute;
                 if (volumeSlider != null)
                 {

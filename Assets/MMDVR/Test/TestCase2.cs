@@ -10,7 +10,8 @@ namespace MMDVR.Test
         // 资源路径
         private string model = "TMP/MMDTest/Models/Sour miku/Sour miku1.pmx";
         private string motion = "TMP/MMDTest/Motions/アイマリンプロジェクト-内田彩&内田真礼&佐倉綾音 - Deep Blue Town へおいでよ/DeepBlueTown_he_Oideyo_dance.vmd";
-        private string cameraVmd = "TMP/MMDTest/Motions/アイマリンプロジェクト-内田彩&内田真礼&佐倉綾音 - Deep Blue Town へおいでよ/Camera3 by do-mode.vmd";
+        // private string cameraVmd = "TMP/MMDTest/Motions/アイマリンプロジェクト-内田彩&内田真礼&佐倉綾音 - Deep Blue Town へおいでよ/Camera3 by do-mode.vmd"; // Removed
+        private string cameraDir = "TMP/MMDTest/Motions/アイマリンプロジェクト-内田彩&内田真礼&佐倉綾音 - Deep Blue Town へおいでよ";
         private string music = "TMP/MMDTest/Motions/アイマリンプロジェクト-内田彩&内田真礼&佐倉綾音 - Deep Blue Town へおいでよ/Deep Blue Town へおいでよ.wav";
         private string projectRoot;
 
@@ -31,8 +32,25 @@ namespace MMDVR.Test
             var actor = ActorManager.Instance.actors[0];
             // 加载动作
             MotionManager.Instance.LoadAndAssignMotion(Path.Combine(projectRoot, motion), actor);
-            // 加载相机
-            MMDCameraManager.Instance?.AddVmdCamera(Path.Combine(projectRoot, cameraVmd));
+            
+            // 加载相机 - Reverted to specific files as requested, and added more based on provided directory listing
+            MMDCameraManager.Instance?.AddVmdCamera(Path.Combine(projectRoot, cameraDir, "Camera1.vmd"));
+            MMDCameraManager.Instance?.AddVmdCamera(Path.Combine(projectRoot, cameraDir, "Camera2.vmd"));
+            MMDCameraManager.Instance?.AddVmdCamera(Path.Combine(projectRoot, cameraDir, "Camera3 by do-mode.vmd"));
+            MMDCameraManager.Instance?.AddVmdCamera(Path.Combine(projectRoot, cameraDir, "Camera4.vmd"));
+            // Also load from the subdirectory if it contains 'camera'
+            string subDirName = "Deep Blue Town へおいでよ 2人用 位置 カメラ";
+            string fullSubDirPath = Path.Combine(projectRoot, cameraDir, subDirName);
+            if (Directory.Exists(fullSubDirPath))
+            {
+                string[] subDirVmdFiles = Directory.GetFiles(fullSubDirPath, "*.vmd");
+                foreach (string vmdFile in subDirVmdFiles)
+                {
+                    // Assuming all VMDs in a directory named with "カメラ" are camera files
+                    MMDCameraManager.Instance?.AddVmdCamera(vmdFile);
+                }
+            }
+
             // 加载音乐
             MusicManager.Instance?.LoadMusic(Path.Combine(projectRoot, music));
 

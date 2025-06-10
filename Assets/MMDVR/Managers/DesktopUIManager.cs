@@ -273,9 +273,13 @@ namespace MMDVR.Managers
         private void OnMuteClicked()
         {
             var musicMgr = MusicManager.Instance;
-            if (musicMgr != null && musicMgr.musics.Count > 0)
+            // if (musicMgr != null && musicMgr.musics.Count > 0)
+            // {
+            //     var audio = musicMgr.musics[0];
+            var currentTrack = musicMgr?.GetCurrentTrackInfo();
+            if (currentTrack != null && currentTrack.AudioSource != null)
             {
-                var audio = musicMgr.musics[0];
+                var audio = currentTrack.AudioSource;
                 audio.mute = !audio.mute;
                 if (volumeSlider != null)
                 {
@@ -305,7 +309,16 @@ namespace MMDVR.Managers
         }
         private void OnMusicDropdownChanged(int index)
         {
-            MusicManager.Instance?.Play(index);
+            // MusicManager.Instance?.Play(index);
+            var musicMgr = MusicManager.Instance;
+            if (musicMgr != null)
+            {
+                var tracks = musicMgr.GetLoadedMusicTrackInfos();
+                if (index >= 0 && index < tracks.Count)
+                {
+                    musicMgr.PlayMusicById(tracks[index].ID);
+                }
+            }
         }
         private void OnCameraDropdownChanged(int index)
         {
@@ -398,14 +411,37 @@ namespace MMDVR.Managers
             if (musicDropdown == null || musicMgr == null) return;
             musicDropdown.ClearOptions();
             var names = new List<string>();
-            foreach (var audio in musicMgr.musics)
+            // foreach (var audio in musicMgr.musics)
+            // {
+            //     names.Add(audio.gameObject.name);
+            // }
+            var tracks = musicMgr.GetLoadedMusicTrackInfos();
+            foreach (var track in tracks)
             {
-                names.Add(audio.gameObject.name);
+                names.Add(track.DisplayName); // Use DisplayName from MusicTrackInfo
             }
             musicDropdown.AddOptions(names);
             if (names.Count > 0)
             {
-                musicDropdown.value = names.Count - 1;
+                // musicDropdown.value = names.Count - 1; // This would select the last added
+                // Try to select the currently playing music
+                var currentTrack = musicMgr.GetCurrentTrackInfo();
+                if (currentTrack != null)
+                {
+                    int currentIndexInDropdown = tracks.FindIndex(t => t.ID == currentTrack.ID);
+                    if (currentIndexInDropdown != -1)
+                    {
+                        musicDropdown.value = currentIndexInDropdown;
+                    }
+                    else if (tracks.Count > 0) // Fallback to first if current not found (e.g. just loaded)
+                    {
+                         musicDropdown.value = 0;
+                    }
+                }
+                else if (tracks.Count > 0) // If no current track, select the first one
+                {
+                    musicDropdown.value = 0;
+                }
                 musicDropdown.RefreshShownValue();
             }
         }
@@ -423,7 +459,9 @@ namespace MMDVR.Managers
         {
             // 实时刷新音乐进度和时长显示
             var musicMgr = MusicManager.Instance;
-            if (musicMgr != null && musicMgr.musics.Count > 0 && musicMgr.currentIndex >= 0)
+            // if (musicMgr != null && musicMgr.musics.Count > 0 && musicMgr.currentIndex >= 0)
+            var currentTrack = musicMgr?.GetCurrentTrackInfo();
+            if (currentTrack != null && currentTrack.AudioSource != null && currentTrack.AudioSource.clip != null)
             {
                 float cur = musicMgr.GetCurrentTime();
                 float total = musicMgr.GetCurrentLength();

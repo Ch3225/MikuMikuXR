@@ -29,16 +29,24 @@ namespace MMDVR.Managers
 
         public void AddVmdCamera(string vmdPath)
         {
-            vmdCameraPaths.Add(vmdPath);
-            if (vmdCameraPaths.Count == 1)
+            if (!vmdCameraPaths.Contains(vmdPath))
             {
-                SetActiveVmdCamera(0);
+                vmdCameraPaths.Add(vmdPath);
+                // EventManager.OnCameraListChanged?.Invoke(); // Reverted: Do not invoke event here directly for now
+                if (vmdCameraPaths.Count == 1 && currentIndex == -1) 
+                {
+                    // SetActiveVmdCamera(0); 
+                    // Let CameraManager handle activation logic via UI interaction or explicit calls
+                }
             }
         }
 
         public void SetActiveVmdCamera(int index)
         {
-            if (index < 0 || index >= vmdCameraPaths.Count) return;
+            if (index < 0 || index >= vmdCameraPaths.Count)
+            {
+                return; 
+            }
             currentIndex = index;
             LoadCameraVmd(vmdCameraPaths[index]);
             playTime = 0f;
