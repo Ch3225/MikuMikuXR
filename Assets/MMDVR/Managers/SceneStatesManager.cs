@@ -61,7 +61,7 @@ namespace MMDVR.Managers
                 var mmd = actor.GetComponent<LibMMD.Unity3D.MmdGameObject>();
                 if (mmd != null) mmd.Playing = true;
             }
-            MMDCameraManager.Instance?.Play();
+            // MMDCameraManager.Instance?.Play(); // Removed
             // MusicManager.Instance?.Play(MusicManager.Instance.currentIndex >= 0 ? MusicManager.Instance.currentIndex : 0);
             if (MusicManager.Instance != null)
             {
@@ -89,7 +89,7 @@ namespace MMDVR.Managers
                 var mmd = actor.GetComponent<LibMMD.Unity3D.MmdGameObject>();
                 if (mmd != null) mmd.Playing = false;
             }
-            MMDCameraManager.Instance?.Pause();
+            // MMDCameraManager.Instance?.Pause(); // Removed
             MusicManager.Instance?.Pause();
         }
         // 统一控制：定位到某一时间点

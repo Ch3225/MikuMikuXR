@@ -5613,6 +5613,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   actionType: 1
+  acceptedResourceTypes: 01000000
   highlightColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
   onItemDropped:
     m_PersistentCalls:
@@ -16719,12 +16720,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   actionType: 1
+  acceptedResourceTypes: 04000000
   highlightColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
   onItemDropped:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 1240995558}
-        m_TargetAssemblyTypeName: MusicListController, Assembly-CSharp
+      - m_Target: {fileID: 2102780564}
+        m_TargetAssemblyTypeName: CameraListController, Assembly-CSharp
         m_MethodName: HandleDropOnListArea
         m_Mode: 0
         m_Arguments:

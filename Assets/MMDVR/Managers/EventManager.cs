@@ -15,5 +15,8 @@ namespace MMDVR.Managers
 
         // 动作列表变更事件
         public static Action OnMotionListChanged;
+
+        // 相机激活事件
+        public static Action<MMDVR.Scripts.UIInteraction.CameraData> OnCameraActivated;
     }
 }

@@ -14,8 +14,6 @@ namespace MMDVR.Managers
         private CameraData[] camFrames;
         private int totalFrames = 0;
         private bool vmdLoaded = false;
-        private float playTime = 0f;
-        private bool isPlaying = false;
 
         private void Awake()
         {
@@ -32,12 +30,42 @@ namespace MMDVR.Managers
             if (!vmdCameraPaths.Contains(vmdPath))
             {
                 vmdCameraPaths.Add(vmdPath);
-                // EventManager.OnCameraListChanged?.Invoke(); // Reverted: Do not invoke event here directly for now
+                // EventManager.OnCameraListChanged?.Invoke(); // REVERTED: Let UI/CameraManager handle this
                 if (vmdCameraPaths.Count == 1 && currentIndex == -1) 
                 {
                     // SetActiveVmdCamera(0); 
                     // Let CameraManager handle activation logic via UI interaction or explicit calls
                 }
+            }
+        }        public void RemoveVmdCamera(string vmdPath) // New method
+        {
+            Debug.Log($"MMDCameraManager.RemoveVmdCamera called with path: {vmdPath}");
+            Debug.Log($"Current vmdCameraPaths count: {vmdCameraPaths.Count}");
+            Debug.Log($"Current vmdCameraPaths: [{string.Join(", ", vmdCameraPaths)}]");
+            
+            int indexToRemove = vmdCameraPaths.IndexOf(vmdPath);
+            Debug.Log($"Index to remove: {indexToRemove}");
+            
+            if (indexToRemove != -1)
+            {
+                vmdCameraPaths.RemoveAt(indexToRemove);
+                Debug.Log($"After removal, vmdCameraPaths count: {vmdCameraPaths.Count}");
+                Debug.Log($"After removal, vmdCameraPaths: [{string.Join(", ", vmdCameraPaths)}]");
+                
+                if (currentIndex == indexToRemove)
+                {
+                    currentIndex = -1; // Active camera removed, default to free camera behavior
+                    Debug.Log("Active camera was removed, currentIndex set to -1");
+                }
+                else if (currentIndex > indexToRemove)
+                {
+                    currentIndex--; // Adjust index if a preceding item was removed
+                    Debug.Log($"Adjusted currentIndex to: {currentIndex}");
+                }
+            }
+            else
+            {
+                Debug.LogWarning($"VMD path not found in vmdCameraPaths: {vmdPath}");
             }
         }
 
@@ -45,27 +73,27 @@ namespace MMDVR.Managers
         {
             if (index < 0 || index >= vmdCameraPaths.Count)
             {
+                // Optionally, deactivate current VMD if index is out of bounds, e.g., by setting vmdLoaded = false
+                vmdLoaded = false; 
+                currentIndex = -1;
+                // Or, log an error, or switch to a default state
+                Debug.LogWarning($"SetActiveVmdCamera called with invalid index: {index}");
                 return; 
             }
             currentIndex = index;
             LoadCameraVmd(vmdCameraPaths[index]);
-            playTime = 0f;
+            // playTime = 0f; // Removed, SceneStatesManager will set initial time
         }
 
-        public void SetTime(float time)
+        public void SetTime(float timeInSeconds)
         {
-            playTime = time;
-        }
-
-        public void Play() { isPlaying = true; }
-        public void Pause() { isPlaying = false; }
-
-        private void Update()
-        {
+            // playTime = time; // Renamed parameter to timeInSeconds
             if (!vmdLoaded || camFrames == null || camFrames.Length == 0 || targetCamera == null) return;
-            if (isPlaying)
-                playTime += Time.deltaTime;
-            int frame = Mathf.Clamp(Mathf.FloorToInt(playTime * 30f), 0, totalFrames - 1); // 30fps
+            
+            // Ensure totalFrames is positive to prevent division by zero or negative array access
+            if (totalFrames <= 0) return;
+
+            int frame = Mathf.Clamp(Mathf.FloorToInt(timeInSeconds * 30f), 0, totalFrames - 1); // 30fps
             ApplyCameraFrame(frame);
         }
 

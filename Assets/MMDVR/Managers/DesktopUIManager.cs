@@ -4,6 +4,7 @@ using TMPro;
 using System.Collections.Generic;
 using SimpleFileBrowser;
 using MMDVR.Managers;
+using MMDVR.Scripts.UIInteraction; // Added this line
 
 namespace MMDVR.Managers
 {
@@ -322,10 +323,31 @@ namespace MMDVR.Managers
         }
         private void OnCameraDropdownChanged(int index)
         {
-            CameraManager.Instance?.ActivateCamera(index);
-            if (index > 0)
+            // Old logic:
+            // CameraManager.Instance?.ActivateCamera(index);
+            // if (index > 0)
+            // {
+            //     MMDCameraManager.Instance?.SetActiveVmdCamera(index - 1);
+            // }
+
+            // New logic to work with CameraListController and new CameraManager API
+            if (CameraListController.Instance != null && CameraManager.Instance != null)
             {
-                MMDCameraManager.Instance?.SetActiveVmdCamera(index - 1);
+                IResourceInfo resourceInfo = CameraListController.Instance.GetResourceInfoAt(index);
+                if (resourceInfo != null && resourceInfo is CameraData)
+                {
+                    CameraManager.Instance.ActivateCameraByResource(resourceInfo as CameraData);
+                }
+                else
+                {
+                    Debug.LogWarning($"DesktopUIManager: Could not find valid CameraData at index {index} in CameraListController.");
+                    // Optionally, activate a default camera if resourceInfo is null
+                    // CameraManager.Instance.ActivateCameraByResource(null); // This would activate Free Camera
+                }
+            }
+            else
+            {
+                Debug.LogError("DesktopUIManager: CameraListController or CameraManager instance is null.");
             }
         }
         private void OnAddCameraClicked()

@@ -2,6 +2,8 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.Events; // Required for UnityEvent
 using MMDVR.Scripts.UIInteraction; // Added for ResourceType
+using System.Collections.Generic; // Added for List<>
+using System.Linq; // Added for LINQ's Select method
 
 // Define a UnityEvent that can pass a GameObject (the dropped item)
 [System.Serializable]
@@ -22,27 +24,11 @@ public class DropZone : MonoBehaviour, IDropHandler, IPointerEnterHandler, IPoin
         ModelDisable,
         ModelDisconnectMotion
     }
-    public DropActionType actionType = DropActionType.None; // Assign in Inspector
+    public DropActionType actionType = DropActionType.None; 
 
-    // OLD DropZoneType enum - can be removed or refactored if actionType covers all cases
-    // public enum DropZoneType
-    // {
-    //     MusicListSortableArea, 
-    //     MusicListActivationArea, 
-    //     MusicUninstallAction,
-    //     ModelDropOnMotion,
-    //     MotionDropOnModel,
-    //     ModelEnableAction,
-    //     ModelDisableAction,
-    //     ModelMotionDisconnectAction,
-    //     ModelUninstallAction,
-    //     MotionUninstallAction,
-    //     CameraListSortableArea,
-    //     CameraListActivationArea,
-    //     CameraUninstallAction,
-    //     GenericUninstallAction
-    // }
-    // public DropZoneType zoneType; // This can be replaced by actionType
+    [Header("Accepted Resource Types")]
+    [Tooltip("Which resource types can be dropped onto this zone. Leave empty to accept all.")]
+    public List<ResourceType> acceptedResourceTypes = new List<ResourceType>();
 
     // Optional: For visual feedback
     private UnityEngine.UI.Image backgroundImage; 
@@ -65,53 +51,96 @@ public class DropZone : MonoBehaviour, IDropHandler, IPointerEnterHandler, IPoin
     {
         if (eventData.pointerDrag == null) return;
         DraggableItem draggable = eventData.pointerDrag.GetComponent<DraggableItem>();
-        if (draggable != null)
+
+        if (draggable != null && IsAccepted(draggable.Data))
         {
             if (backgroundImage != null)
             {
                 backgroundImage.color = highlightColor;
             }
-            // Changed to use actionType for logging
-            Debug.Log(draggable.name + " entered " + gameObject.name + " (Action: " + actionType + ")");
+            Debug.Log($"[DropZone {gameObject.name}] OnPointerEnter: {draggable.name} (Type: {draggable.Data?.Type}) entered. Accepted. Highlighting.");
+        }
+        else if (draggable != null) // Draggable but not accepted
+        {
+            Debug.Log($"[DropZone {gameObject.name}] OnPointerEnter: {draggable.name} (Type: {draggable.Data?.Type}) entered. Rejected. Not highlighting.");
+            if (backgroundImage != null && backgroundImage.color == highlightColor) 
+            {
+                 backgroundImage.color = originalColor;
+            }
         }
     }
 
     public void OnPointerExit(PointerEventData eventData)
     {
-        // Check if still dragging something, otherwise eventData.pointerDrag might be null if drag ended outside
+        if (backgroundImage != null && backgroundImage.color == highlightColor)
+        {
+            backgroundImage.color = originalColor;
+        }
         if (eventData.pointerDrag != null) 
         {
              DraggableItem draggable = eventData.pointerDrag.GetComponent<DraggableItem>();
-             if (draggable != null) // Ensure it's a draggable item still
+             if (draggable != null) 
              {
-                if (backgroundImage != null)
-                {
-                    backgroundImage.color = originalColor;
-                }
-                Debug.Log(draggable.name + " exited " + gameObject.name);
+                Debug.Log($"[DropZone {gameObject.name}] OnPointerExit: {draggable.name} exited.");
              }
-        } else { // Drag might have ended or pointer left for other reasons
-            if (backgroundImage != null && backgroundImage.color == highlightColor)
-            {
-                 backgroundImage.color = originalColor; // Reset if it was highlighted
-            }
-        }
+        } 
     }
 
     public void OnDrop(PointerEventData eventData)
     {
-        // Changed to use actionType for logging
-        Debug.Log(eventData.pointerDrag.name + " was dropped on " + gameObject.name + " (Action: " + actionType + ")");
-        if (backgroundImage != null)
+        DraggableItem draggable = eventData.pointerDrag.GetComponent<DraggableItem>();
+        if (draggable != null) 
         {
-            backgroundImage.color = originalColor; // Reset visual feedback
+            bool canAccept = IsAccepted(draggable.Data); 
+            Debug.Log($"[DropZone {gameObject.name}] OnDrop: Draggable '{draggable.name}' (Type: {draggable.Data?.Type}), IsAccepted returned: {canAccept}");
+
+            if (canAccept)
+            {
+                Debug.Log($"[DropZone {gameObject.name}] OnDrop: Drop ACCEPTED for {draggable.name}. Invoking onItemDropped.");
+                if (backgroundImage != null)
+                {
+                    backgroundImage.color = originalColor; 
+                }
+                onItemDropped.Invoke(eventData.pointerDrag);
+            }
+            else
+            {
+                Debug.Log($"[DropZone {gameObject.name}] OnDrop: Drop REJECTED for {draggable.name}. Accepted types: [{string.Join(", ", acceptedResourceTypes)}]");
+                if (backgroundImage != null)
+                {
+                    backgroundImage.color = originalColor;
+                }
+            }
+        }
+        else 
+        {
+            Debug.LogWarning($"[DropZone {gameObject.name}] OnDrop: eventData.pointerDrag has no DraggableItem component.");
+            if (backgroundImage != null)
+            {
+                backgroundImage.color = originalColor;
+            }
+        }
+    }
+
+    private bool IsAccepted(IResourceInfo resourceInfo)
+    {
+        if (resourceInfo == null)
+        {
+            Debug.Log($"[DropZone {gameObject.name}] IsAccepted: resourceInfo is null. Returning false.");
+            return false;
         }
 
-        DraggableItem draggable = eventData.pointerDrag.GetComponent<DraggableItem>();
-        if (draggable != null)
+        string acceptedTypesString = acceptedResourceTypes.Count == 0 ? "ALL (list empty)" : string.Join(", ", acceptedResourceTypes.Select(rt => rt.ToString()).ToArray());
+        Debug.Log($"[DropZone {gameObject.name}] IsAccepted: Checking item type '{resourceInfo.Type}' against accepted types: [{acceptedTypesString}]. List count: {acceptedResourceTypes.Count}");
+
+        if (acceptedResourceTypes.Count == 0)
         {
-            // Invoke the UnityEvent, passing the dropped GameObject
-            onItemDropped.Invoke(eventData.pointerDrag);
+            Debug.Log($"[DropZone {gameObject.name}] IsAccepted: Accepted list is empty, accepting all. Returning true.");
+            return true; 
         }
+
+        bool isContained = acceptedResourceTypes.Contains(resourceInfo.Type);
+        Debug.Log($"[DropZone {gameObject.name}] IsAccepted: Item type '{resourceInfo.Type}' {(isContained ? "IS" : "IS NOT")} in accepted list. Returning {isContained}.");
+        return isContained;
     }
 }
