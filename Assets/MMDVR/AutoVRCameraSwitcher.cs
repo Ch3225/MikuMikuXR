@@ -3,18 +3,13 @@ using UnityEngine.XR;
 using UnityEngine.XR.Management;
 using System.Collections;
 using System.Collections.Generic;
+using MMDVR.Managers;
 
 /// <summary>
-/// 自动检测VR设备并切换相机（桌面/VR）
-/// 挂载到System相关GameObject上，Inspector中拖入桌面相机和XR Origin对象
+/// 自动检测VR设备并通知SceneStatesManager切换摄像机模式
 /// </summary>
 public class AutoVRCameraSwitcher : MonoBehaviour
 {
-    [Header("桌面相机父物体（如有多个可用父物体包裹）")]
-    public GameObject desktopCameras; // 包含FreeCamera、MMDCamera等
-    [Header("XR Origin或VR相机父物体")]
-    public GameObject xrOrigin; // XR Origin或VR相机的父物体
-
     private void Start()
     {
         StartCoroutine(CheckAndSwitchVRCamera());
@@ -22,6 +17,12 @@ public class AutoVRCameraSwitcher : MonoBehaviour
 
     private IEnumerator CheckAndSwitchVRCamera()
     {
+        // 等待SceneStatesManager初始化
+        while (SceneStatesManager.Instance == null)
+        {
+            yield return null;
+        }
+
         // 等待XR系统初始化（最多2秒）
         float timer = 0f;
         bool isVRActive = false;
@@ -36,16 +37,8 @@ public class AutoVRCameraSwitcher : MonoBehaviour
             yield return null;
         }
 
-        if (isVRActive)
-        {
-            if (desktopCameras != null) desktopCameras.SetActive(false);
-            if (xrOrigin != null) xrOrigin.SetActive(true);
-        }
-        else
-        {
-            if (desktopCameras != null) desktopCameras.SetActive(true);
-            if (xrOrigin != null) xrOrigin.SetActive(false);
-        }
+        // 通知SceneStatesManager设置摄像机模式
+        SceneStatesManager.Instance.SetCameraMode(isVRActive ? CameraMode.VR : CameraMode.Desktop);
     }
 
     // 双重判断：XRInputSubsystem.running + HMD设备检测

@@ -180,9 +180,8 @@ namespace MMDVR.Managers
             FileBrowser.ShowLoadDialog(
                 (paths) => {
                     if (paths == null || paths.Length == 0) return;
-                    string modelPath = paths[0];
-                    // 通过事件系统请求加载模型
-                    EventManager.OnModelLoadRequest?.Invoke(modelPath);
+                    string modelPath = paths[0];                    if (SceneStatesManager.Instance != null)
+                        SceneStatesManager.Instance.AddActor(modelPath);
                 },
                 () => { Debug.Log("取消选择模型文件"); },
                 FileBrowser.PickMode.Files,
@@ -194,12 +193,11 @@ namespace MMDVR.Managers
         {
             FileBrowser.SetFilters(true, new FileBrowser.Filter("音乐", ".mp3", ".wav", ".ogg"));
             FileBrowser.SetDefaultFilter(".mp3");
-            FileBrowser.SetExcludedExtensions(".lnk", ".tmp", ".zip", ".rar", ".exe");
-            FileBrowser.ShowLoadDialog(
+            FileBrowser.SetExcludedExtensions(".lnk", ".tmp", ".zip", ".rar", ".exe");            FileBrowser.ShowLoadDialog(
                 (paths) => {
                     if (paths == null || paths.Length == 0) return;
                     string musicPath = paths[0];
-                    MusicManager.Instance?.LoadMusic(musicPath);
+                    SceneStatesManager.Instance?.AddMusic(musicPath);
                     RefreshMusicDropdown();
                 },
                 () => { Debug.Log("取消选择音乐文件"); },
@@ -217,18 +215,26 @@ namespace MMDVR.Managers
             FileBrowser.ShowLoadDialog(
                 (paths) => {
                     if (paths == null || paths.Length == 0) return;
-                    string motionPath = paths[0];
-                    // 让用户选择目标模型
-                    int actorIndex = modelDropdown != null ? modelDropdown.value : -1;
-                    var actorMgr = ActorManager.Instance;
-                    if (actorMgr != null && actorIndex >= 0 && actorIndex < actorMgr.actors.Count)
-                    {
-                        var actor = actorMgr.actors[actorIndex];
-                        MotionManager.Instance.LoadAndAssignMotion(motionPath, actor);
-                    }
-                    else
-                    {
-                        Debug.LogWarning("请先选择一个模型再加载动作");
+                    string motionPath = paths[0];                    // 让用户选择目标模型
+                    int actorIndex = modelDropdown != null ? modelDropdown.value : -1;                    if (SceneStatesManager.Instance != null)
+                    {                        var actorList = SceneStatesManager.Instance.GetActorList();
+                        if (actorIndex >= 0 && actorIndex < actorList.Count)
+                        {
+                            string actorId = actorList[actorIndex].id;
+                            string motionId = SceneStatesManager.Instance.AddMotion(motionPath);
+                            
+                            // 将加载的动作分配给选中的演员
+                            SceneStatesManager.Instance.AssignMotionToActor(motionId, actorId);
+                            
+                            // 刷新动作下拉列表
+                            RefreshMotionDropdown();
+                            
+                            Debug.Log($"动作已加载并分配给演员 {actorId}: {motionPath}");
+                        }
+                        else
+                        {
+                            Debug.LogWarning("请先选择一个模型再加载动作");
+                        }
                     }
                 },
                 () => { Debug.Log("取消选择动作文件"); },
@@ -257,11 +263,9 @@ namespace MMDVR.Managers
             }
         }
 
-        private void HandleSeekTimeChanged(float time) { /* 已废弃，不再直接操作模型/相机/音乐 */ }
-
-        private void UpdateTimerText(float time)
+        private void HandleSeekTimeChanged(float time) { /* 已废弃，不再直接操作模型/相机/音乐 */ }        private void UpdateTimerText(float time)
         {
-            float total = MusicManager.Instance?.GetCurrentLength() ?? 0f;
+            float total = SceneStatesManager.Instance?.GetMusicDuration() ?? 0f;
             timerText.text = $"{FormatTime(time)}/{FormatTime(total)}";
         }
 
@@ -270,35 +274,14 @@ namespace MMDVR.Managers
             int min = Mathf.FloorToInt(t / 60f);
             int sec = Mathf.FloorToInt(t % 60f);
             return $"{min:00}:{sec:00}";
-        }
-        private void OnMuteClicked()
+        }        private void OnMuteClicked()
         {
-            var musicMgr = MusicManager.Instance;
-            // if (musicMgr != null && musicMgr.musics.Count > 0)
-            // {
-            //     var audio = musicMgr.musics[0];
-            var currentTrack = musicMgr?.GetCurrentTrackInfo();
-            if (currentTrack != null && currentTrack.AudioSource != null)
-            {
-                var audio = currentTrack.AudioSource;
-                audio.mute = !audio.mute;
-                if (volumeSlider != null)
-                {
-                    if (audio.mute)
-                        volumeSlider.value = 0f;
-                    else
-                        volumeSlider.value = audio.volume > 0 ? audio.volume : 1f;
-                }
-                if (muteButton != null && muteButton.GetComponentInChildren<TMPro.TextMeshProUGUI>() != null)
-                {
-                    muteButton.GetComponentInChildren<TMPro.TextMeshProUGUI>().text = audio.mute ? "Unmute" : "Mute";
-                }
-            }
-        }
-        private void OnVolumeChanged(float value)
+            // TODO: 实现静音功能，需要在SceneStatesManager中添加静音状态管理
+            Debug.Log("静音功能需要在SceneStatesManager中实现");
+        }        private void OnVolumeChanged(float value)
         {
             // 触发音量变更
-            MusicManager.Instance?.SetVolume(value);
+            SceneStatesManager.Instance?.SetMusicVolume(value);
         }
         private void OnModelDropdownChanged(int index)
         {
@@ -307,50 +290,29 @@ namespace MMDVR.Managers
         private void OnMotionDropdownChanged(int index)
         {
             // 触发动作切换
-        }
-        private void OnMusicDropdownChanged(int index)
+        }        private void OnMusicDropdownChanged(int index)
         {
-            // MusicManager.Instance?.Play(index);
-            var musicMgr = MusicManager.Instance;
-            if (musicMgr != null)
+            if (SceneStatesManager.Instance != null)
             {
-                var tracks = musicMgr.GetLoadedMusicTrackInfos();
-                if (index >= 0 && index < tracks.Count)
+                var musicDataList = SceneStatesManager.Instance.GetMusicList();
+                if (index >= 0 && index < musicDataList.Count)
                 {
-                    musicMgr.PlayMusicById(tracks[index].ID);
+                    SceneStatesManager.Instance.ActivateMusic(musicDataList[index].id);
                 }
             }
         }
+        
         private void OnCameraDropdownChanged(int index)
         {
-            // Old logic:
-            // CameraManager.Instance?.ActivateCamera(index);
-            // if (index > 0)
-            // {
-            //     MMDCameraManager.Instance?.SetActiveVmdCamera(index - 1);
-            // }
-
-            // New logic to work with CameraListController and new CameraManager API
-            if (CameraListController.Instance != null && CameraManager.Instance != null)
+            if (SceneStatesManager.Instance != null)
             {
-                IResourceInfo resourceInfo = CameraListController.Instance.GetResourceInfoAt(index);
-                if (resourceInfo != null && resourceInfo is CameraData)
+                var cameraDataList = SceneStatesManager.Instance.GetCameraList();
+                if (index >= 0 && index < cameraDataList.Count)
                 {
-                    CameraManager.Instance.ActivateCameraByResource(resourceInfo as CameraData);
-                }
-                else
-                {
-                    Debug.LogWarning($"DesktopUIManager: Could not find valid CameraData at index {index} in CameraListController.");
-                    // Optionally, activate a default camera if resourceInfo is null
-                    // CameraManager.Instance.ActivateCameraByResource(null); // This would activate Free Camera
+                    SceneStatesManager.Instance.ActivateCamera(cameraDataList[index].id);
                 }
             }
-            else
-            {
-                Debug.LogError("DesktopUIManager: CameraListController or CameraManager instance is null.");
-            }
-        }
-        private void OnAddCameraClicked()
+        }private void OnAddCameraClicked()
         {
             // 弹出文件选择器，选择VMD相机动作
             FileBrowser.SetFilters(true, new FileBrowser.Filter("MMD相机动作", ".vmd"));
@@ -359,110 +321,121 @@ namespace MMDVR.Managers
             FileBrowser.ShowLoadDialog(
                 (paths) => {
                     if (paths == null || paths.Length == 0) return;
-                    string vmdPath = paths[0];
-                    CameraManager.Instance?.LoadMmdCamera(vmdPath);
+                    string vmdPath = paths[0];                    if (SceneStatesManager.Instance != null)
+                        SceneStatesManager.Instance.AddVMDCamera(vmdPath);
+                    RefreshCameraDropdown();
                 },
                 () => { Debug.Log("取消选择相机动作文件"); },
                 FileBrowser.PickMode.Files,
                 false,
                 null, null, "选择MMD相机动作", "加载"
             );
-        }
-
-        // 刷新模型下拉列表
+        }        // 刷新模型下拉列表
         private void RefreshModelDropdown()
         {
-            var actorMgr = ActorManager.Instance;
-            if (modelDropdown == null || actorMgr == null) return;
+            if (modelDropdown == null || SceneStatesManager.Instance == null) return;
+            
             modelDropdown.ClearOptions();
             var names = new List<string>();
-            foreach (var go in actorMgr.actors)
+              var actorList = SceneStatesManager.Instance.GetActorList();
+            foreach (var actor in actorList)
             {
-                names.Add(go.name);
+                names.Add(actor.displayName);
             }
+            
             modelDropdown.AddOptions(names);
-        }
-
-        // 刷新相机下拉列表
+        }        // 刷新相机下拉列表
         private void RefreshCameraDropdown()
         {
-            var mmdCamMgr = MMDCameraManager.Instance;
-            if (cameraDropdown == null || mmdCamMgr == null) return;
+            if (cameraDropdown == null || SceneStatesManager.Instance == null) return;
+            
             cameraDropdown.ClearOptions();
-            var names = new List<string> {"Free Camera"};
-            foreach (var path in mmdCamMgr.vmdCameraPaths)
-            {
-                names.Add(System.IO.Path.GetFileNameWithoutExtension(path));
-            }
-            cameraDropdown.AddOptions(names);
-            cameraDropdown.value = 0;
-            cameraDropdown.RefreshShownValue();
-        }
-
-        // 刷新动作下拉列表，只显示当前选中模型的动作
-        private void RefreshMotionDropdown()
-        {
-            var motionMgr = MotionManager.Instance;
-            var sceneStates = SceneStatesManager.Instance;
-            if (motionDropdown == null || motionMgr == null || sceneStates == null) return;
-            motionDropdown.ClearOptions();
-            int modelIdx = modelDropdown != null ? modelDropdown.value : -1;
-            var actorMgr = ActorManager.Instance;
-            if (actorMgr == null || modelIdx < 0 || modelIdx >= actorMgr.actors.Count) return;
-            var modelGo = actorMgr.actors[modelIdx];
-            var motions = sceneStates.GetMotionsForModel(modelGo);
             var names = new List<string>();
-            if (motions != null)
+              var cameraList = SceneStatesManager.Instance.GetCameraList();
+            foreach (var camera in cameraList)
             {
-                foreach (var go in motions)
+                names.Add(camera.displayName);
+            }
+            
+            cameraDropdown.AddOptions(names);
+              // 尝试选择当前激活的摄像机
+            if (!string.IsNullOrEmpty(SceneStatesManager.Instance.currentActiveCameraId))
+            {
+                int currentIndex = cameraList.FindIndex(c => c.id == SceneStatesManager.Instance.currentActiveCameraId);
+                if (currentIndex != -1)
                 {
-                    names.Add(go.name);
+                    cameraDropdown.value = currentIndex;
+                }
+                else
+                {
+                    cameraDropdown.value = 0; // 默认选择第一个
                 }
             }
+            else
+            {
+                cameraDropdown.value = 0; // 默认选择第一个
+            }
+            cameraDropdown.RefreshShownValue();
+        }        // 刷新动作下拉列表，只显示当前选中模型的动作
+        private void RefreshMotionDropdown()
+        {
+            if (motionDropdown == null || SceneStatesManager.Instance == null) return;
+            
+            motionDropdown.ClearOptions();
+            var names = new List<string>();
+            
+            int modelIdx = modelDropdown != null ? modelDropdown.value : -1;
+            var actorList = SceneStatesManager.Instance.GetActorList();
+              if (modelIdx >= 0 && modelIdx < actorList.Count)
+            {
+                string actorId = actorList[modelIdx].id;
+                var motionList = SceneStatesManager.Instance.GetMotionList();
+                  // 筛选分配给当前演员的动作
+                foreach (var motion in motionList)
+                {
+                    if (motion.assignedActorId == actorId)
+                    {
+                        names.Add(motion.displayName);
+                    }
+                }
+            }
+            
             motionDropdown.AddOptions(names);
             if (names.Count > 0)
             {
                 motionDropdown.value = names.Count - 1;
                 motionDropdown.RefreshShownValue();
             }
-        }
-
-        private void RefreshMusicDropdown()
+        }private void RefreshMusicDropdown()
         {
-            var musicMgr = MusicManager.Instance;
-            if (musicDropdown == null || musicMgr == null) return;
+            if (musicDropdown == null || SceneStatesManager.Instance == null) return;
+            
             musicDropdown.ClearOptions();
             var names = new List<string>();
-            // foreach (var audio in musicMgr.musics)
-            // {
-            //     names.Add(audio.gameObject.name);
-            // }
-            var tracks = musicMgr.GetLoadedMusicTrackInfos();
-            foreach (var track in tracks)
+              var musicList = SceneStatesManager.Instance.GetMusicList();
+            foreach (var music in musicList)
             {
-                names.Add(track.DisplayName); // Use DisplayName from MusicTrackInfo
+                names.Add(music.title);
             }
+            
             musicDropdown.AddOptions(names);
             if (names.Count > 0)
-            {
-                // musicDropdown.value = names.Count - 1; // This would select the last added
-                // Try to select the currently playing music
-                var currentTrack = musicMgr.GetCurrentTrackInfo();
-                if (currentTrack != null)
+            {                // 尝试选择当前激活的音乐
+                if (!string.IsNullOrEmpty(SceneStatesManager.Instance.currentActiveMusicId))
                 {
-                    int currentIndexInDropdown = tracks.FindIndex(t => t.ID == currentTrack.ID);
-                    if (currentIndexInDropdown != -1)
+                    int currentIndex = musicList.FindIndex(m => m.id == SceneStatesManager.Instance.currentActiveMusicId);
+                    if (currentIndex != -1)
                     {
-                        musicDropdown.value = currentIndexInDropdown;
+                        musicDropdown.value = currentIndex;
                     }
-                    else if (tracks.Count > 0) // Fallback to first if current not found (e.g. just loaded)
+                    else
                     {
-                         musicDropdown.value = 0;
+                        musicDropdown.value = 0; // 默认选择第一个
                     }
                 }
-                else if (tracks.Count > 0) // If no current track, select the first one
+                else
                 {
-                    musicDropdown.value = 0;
+                    musicDropdown.value = 0; // 默认选择第一个
                 }
                 musicDropdown.RefreshShownValue();
             }
@@ -475,33 +448,33 @@ namespace MMDVR.Managers
             RefreshMotionDropdown();
             RefreshCameraDropdown();
             RefreshMusicDropdown();
-        }
-
-        void Update()
+        }        void Update()
         {
             // 实时刷新音乐进度和时长显示
-            var musicMgr = MusicManager.Instance;
-            // if (musicMgr != null && musicMgr.musics.Count > 0 && musicMgr.currentIndex >= 0)
-            var currentTrack = musicMgr?.GetCurrentTrackInfo();
-            if (currentTrack != null && currentTrack.AudioSource != null && currentTrack.AudioSource.clip != null)
+            if (SceneStatesManager.Instance != null)
             {
-                float cur = musicMgr.GetCurrentTime();
-                float total = musicMgr.GetCurrentLength();
-                if (playSlider != null && total > 0)
+                float currentTime = SceneStatesManager.Instance.playTime;
+                float totalDuration = SceneStatesManager.Instance.totalDuration;
+                
+                if (playSlider != null && totalDuration > 0)
                 {
-                    playSlider.maxValue = total;
-                    playSlider.value = cur;
+                    playSlider.maxValue = totalDuration;
+                    if (!isSliderDragging)
+                    {
+                        playSlider.value = currentTime;
+                    }
                 }
+                
                 if (timerText != null)
                 {
-                    timerText.text = $"{FormatTime(cur)}/{FormatTime(total)}";
+                    UpdateTimerText(currentTime);
                 }
-            }
-            if (!isSliderDragging && SceneStatesManager.Instance.isPlaying)
-            {
-                float cur = MusicManager.Instance?.GetCurrentTime() ?? 0f;
-                playSlider.value = cur;
-                UpdateTimerText(cur);
+                
+                // 更新播放按钮文本
+                if (playButtonText != null)
+                {
+                    playButtonText.text = SceneStatesManager.Instance.isPlaying ? "Pause" : "Play";
+                }
             }
         }
 

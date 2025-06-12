@@ -11,9 +11,7 @@ namespace LibMMD.Unity3D
     public class MmdResourceManager : MonoBehaviour
     {
         private static MmdResourceManager _instance;
-        private static readonly List<BonePoseCalculatorWorker> _workers = new List<BonePoseCalculatorWorker>();
-
-        /// <summary>
+        private static readonly List<BonePoseCalculatorWorker> _workers = new List<BonePoseCalculatorWorker>();        /// <summary>
         /// 注册一个BonePoseCalculatorWorker以便在应用退出时清理
         /// </summary>
         public static void RegisterWorker(BonePoseCalculatorWorker worker)
@@ -23,26 +21,36 @@ namespace LibMMD.Unity3D
                 _workers.Add(worker);
             }
             
-            // 确保管理器已创建
-            EnsureInstance();
-        }
-
-        /// <summary>
+            // 只有在游戏运行时才确保管理器已创建
+            if (Application.isPlaying)
+            {
+                EnsureInstance();
+            }
+        }/// <summary>
         /// 确保管理器已实例化
         /// </summary>
         private static void EnsureInstance()
         {
             if (_instance == null)
             {
-                // 查找已存在的实例
-                _instance = FindObjectOfType<MmdResourceManager>();
-                
-                // 如果没有找到，创建一个新的
-                if (_instance == null)
+                // 检查是否在游戏运行时（避免在静态构造中调用）
+                if (Application.isPlaying)
                 {
-                    GameObject go = new GameObject("MmdResourceManager");
-                    _instance = go.AddComponent<MmdResourceManager>();
-                    DontDestroyOnLoad(go); // 确保在场景加载间保持存在
+                    // 查找已存在的实例
+                    _instance = FindObjectOfType<MmdResourceManager>();
+                    
+                    // 如果没有找到，创建一个新的
+                    if (_instance == null)
+                    {
+                        GameObject go = new GameObject("MmdResourceManager");
+                        _instance = go.AddComponent<MmdResourceManager>();
+                        DontDestroyOnLoad(go); // 确保在场景加载间保持存在
+                    }
+                }
+                else
+                {
+                    // 在编辑器或静态初始化时，延迟创建
+                    return;
                 }
             }
         }

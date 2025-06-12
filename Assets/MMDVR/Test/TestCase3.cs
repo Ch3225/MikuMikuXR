@@ -20,21 +20,19 @@ namespace MMDVR.Test
             // 加载模型
             EventManager.OnModelLoadRequest?.Invoke(Path.Combine(projectRoot, model));
             StartCoroutine(LoadAfterModel());
-        }
-
-        IEnumerator LoadAfterModel()
+        }        IEnumerator LoadAfterModel()
         {
-            // 等待模型加载完毕
-            while (ActorManager.Instance == null || ActorManager.Instance.actors.Count < 1)
-                yield return null;
-
-            var actor = ActorManager.Instance.actors[0];
-            // 加载动作
-            MotionManager.Instance.LoadAndAssignMotion(Path.Combine(projectRoot, motion), actor);
+            // 等待SceneStatesManager加载完毕
+            while (SceneStatesManager.Instance == null)
+                yield return null;// TODO: 实现演员和动作加载
+            // SceneStatesManager.Instance?.AddActor(Path.Combine(projectRoot, model));
+            // SceneStatesManager.Instance?.AddMotion(Path.Combine(projectRoot, motion));
+            Debug.LogWarning("TestCase3: Actor and Motion loading not implemented in new architecture yet");
+            
             // 加载相机
-            MMDCameraManager.Instance?.AddVmdCamera(Path.Combine(projectRoot, cameraVmd));
+            SceneStatesManager.Instance?.AddVMDCamera(Path.Combine(projectRoot, cameraVmd));
             // 加载音乐
-            MusicManager.Instance?.LoadMusic(Path.Combine(projectRoot, music));
+            SceneStatesManager.Instance?.AddMusic(Path.Combine(projectRoot, music));
 
             // 统一刷新所有下拉框
             var uiMgr = FindObjectOfType<DesktopUIManager>();

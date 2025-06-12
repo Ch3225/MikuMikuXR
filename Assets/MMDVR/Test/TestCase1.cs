@@ -27,22 +27,21 @@ namespace MMDVR.Test
         }
 
         IEnumerator LoadAfterModel()
-        {
-            // 等待ActorManager中有两个actor（即两个模型都加载完毕）
-            while (ActorManager.Instance == null || ActorManager.Instance.actors.Count < 2)
+        {            // 等待SceneStatesManager初始化（替代ActorManager）
+            while (SceneStatesManager.Instance == null)
                 yield return null;
 
-            // 给两个模型分别加载动作
-            var actor0 = ActorManager.Instance.actors[0];
-            var actor1 = ActorManager.Instance.actors[1];
-            MotionManager.Instance.LoadAndAssignMotion(System.IO.Path.Combine(projectRoot, motion1), actor0);
-            MotionManager.Instance.LoadAndAssignMotion(System.IO.Path.Combine(projectRoot, motion2), actor1);
-
-            // 加载相机VMD
-            MMDCameraManager.Instance?.AddVmdCamera(System.IO.Path.Combine(projectRoot, cameraVmd));
+            // TODO: 添加演员和动作加载逻辑
+            // SceneStatesManager.Instance?.AddActor(System.IO.Path.Combine(projectRoot, lenModel));
+            // SceneStatesManager.Instance?.AddActor(System.IO.Path.Combine(projectRoot, rinModel));
+            // SceneStatesManager.Instance?.AddMotion(System.IO.Path.Combine(projectRoot, motion1));
+            // SceneStatesManager.Instance?.AddMotion(System.IO.Path.Combine(projectRoot, motion2));
+            
+            Debug.LogWarning("TestCase1: Actor and Motion loading not implemented in new architecture yet");// 加载相机VMD
+            SceneStatesManager.Instance?.AddVMDCamera(System.IO.Path.Combine(projectRoot, cameraVmd));
 
             // 加载音乐
-            MusicManager.Instance?.LoadMusic(System.IO.Path.Combine(projectRoot, music));
+            SceneStatesManager.Instance?.AddMusic(System.IO.Path.Combine(projectRoot, music));
         }
     }
 }

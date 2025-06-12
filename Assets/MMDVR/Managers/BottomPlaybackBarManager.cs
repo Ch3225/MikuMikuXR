@@ -56,33 +56,28 @@ namespace MMDVR.Managers
                 volumeSlider.onValueChanged.AddListener(OnVolumeChanged);
             if (volumeSlider != null)
                 volumeSlider.value = 1f;
-        }
-
-        void Update()
+        }        void Update()
         {
-            var musicMgr = MusicManager.Instance;
-            // if (musicMgr != null && musicMgr.musics.Count > 0 && musicMgr.currentIndex >= 0)
-            var currentTrackInfo = musicMgr?.GetCurrentTrackInfo();
-            if (currentTrackInfo != null && currentTrackInfo.AudioSource != null && currentTrackInfo.AudioSource.clip != null)            
+            if (SceneStatesManager.Instance != null)
             {
-                float cur = musicMgr.GetCurrentTime();
-                float total = musicMgr.GetCurrentLength();
-                if (playSlider != null && total > 0)
+                float currentTime = SceneStatesManager.Instance.playTime;
+                float totalDuration = SceneStatesManager.Instance.totalDuration;
+                
+                if (playSlider != null && totalDuration > 0)
                 {
-                    playSlider.maxValue = total;
-                    playSlider.value = cur;
+                    playSlider.maxValue = totalDuration;
+                    if (!isSliderDragging)
+                    {
+                        playSlider.value = currentTime;
+                    }
                 }
+                
                 if (timerText != null)
                 {
-                    timerText.text = $"{FormatTime(cur)}/{FormatTime(total)}";
+                    timerText.text = $"{FormatTime(currentTime)}/{FormatTime(totalDuration)}";
                 }
             }
-            if (!isSliderDragging && SceneStatesManager.Instance.isPlaying)
-            {
-                float cur = MusicManager.Instance?.GetCurrentTime() ?? 0f;
-                playSlider.value = cur;
-                UpdateTimerText(cur);
-            }
+            
             // 实时刷新音量百分比
             if (volumeSlider != null && volumePercentText != null)
             {
@@ -109,10 +104,9 @@ namespace MMDVR.Managers
                 SceneStatesManager.Instance.SeekTo(value);
                 UpdateTimerText(value);
             }
-        }
-        private void UpdateTimerText(float time)
+        }        private void UpdateTimerText(float time)
         {
-            float total = MusicManager.Instance?.GetCurrentLength() ?? 0f;
+            float total = SceneStatesManager.Instance?.GetMusicDuration() ?? 0f;
             if (timerText != null)
                 timerText.text = $"{FormatTime(time)}/{FormatTime(total)}";
         }
@@ -121,34 +115,13 @@ namespace MMDVR.Managers
             int min = Mathf.FloorToInt(t / 60f);
             int sec = Mathf.FloorToInt(t % 60f);
             return $"{min:00}:{sec:00}";
-        }
-        private void OnMuteClicked()
+        }        private void OnMuteClicked()
         {
-            var musicMgr = MusicManager.Instance;
-            // if (musicMgr != null && musicMgr.musics.Count > 0)
-            // {
-            //     var audio = musicMgr.musics[0];
-            var currentTrack = musicMgr?.GetCurrentTrackInfo();
-            if (currentTrack != null && currentTrack.AudioSource != null)
-            {
-                var audio = currentTrack.AudioSource;
-                audio.mute = !audio.mute;
-                if (volumeSlider != null)
-                {
-                    if (audio.mute)
-                        volumeSlider.value = 0f;
-                    else
-                        volumeSlider.value = audio.volume > 0 ? audio.volume : 1f;
-                }
-                if (muteButton != null && muteButton.GetComponentInChildren<TMPro.TextMeshProUGUI>() != null)
-                {
-                    muteButton.GetComponentInChildren<TMPro.TextMeshProUGUI>().text = audio.mute ? "Unmute" : "Mute";
-                }
-            }
-        }
-        private void OnVolumeChanged(float value)
+            // TODO: 实现静音功能，需要在SceneStatesManager中添加静音状态管理
+            Debug.Log("静音功能需要在SceneStatesManager中实现");
+        }        private void OnVolumeChanged(float value)
         {
-            MusicManager.Instance?.SetVolume(value);
+            SceneStatesManager.Instance?.SetMusicVolume(value);
         }
     }
 }

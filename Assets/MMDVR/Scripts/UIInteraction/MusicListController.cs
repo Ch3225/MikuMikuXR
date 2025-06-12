@@ -1,46 +1,41 @@
 using UnityEngine;
 using System.Collections.Generic;
-using System.Linq;
 using TMPro;
 using MMDVR.Scripts.UIInteraction;
-using MMDVR.Managers; // Now correctly using the MusicManager namespace
+using MMDVR.Managers;
 
-// MusicData now primarily serves as a bridge to IResourceInfo for UI purposes,
-// using data obtained from MusicManager.MusicTrackInfo
-public class MusicData : IResourceInfo
-{
-    public string id; // Corresponds to MusicTrackInfo.ID
-    public string title; // Corresponds to MusicTrackInfo.DisplayName
-    public string filePath; // Corresponds to MusicTrackInfo.FilePath
-
-    public string ID => id;
-    public string DisplayName => title;
-    public string FilePath => filePath;
-    public ResourceType Type => ResourceType.Music;
-}
-
+/// <summary>
+/// 音乐列表控制器 - 直接与SceneStatesManager交互
+/// </summary>
 public class MusicListController : MonoBehaviour
 {
+    public static MusicListController Instance { get; private set; }
+
     [Header("UI References")]
     public GameObject listItemPrefab;
     public Transform listContainer;
     public DropZone listSortableAreaDropZone;
     public DropZone uninstallDropZone;
 
-    [Header("Manager References")]
-    public MusicManager musicManager; // Assign MusicManager.Instance in Start or Inspector
-
     private List<GameObject> uiListItemObjects = new List<GameObject>();
     private List<IResourceInfo> internalResourceList = new List<IResourceInfo>();
 
+    void Awake()
+    {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+        Instance = this;
+    }
+
     void Start()
     {
-        if (musicManager == null) musicManager = MusicManager.Instance;
-
-        if (listItemPrefab == null || listContainer == null || musicManager == null)
+        if (listItemPrefab == null || listContainer == null)
         {
-            Debug.LogError("MusicListController: UI References or MusicManager not set!");
-            enabled = false; // Disable component if setup is invalid
+            Debug.LogError("MusicListController: UI References not set!");
+            enabled = false;
             return;
         }
 
@@ -53,48 +48,42 @@ public class MusicListController : MonoBehaviour
             uninstallDropZone.onItemDropped.AddListener(HandleDropOnUninstallZone);
         }
 
+        // 监听事件
+        EventManager.OnMusicListChanged += RefreshResourceListUI;
+
         LoadAndDisplayItems();
+    }
+
+    void OnDestroy()
+    {
+        EventManager.OnMusicListChanged -= RefreshResourceListUI;
+        
+        if (listSortableAreaDropZone != null)
+        {
+            listSortableAreaDropZone.onItemDropped.RemoveListener(HandleDropOnListArea);
+        }
+        if (uninstallDropZone != null)
+        {
+            uninstallDropZone.onItemDropped.RemoveListener(HandleDropOnUninstallZone);
+        }
     }
 
     void LoadAndDisplayItems()
     {
-        // 1. Clear existing UI items and internal list
-        foreach (Transform child in listContainer)
-        {
-            Destroy(child.gameObject);
-        }
-        uiListItemObjects.Clear();
         internalResourceList.Clear();
 
-        // 2. Fetch data from MusicManager
-        if (musicManager == null) return;
-
-        List<MusicTrackInfo> loadedTracks = musicManager.GetLoadedMusicTrackInfos();
-        if (loadedTracks == null || loadedTracks.Count == 0)
+        // 从SceneStatesManager获取音乐数据
+        if (SceneStatesManager.Instance != null)
         {
-            // Optionally, load some default/test music if the list is empty
-            // For now, we just log and show an empty list.
-            Debug.Log("MusicListController: No music loaded in MusicManager. Displaying empty list.");
-            // Example: Load a test music file if you have one
-            // string testMusicPath = "C:/Path/To/Your/Music/File_Test.mp3"; // <<< USER NEEDS TO CHANGE THIS
-            // if (System.IO.File.Exists(testMusicPath))
-            // {
-            //     string newId = musicManager.LoadMusic(testMusicPath);
-            //     if (!string.IsNullOrEmpty(newId))
-            //     {
-            //         loadedTracks = musicManager.GetLoadedMusicTrackInfos(); // Refresh after loading
-            //     }
-            // }
-        }
-
-        foreach (var trackInfo in loadedTracks)
-        {
-            internalResourceList.Add(new MusicData
+            var musicDataList = SceneStatesManager.Instance.GetMusicDataList();
+            foreach (var musicData in musicDataList)
             {
-                id = trackInfo.ID,
-                title = trackInfo.DisplayName,
-                filePath = trackInfo.FilePath
-            });
+                internalResourceList.Add(musicData);
+            }
+        }
+        else
+        {
+            Debug.LogWarning("SceneStatesManager.Instance is null");
         }
 
         RefreshResourceListUI();
@@ -102,12 +91,25 @@ public class MusicListController : MonoBehaviour
 
     void RefreshResourceListUI()
     {
+        // 清除现有UI项
         foreach (Transform child in listContainer)
         {
             Destroy(child.gameObject);
         }
         uiListItemObjects.Clear();
 
+        // 重新获取最新数据
+        if (SceneStatesManager.Instance != null)
+        {
+            internalResourceList.Clear();
+            var musicDataList = SceneStatesManager.Instance.GetMusicDataList();
+            foreach (var musicData in musicDataList)
+            {
+                internalResourceList.Add(musicData);
+            }
+        }
+
+        // 为每个资源创建UI项
         for (int i = 0; i < internalResourceList.Count; i++)
         {
             IResourceInfo resourceData = internalResourceList[i];
@@ -126,46 +128,47 @@ public class MusicListController : MonoBehaviour
                 titleText.text = resourceData.DisplayName;
             }
 
+            // 添加点击事件监听
+            UnityEngine.UI.Button button = listItemGO.GetComponent<UnityEngine.UI.Button>();
+            if (button == null)
+                button = listItemGO.AddComponent<UnityEngine.UI.Button>();
+            
+            var resourceDataCopy = resourceData; // 避免闭包问题
+            button.onClick.AddListener(() => ActivateResource(resourceDataCopy));
+
             uiListItemObjects.Add(listItemGO);
-            UpdateItemVisual(listItemGO, resourceData, i == 0 && resourceData.ID == musicManager.GetCurrentTrackInfo()?.ID);
         }
+
+        UpdateAllItemVisuals();
     }
 
     public void HandleDropOnListArea(GameObject droppedGameObject)
     {
-        DraggableItem droppedItem = droppedGameObject.GetComponent<DraggableItem>();
-        if (droppedItem == null || droppedItem.Data == null) return;
+        DraggableItem droppedItemComponent = droppedGameObject.GetComponent<DraggableItem>();
+        if (droppedItemComponent == null || droppedItemComponent.Data == null || !(droppedItemComponent.Data is MusicData)) 
+            return;
 
-        IResourceInfo droppedResourceData = droppedItem.Data;
-
-        int newIndex = 0;
+        // 重新构建内部列表基于UI顺序
+        List<IResourceInfo> newOrderedInternalList = new List<IResourceInfo>();
         for (int i = 0; i < listContainer.childCount; i++)
         {
-            if (listContainer.GetChild(i) == droppedGameObject.transform)
+            Transform child = listContainer.GetChild(i);
+            DraggableItem item = child.GetComponent<DraggableItem>();
+            if (item != null && item.Data != null)
             {
-                newIndex = i;
-                break;
+                newOrderedInternalList.Add(item.Data);
             }
         }
+        internalResourceList = newOrderedInternalList;
 
-        droppedGameObject.transform.SetParent(listContainer);
-        droppedGameObject.transform.SetSiblingIndex(newIndex);
-
-        internalResourceList.Remove(droppedResourceData);
-        internalResourceList.Insert(newIndex, droppedResourceData);
-
-        Debug.Log($"{droppedResourceData.DisplayName} moved to index {newIndex} in {listContainer.name}");
-
-        if (newIndex == 0 && droppedResourceData.Type == ResourceType.Music)
+        // 激活新的顶部项目
+        if (internalResourceList.Count > 0)
         {
-            ActivateResource(droppedResourceData);
-        }
-        else if (droppedResourceData.Type == ResourceType.Music && musicManager.GetCurrentTrackInfo()?.ID == droppedResourceData.ID)
-        {
-            // If the currently playing song was moved but is no longer first, stop it or handle as per desired logic.
-            // For now, if it's not first, it won't be auto-played by the newIndex == 0 logic.
-            // If it *was* playing and is moved from index 0, it will continue playing unless explicitly stopped.
-            // The MusicManager.PlayMusicById will handle stopping others.
+            MusicData newTopMusic = internalResourceList[0] as MusicData;
+            if (SceneStatesManager.Instance != null && newTopMusic != null)
+            {
+                SceneStatesManager.Instance.SetActiveMusic(newTopMusic.ID);
+            }
         }
 
         UpdateAllItemVisuals();
@@ -173,99 +176,101 @@ public class MusicListController : MonoBehaviour
 
     public void HandleDropOnUninstallZone(GameObject droppedGameObject)
     {
-        DraggableItem droppedItem = droppedGameObject.GetComponent<DraggableItem>();
-        if (droppedItem != null && droppedItem.Data != null)
+        Debug.Log("=== MusicListController: HandleDropOnUninstallZone called ===");
+        
+        DraggableItem draggableItem = droppedGameObject.GetComponent<DraggableItem>();
+        if (draggableItem == null || draggableItem.Data == null) 
         {
-            IResourceInfo resourceToUninstall = droppedItem.Data;
-            Debug.Log($"Requesting uninstall for: {resourceToUninstall.DisplayName} (Type: {resourceToUninstall.Type})");
-
-            if (resourceToUninstall.Type == ResourceType.Music)
-            {
-                musicManager?.UninstallMusic(resourceToUninstall.ID);
-                Debug.Log($"Called MusicManager.UninstallMusic for: {resourceToUninstall.DisplayName}");
-            }
-            // Add else if for other resource types here
-
-            internalResourceList.Remove(resourceToUninstall);
-            uiListItemObjects.Remove(droppedGameObject);
-            Destroy(droppedGameObject);
-
-            // If the uninstalled item was the active one, and there are other items,
-            // activate the new first item if it's music.
-            if (internalResourceList.Count > 0)
-            {
-                if (internalResourceList[0].Type == ResourceType.Music)
-                {
-                    // Check if the uninstalled item was the one playing.
-                    // If so, the MusicManager.UninstallMusic should have handled stopping it.
-                    // Now, activate the new first item.
-                    ActivateResource(internalResourceList[0]);
-                }
-            }
-            else if (resourceToUninstall.Type == ResourceType.Music)
-            {
-                // List is empty, ensure music is stopped
-                musicManager?.StopAllMusic();
-                Debug.Log("Music list empty, stopping all playback via MusicManager.");
-            }
-            UpdateAllItemVisuals();
+            Debug.LogWarning("DraggableItem or Data is null");
+            return;
         }
+
+        MusicData droppedMusicData = draggableItem.Data as MusicData;
+        if (droppedMusicData == null)
+        {
+            Debug.LogWarning("Dropped item is not a valid MusicData.");
+            return;
+        }
+
+        Debug.Log($"Dropped music data: {droppedMusicData.DisplayName}, FilePath: {droppedMusicData.FilePath}");
+
+        // 通过SceneStatesManager删除音乐资源
+        if (SceneStatesManager.Instance != null)
+        {
+            SceneStatesManager.Instance.RemoveMusicResource(droppedMusicData.ID);
+            Debug.Log($"Requested uninstall for Music: {droppedMusicData.DisplayName}");
+        }
+        else
+        {
+            Debug.LogError("SceneStatesManager.Instance is null!");
+        }
+
+        // UI刷新会由事件触发
     }
 
+    // 通过索引获取资源信息，用于向后兼容
+    public IResourceInfo GetResourceInfoAt(int index)
+    {
+        if (index >= 0 && index < internalResourceList.Count)
+        {
+            return internalResourceList[index];
+        }
+        Debug.LogWarning($"MusicListController.GetResourceInfoAt: Index {index} is out of bounds for internalResourceList count {internalResourceList.Count}.");
+        return null;
+    }
+
+    // 激活资源（点击或其他方式）
     void ActivateResource(IResourceInfo resourceData)
     {
-        if (musicManager == null) return;
+        if (!(resourceData is MusicData)) return;
+        MusicData musicDataToActivate = resourceData as MusicData;
 
-        if (resourceData.Type == ResourceType.Music)
+        Debug.Log($"Activating Music by click: {musicDataToActivate.DisplayName}");
+        
+        if (SceneStatesManager.Instance != null)
         {
-            Debug.Log($"Activating Music: {resourceData.DisplayName} with ID: {resourceData.ID}");
-            musicManager.PlayMusicById(resourceData.ID);
+            SceneStatesManager.Instance.SetActiveMusic(musicDataToActivate.ID);
         }
-        // Add else if for other resource types
-
-        UpdateAllItemVisuals();
+        else
+        {
+            Debug.LogError("SceneStatesManager.Instance is null!");
+        }
     }
 
     void UpdateAllItemVisuals()
     {
-        if (musicManager == null) return;
-        string currentPlayingMusicID = musicManager.GetCurrentTrackInfo()?.ID;
-
-        for (int i = 0; i < listContainer.childCount; i++)
+        string activeMusicId = null;
+        if (SceneStatesManager.Instance != null)
         {
-            GameObject uiItemGO = listContainer.GetChild(i).gameObject;
+            activeMusicId = SceneStatesManager.Instance.currentActiveMusicId;
+        }
+
+        for (int i = 0; i < uiListItemObjects.Count; i++)
+        {
+            GameObject uiItemGO = uiListItemObjects[i];
             DraggableItem draggable = uiItemGO.GetComponent<DraggableItem>();
-            if (draggable != null && draggable.Data != null)
+            if (draggable != null && draggable.Data != null && draggable.Data is MusicData)
             {
-                IResourceInfo resourceData = draggable.Data;
-                bool isActive = false;
-                if (resourceData.Type == ResourceType.Music)
-                {
-                    // A music item is "active" if it is currently playing according to MusicManager
-                    isActive = (resourceData.ID == currentPlayingMusicID);
-                    // Additionally, the first item in the list has a distinct visual style if it's the one set to play.
-                    // The actual playback is handled by ActivateResource -> musicManager.PlayMusicById.
-                    // The visual distinction for being "first and potentially active" is handled here.
-                    if (i == 0 && internalResourceList.Count > 0 && internalResourceList[0].ID == resourceData.ID)
-                    {
-                        // This item is at the top of the list. Its active state (color) depends on whether it's actually playing.
-                    }
-                }
-                // For other resource types, define their active state logic
-                UpdateItemVisual(uiItemGO, resourceData, isActive);
+                MusicData currentItemMusicData = draggable.Data as MusicData;
+                bool isActive = (activeMusicId != null && activeMusicId == currentItemMusicData.ID);
+                UpdateItemVisual(uiItemGO, currentItemMusicData, isActive);
             }
         }
     }
 
-    void UpdateItemVisual(GameObject itemGO, IResourceInfo resourceData, bool isActive)
+    void UpdateItemVisual(GameObject itemGO, MusicData musicData, bool isActive)
     {
         UnityEngine.UI.Image bgImage = itemGO.GetComponent<UnityEngine.UI.Image>();
         if (bgImage != null)
         {
-            // Active (playing) items are yellow. First item in list (if not playing) could be light-yellow or default.
-            // For simplicity: yellow if active (playing), white otherwise.
-            // You might want a different color for "next up" (first in list but not playing).
-            bgImage.color = isActive ? Color.yellow : Color.white;
+            if (isActive)
+            {
+                bgImage.color = Color.green; // 激活项为绿色
+            }
+            else
+            {
+                bgImage.color = Color.white; // 非激活项为白色
+            }
         }
 
         Transform activeIndicator = itemGO.transform.Find("ActiveIndicator");
@@ -273,40 +278,5 @@ public class MusicListController : MonoBehaviour
         {
             activeIndicator.gameObject.SetActive(isActive);
         }
-        // Debug.Log($"{itemGO.name} ({resourceData.DisplayName}) isActive: {isActive}");
-    }
-    
-    // Public method to be called by a UI Button or other event to manually load a new music file.
-    public void TriggerLoadNewMusicDialog()
-    { 
-        // This is a placeholder for file dialog logic.
-        // You would use a native file dialog plugin or Unity's EditorUtility (editor only)
-        // For a runtime solution, you might need a custom input field for path or a plugin.
-        Debug.Log("TriggerLoadNewMusicDialog called. Implement file selection logic here.");
-        // Example: string filePath = ShowFileDialog(); // (This function doesn't exist, needs implementation)
-        // if (!string.IsNullOrEmpty(filePath) && musicManager != null)
-        // {
-        //     string newId = musicManager.LoadMusic(filePath);
-        //     if (!string.IsNullOrEmpty(newId))
-        //     {
-        //         // Find the new track info
-        //         MusicTrackInfo newTrack = musicManager.GetMusicTrackInfoById(newId);
-        //         if (newTrack != null)
-        //         {
-        //             // Add to UI list and refresh
-        //             internalResourceList.Add(new MusicData 
-        //             { 
-        //                 id = newTrack.ID, 
-        //                 title = newTrack.DisplayName, 
-        //                 filePath = newTrack.FilePath 
-        //             });
-        //             RefreshResourceListUI();
-        //             // Optionally, make it active if it's the only one or based on user preference
-        //             if (internalResourceList.Count == 1) {
-        //                 ActivateResource(internalResourceList[0]);
-        //             }
-        //         }
-        //     }
-        // }
     }
 }

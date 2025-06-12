@@ -138,15 +138,33 @@ namespace LibMMD.Unity3D
 				_textureLoader.Dispose ();
 			}
 		}
-			
-		private static Shader GetShader(MmdMaterial mmdMaterial, MmdUnityConfig config, bool isTransparent)
+					private static Shader GetShader(MmdMaterial mmdMaterial, MmdUnityConfig config, bool isTransparent)
 		{
-			// 强制使用HDRP MMDUnlitShader
+			// 首先尝试使用HDRP MMDUnlitShader
 			var ret = Shader.Find("Shader Graphs/MMDUnlitShader");
+			if (ret != null)
+			{
+				Debug.Log("Using HDRP MMDUnlitShader");
+				return ret;
+			}
+			
+			// 如果找不到HDRP Shader，使用标准MMD Shader
+			Debug.LogWarning("Can't find shader Shader Graphs/MMDUnlitShader, falling back to standard MMD shader");
+			var shaderName = BuildShaderName(mmdMaterial, config, isTransparent);
+			ret = Shader.Find(shaderName);
+			
 			if (ret == null)
 			{
-				Debug.LogWarning("Can't find shader Shader Graphs/MMDLitShader");
+				Debug.LogWarning($"Can't find shader {shaderName}, using default MMD/PMDMaterial");
+				ret = Shader.Find("MMD/PMDMaterial");
 			}
+			
+			if (ret == null)
+			{
+				Debug.LogError("No suitable MMD shader found, using Standard shader as fallback");
+				ret = Shader.Find("Standard");
+			}
+			
 			return ret;
 		}
 

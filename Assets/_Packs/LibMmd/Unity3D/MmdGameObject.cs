@@ -11,10 +11,20 @@ using LibMMD.Util;
 using UnityEngine;
 
 namespace LibMMD.Unity3D
-{
-    public class MmdGameObject : MonoBehaviour
+{    public class MmdGameObject : MonoBehaviour
     {
-        private static readonly BonePoseCalculatorWorker BonePoseCalculatorWorker = new BonePoseCalculatorWorker();
+        private static BonePoseCalculatorWorker _bonePoseCalculatorWorker;
+        private static BonePoseCalculatorWorker BonePoseCalculatorWorker
+        {
+            get
+            {
+                if (_bonePoseCalculatorWorker == null)
+                {
+                    _bonePoseCalculatorWorker = new BonePoseCalculatorWorker();
+                }
+                return _bonePoseCalculatorWorker;
+            }
+        }
         
         public enum MmdEvent
         {
