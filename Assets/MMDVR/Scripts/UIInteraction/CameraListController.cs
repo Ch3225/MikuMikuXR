@@ -10,13 +10,12 @@ using MMDVR.Managers;
 /// </summary>
 public class CameraListController : MonoBehaviour
 {
-    public static CameraListController Instance { get; private set; }
-
-    [Header("UI References")]
+    public static CameraListController Instance { get; private set; }    [Header("UI References")]
     public GameObject listItemPrefab;
     public Transform listContainer;
     public DropZone listSortableAreaDropZone;
     public DropZone uninstallDropZone;
+    public DropZone enableDropZone;
 
     private List<IResourceInfo> internalResourceList = new List<IResourceInfo>();
     private List<GameObject> uiListItemObjects = new List<GameObject>();
@@ -29,9 +28,7 @@ public class CameraListController : MonoBehaviour
             return;
         }
         Instance = this;
-    }
-
-    void Start()
+    }    void Start()
     {
         if (listItemPrefab == null || listContainer == null)
         {
@@ -39,22 +36,49 @@ public class CameraListController : MonoBehaviour
             enabled = false;
             return;
         }
-
-        // 设置拖拽事件
+          // 自动查找并绑定DropzoneUnload
+        DropZone dropzoneUnload = GameObject.Find("DropzoneUnload")?.GetComponent<DropZone>();
+        if (dropzoneUnload != null)
+        {
+            dropzoneUnload.onItemDropped.AddListener(HandleDropOnUninstallZone);
+            Debug.Log("CameraListController: Auto-found and bound HandleDropOnUninstallZone to DropzoneUnload");
+        }
+        else
+        {
+            Debug.LogError("CameraListController: Could not find DropzoneUnload GameObject in scene!");
+        }
+        
+        // 备用：查找所有Action Type为Uninstall的DropZone并绑定
+        DropZone[] allDropZones = FindObjectsOfType<DropZone>();
+        foreach (DropZone dz in allDropZones)
+        {
+            if (dz.actionType == DropZone.DropActionType.Uninstall)
+            {
+                dz.onItemDropped.AddListener(HandleDropOnUninstallZone);
+                Debug.Log($"CameraListController: Bound HandleDropOnUninstallZone to Uninstall DropZone: {dz.gameObject.name}");
+            }
+        }
+        
         if (listSortableAreaDropZone != null)
         {
             listSortableAreaDropZone.onItemDropped.AddListener(HandleDropOnListArea);
+            Debug.Log("CameraListController: Bound HandleDropOnListArea to listSortableAreaDropZone");
         }
         if (uninstallDropZone != null)
         {
             uninstallDropZone.onItemDropped.AddListener(HandleDropOnUninstallZone);
+            Debug.Log("CameraListController: Bound HandleDropOnUninstallZone to uninstallDropZone (Inspector)");
+        }
+        if (enableDropZone != null)
+        {
+            enableDropZone.onItemDropped.AddListener(HandleDropOnEnableZone);
+            Debug.Log("CameraListController: Bound HandleDropOnEnableZone to enableDropZone");
         }
 
-        // 监听事件
+        // 统一刷新机制：只通过事件刷新
         EventManager.OnCameraListChanged += RefreshResourceListUI;
-        EventManager.OnCameraActivated += OnCameraActivated;
-
-        LoadAndDisplayItems();
+        // 启动时主动刷新一次
+        RefreshResourceListUI();
     }
 
     void OnDestroy()
@@ -176,36 +200,36 @@ public class CameraListController : MonoBehaviour
         }
 
         UpdateAllItemVisuals();
-    }
-
-    public void HandleDropOnUninstallZone(GameObject droppedGameObject)
+    }    public void HandleDropOnUninstallZone(GameObject droppedGameObject)
     {
         Debug.Log("=== CameraListController: HandleDropOnUninstallZone called ===");
-        
         DraggableItem draggableItem = droppedGameObject.GetComponent<DraggableItem>();
         if (draggableItem == null || draggableItem.Data == null) 
         {
             Debug.LogWarning("DraggableItem or Data is null");
+            RefreshResourceListUI();
             return;
         }
-
         UICameraData droppedCamData = draggableItem.Data as UICameraData;
         if (droppedCamData == null)
         {
             Debug.LogWarning("Dropped item is not a valid CameraData.");
+            RefreshResourceListUI();
             return;
         }
-
         Debug.Log($"Dropped camera data: {droppedCamData.DisplayName}, FilePath: {droppedCamData.FilePath}, isFreeCamera: {droppedCamData.isFreeCamera}");
-
         // 不能删除Free Camera
         if (droppedCamData.isFreeCamera)
         {
             Debug.Log("Attempted to uninstall Free Camera. This action is blocked.");
-            RefreshResourceListUI(); // 确保UI一致性
+            RefreshResourceListUI();
             return; 
         }
-
+        // 如果是当前激活摄像机，先切换到Free Camera
+        if (SceneStatesManager.Instance != null && SceneStatesManager.Instance.currentActiveCameraId == droppedCamData.ID)
+        {
+            SceneStatesManager.Instance.ActivateCamera("BUILTIN_FREE_CAMERA");
+        }
         // 通过SceneStatesManager删除摄像机资源
         if (SceneStatesManager.Instance != null)
         {
@@ -216,8 +240,32 @@ public class CameraListController : MonoBehaviour
         {
             Debug.LogError("SceneStatesManager.Instance is null!");
         }
+        // 拖拽后强制刷新UI，防止布局异常
+        RefreshResourceListUI();
+    }
 
-        // UI刷新会由事件触发
+    // 添加一个简化的备用方法，用于Unity Inspector绑定
+    public void OnCameraDroppedForUninstall(GameObject droppedObject)
+    {
+        HandleDropOnUninstallZone(droppedObject);
+    }
+
+    public void HandleDropOnEnableZone(GameObject droppedGameObject)
+    {
+        DraggableItem draggableItem = droppedGameObject.GetComponent<DraggableItem>();
+        if (draggableItem == null || draggableItem.Data == null) 
+            return;
+
+        UICameraData droppedCamData = draggableItem.Data as UICameraData;
+        if (droppedCamData == null)
+            return;
+
+        // 拖拽到Enable区域 = 激活该摄像机
+        if (SceneStatesManager.Instance != null)
+        {
+            SceneStatesManager.Instance.SetActiveCamera(droppedCamData.ID);
+            Debug.Log($"Activated Camera via Enable zone: {droppedCamData.DisplayName}");
+        }
     }
 
     // 通过索引获取资源信息，用于向后兼容

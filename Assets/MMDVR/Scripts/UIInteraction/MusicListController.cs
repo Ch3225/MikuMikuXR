@@ -12,10 +12,10 @@ public class MusicListController : MonoBehaviour
     public static MusicListController Instance { get; private set; }
 
     [Header("UI References")]
-    public GameObject listItemPrefab;
-    public Transform listContainer;
+    public GameObject listItemPrefab;    public Transform listContainer;
     public DropZone listSortableAreaDropZone;
     public DropZone uninstallDropZone;
+    public DropZone enableDropZone;
 
     private List<GameObject> uiListItemObjects = new List<GameObject>();
     private List<IResourceInfo> internalResourceList = new List<IResourceInfo>();
@@ -38,7 +38,6 @@ public class MusicListController : MonoBehaviour
             enabled = false;
             return;
         }
-
         if (listSortableAreaDropZone != null)
         {
             listSortableAreaDropZone.onItemDropped.AddListener(HandleDropOnListArea);
@@ -47,11 +46,15 @@ public class MusicListController : MonoBehaviour
         {
             uninstallDropZone.onItemDropped.AddListener(HandleDropOnUninstallZone);
         }
+        if (enableDropZone != null)
+        {
+            enableDropZone.onItemDropped.AddListener(HandleDropOnEnableZone);
+        }
 
-        // 监听事件
+        // 统一刷新机制：只通过事件刷新
         EventManager.OnMusicListChanged += RefreshResourceListUI;
-
-        LoadAndDisplayItems();
+        // 启动时主动刷新一次
+        RefreshResourceListUI();
     }
 
     void OnDestroy()
@@ -114,12 +117,15 @@ public class MusicListController : MonoBehaviour
         {
             IResourceInfo resourceData = internalResourceList[i];
             GameObject listItemGO = Instantiate(listItemPrefab, listContainer);
-            listItemGO.name = resourceData.Type + "_Item_" + resourceData.DisplayName.Replace(" ", "");
-
-            DraggableItem draggableItem = listItemGO.GetComponent<DraggableItem>();
+            listItemGO.name = resourceData.Type + "_Item_" + resourceData.DisplayName.Replace(" ", "");            DraggableItem draggableItem = listItemGO.GetComponent<DraggableItem>();
             if (draggableItem != null)
             {
                 draggableItem.Data = resourceData;
+                Debug.Log($"[MusicListController] 设置DraggableItem.Data: ID={resourceData.ID}, DisplayName={resourceData.DisplayName}, Type={resourceData.Type}");
+            }
+            else
+            {
+                Debug.LogError($"[MusicListController] listItemPrefab上没有DraggableItem组件！");
             }
 
             TextMeshProUGUI titleText = listItemGO.GetComponentInChildren<TextMeshProUGUI>();
@@ -172,40 +178,79 @@ public class MusicListController : MonoBehaviour
         }
 
         UpdateAllItemVisuals();
-    }
-
-    public void HandleDropOnUninstallZone(GameObject droppedGameObject)
+    }    public void HandleDropOnUninstallZone(GameObject droppedGameObject)
     {
         Debug.Log("=== MusicListController: HandleDropOnUninstallZone called ===");
-        
         DraggableItem draggableItem = droppedGameObject.GetComponent<DraggableItem>();
-        if (draggableItem == null || draggableItem.Data == null) 
+        if (draggableItem == null) 
         {
-            Debug.LogWarning("DraggableItem or Data is null");
+            Debug.LogError("[MusicListController] DraggableItem组件为null！");
+            RefreshResourceListUI();
             return;
         }
-
+        
+        if (draggableItem.Data == null)
+        {
+            Debug.LogError("[MusicListController] DraggableItem.Data为null！这是核心问题！");
+            RefreshResourceListUI();
+            return;
+        }
+        
+        Debug.Log($"[MusicListController] DraggableItem.Data不为null，类型：{draggableItem.Data.GetType().Name}");
+        
         MusicData droppedMusicData = draggableItem.Data as MusicData;
         if (droppedMusicData == null)
         {
-            Debug.LogWarning("Dropped item is not a valid MusicData.");
+            Debug.LogError($"[MusicListController] 无法转换为MusicData！实际类型：{draggableItem.Data.GetType().Name}");
+            RefreshResourceListUI();
             return;
         }
-
-        Debug.Log($"Dropped music data: {droppedMusicData.DisplayName}, FilePath: {droppedMusicData.FilePath}");
-
+        
+        if (string.IsNullOrEmpty(droppedMusicData.ID))
+        {
+            Debug.LogError($"[MusicListController] MusicData.ID为空！DisplayName: {droppedMusicData.DisplayName}");
+            RefreshResourceListUI();
+            return;
+        }
+        
+        Debug.Log($"[MusicListController] 准备删除音乐: ID={droppedMusicData.ID}, DisplayName={droppedMusicData.DisplayName}");
+        
+        // 如果是当前播放音乐，先暂停
+        if (SceneStatesManager.Instance != null && SceneStatesManager.Instance.currentActiveMusicId == droppedMusicData.ID)
+        {
+            SceneStatesManager.Instance.Pause();
+            SceneStatesManager.Instance.currentActiveMusicId = null;
+        }
         // 通过SceneStatesManager删除音乐资源
         if (SceneStatesManager.Instance != null)
         {
             SceneStatesManager.Instance.RemoveMusicResource(droppedMusicData.ID);
-            Debug.Log($"Requested uninstall for Music: {droppedMusicData.DisplayName}");
+            Debug.Log($"[MusicListController] 已调用RemoveMusicResource: {droppedMusicData.DisplayName}");
         }
         else
         {
             Debug.LogError("SceneStatesManager.Instance is null!");
         }
+        // 拖拽后强制刷新UI，防止布局异常
+        RefreshResourceListUI();
+    }
 
-        // UI刷新会由事件触发
+    public void HandleDropOnEnableZone(GameObject droppedGameObject)
+    {
+        DraggableItem draggableItem = droppedGameObject.GetComponent<DraggableItem>();
+        if (draggableItem == null || draggableItem.Data == null) 
+            return;
+
+        MusicData droppedMusicData = draggableItem.Data as MusicData;
+        if (droppedMusicData == null)
+            return;
+
+        // 拖拽到Enable区域 = 激活该音乐
+        if (SceneStatesManager.Instance != null)
+        {
+            SceneStatesManager.Instance.SetActiveMusic(droppedMusicData.ID);
+            Debug.Log($"Activated Music via Enable zone: {droppedMusicData.DisplayName}");
+        }
     }
 
     // 通过索引获取资源信息，用于向后兼容

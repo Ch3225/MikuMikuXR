@@ -4,7 +4,6 @@ namespace MMDVR.Scripts.UIInteraction
         Generic,
         Music,
         Model,
-        Actor,     // 添加Actor类型
         Motion,
         Camera
     }

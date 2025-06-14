@@ -39,14 +39,23 @@ namespace MMDVR.Managers
         [Tooltip("当前运行模式")] public CameraMode currentCameraMode = CameraMode.Desktop;
 
         [Header("资源容器引用")]
-        [Tooltip("音乐资源容器")] public Transform musicContainer;
-        [Tooltip("演员资源容器")] public Transform actorContainer;
+        [Tooltip("模型资源容器")] public Transform modelContainer;
+        [Tooltip("场景演员容器")] public Transform actorContainer;
         [Tooltip("动作资源容器")] public Transform motionContainer;
         [Tooltip("摄像机资源容器")] public Transform cameraContainer;
+        [Tooltip("音乐资源容器")] public Transform musicContainer;
 
         [Header("当前激活状态")]
         public string currentActiveMusicId;
         public string currentActiveCameraId;
+
+        [Header("资源关联")]
+        [Tooltip("模型-动作关联映射")] 
+        private Dictionary<string, List<string>> modelMotionAssociations = new Dictionary<string, List<string>>();
+        
+        [Header("资源状态")]
+        [Tooltip("禁用的模型列表")]
+        private HashSet<string> disabledModelIds = new HashSet<string>();
 
         [Header("同步控制")]
         [Tooltip("播放同步器")] public MMDVR.Scripts.Synchronization.PlaybackSynchronizer synchronizer;
@@ -112,8 +121,8 @@ namespace MMDVR.Managers
             // 如果容器不存在，创建它们
             if (musicContainer == null)
                 musicContainer = CreateResourceContainer("Musics");
-            if (actorContainer == null)
-                actorContainer = CreateResourceContainer("Actors");
+            if (modelContainer == null)
+                modelContainer = CreateResourceContainer("Models");
             if (motionContainer == null)
                 motionContainer = CreateResourceContainer("Motions");
             if (cameraContainer == null)
@@ -368,14 +377,15 @@ namespace MMDVR.Managers
             
             // 通知UI更新
             EventManager.Instance?.TriggerEvent("CameraListUpdated");
-        }
-
-        public void RemoveCamera(string cameraId)
+        }        public void RemoveCamera(string cameraId)
         {
             // 不能删除内置Free Camera
             if (cameraId == "BUILTIN_FREE_CAMERA") return;
             
-            Transform cameraObj = cameraContainer.Find($"VMDCamera_{cameraId}");
+            // 在MMDCameras容器中查找VMD摄像机
+            Transform mmdCamerasContainer = cameraContainer.Find("MMDCameras");
+            Transform cameraObj = mmdCamerasContainer?.Find($"VMDCamera_{cameraId}");
+            
             if (cameraObj != null)
             {
                 // 如果正在使用这个摄像机，切换到Free Camera
@@ -384,9 +394,14 @@ namespace MMDVR.Managers
                     ActivateCamera("BUILTIN_FREE_CAMERA");
                 }
                 
-                DestroyImmediate(cameraObj.gameObject);
+                // 使用Destroy而不是DestroyImmediate，这样在运行时是安全的
+                Destroy(cameraObj.gameObject);
                 EventManager.Instance?.TriggerEvent("CameraListUpdated");
                 Debug.Log($"摄像机已移除: {cameraId}");
+            }
+            else
+            {
+                Debug.LogError($"未找到要删除的摄像机: VMDCamera_{cameraId}");
             }
         }
 
@@ -484,19 +499,42 @@ namespace MMDVR.Managers
         
         public void AddActor(string filePath)
         {
-            string id = System.Guid.NewGuid().ToString();
-            string displayName = System.IO.Path.GetFileNameWithoutExtension(filePath);
-            
-            // 创建演员资源GameObject - 使用更友好的名称
-            GameObject actorObj = new GameObject($"{displayName}_MmdGameObject");
+            string id = System.IO.Path.GetFileNameWithoutExtension(filePath); // 资源id直接用文件名
+            string displayName = id;
+
+            // 先查找modelContainer下是否已有对应ModelComponent（通过filePath）
+            ModelComponent modelComponent = null;
+            for (int i = 0; i < modelContainer.childCount; i++)
+            {
+                var child = modelContainer.GetChild(i);
+                var mc = child.GetComponent<ModelComponent>();
+                if (mc != null && mc.filePath == filePath)
+                {
+                    modelComponent = mc;
+                    break;
+                }
+            }
+            // 没有则新建
+            if (modelComponent == null)
+            {
+                GameObject modelObj = new GameObject($"Model_{id}");
+                modelObj.transform.SetParent(modelContainer);
+                modelComponent = modelObj.AddComponent<ModelComponent>();
+                modelComponent.id = id;
+                modelComponent.displayName = displayName;
+                modelComponent.filePath = filePath;
+            }
+
+            // 创建演员资源GameObject
+            GameObject actorObj = new GameObject($"Actor_{id}");
             actorObj.transform.SetParent(actorContainer);
-            
+
             // 添加组件
-            var actorComponent = actorObj.AddComponent<ActorComponent>();
-            actorComponent.id = id;
-            actorComponent.displayName = displayName;
-            actorComponent.filePath = filePath;
-            
+            var actorComponent = actorObj.AddComponent<SceneActorComponent>();
+            actorComponent.modelRef = modelComponent;
+            actorComponent.actorId = modelComponent.id;
+            actorComponent.displayName = modelComponent.displayName;
+
             // 加载PMX模型
             try
             {
@@ -509,8 +547,8 @@ namespace MMDVR.Managers
                 DestroyImmediate(actorObj);
                 return;
             }
-              EventManager.Instance?.TriggerEvent("ActorListUpdated");
-        }        private void LoadPMXModel(string filePath, GameObject actorObj, ActorComponent actorComponent)
+            EventManager.Instance?.TriggerEvent("ActorListUpdated");
+        }        private void LoadPMXModel(string filePath, GameObject actorObj, SceneActorComponent actorComponent)
         {
             Debug.Log($"=== 开始加载PMX模型 ===");
             Debug.Log($"文件路径: {filePath}");
@@ -550,8 +588,8 @@ namespace MMDVR.Managers
                     
                     if (loadSuccess)
                     {
-                        actorComponent.isLoaded = true;
-                        actorComponent.isPlaceholder = false;
+                        // actorComponent.isLoaded = true;
+                        // actorComponent.isPlaceholder = false;
                         Debug.Log($"PMX模型加载成功: {filePath}");
                         Debug.Log($"模型名称: {mmdGameObject.ModelName}");
                         
@@ -604,7 +642,7 @@ namespace MMDVR.Managers
             Debug.Log($"=== PMX模型加载完成 ===");
         }
 
-        private void CreatePlaceholderModel(GameObject actorObj, ActorComponent actorComponent)
+        private void CreatePlaceholderModel(GameObject actorObj, SceneActorComponent actorComponent)
         {
             // 创建一个占位的GameObject
             var placeholder = GameObject.CreatePrimitive(PrimitiveType.Capsule);
@@ -622,7 +660,8 @@ namespace MMDVR.Managers
             }
             
             // 添加标识，表明这是占位对象
-            actorComponent.isPlaceholder = true;        }
+            // actorComponent.isPlaceholder = true;
+        }
 
         public void RemoveActor(string actorId)
         {
@@ -635,6 +674,63 @@ namespace MMDVR.Managers
             }
         }
 
+        public List<ModelData> GetModelList()
+        {
+            List<ModelData> modelList = new List<ModelData>();
+            
+            for (int i = 0; i < modelContainer.childCount; i++)
+            {
+                Transform child = modelContainer.GetChild(i);
+                var modelComponent = child.GetComponent<ModelComponent>();
+                if (modelComponent != null)
+                {
+                    modelList.Add(new ModelData
+                    {
+                        id = modelComponent.id,
+                        displayName = modelComponent.displayName,
+                        filePath = modelComponent.filePath
+                    });
+                }
+            }
+              return modelList;
+        }
+
+        /// <summary>
+        /// 移除模型资源
+        /// </summary>
+        public void RemoveModelResource(string modelId)
+        {
+            Transform modelObj = modelContainer.Find($"Model_{modelId}");
+            if (modelObj != null)
+            {
+                var modelComponent = modelObj.GetComponent<ModelComponent>();
+                if (modelComponent != null)
+                {
+                    Debug.Log($"移除模型资源: {modelComponent.displayName} (ID: {modelId})");
+                    
+                    // 断开所有关联
+                    DisconnectAllModelAssociations(modelId);
+                    
+                    // 删除对应的Actor实例
+                    for (int i = actorContainer.childCount - 1; i >= 0; i--)
+                    {
+                        Transform actorChild = actorContainer.GetChild(i);
+                        var actorComponent = actorChild.GetComponent<SceneActorComponent>();
+                        if (actorComponent != null && actorComponent.modelRef != null && actorComponent.modelRef.id == modelId)
+                        {
+                            DestroyImmediate(actorChild.gameObject);
+                        }
+                    }
+                    
+                    // 删除模型资源
+                    DestroyImmediate(modelObj.gameObject);
+                    
+                    EventManager.Instance?.TriggerEvent("ModelListChanged");
+                    EventManager.Instance?.TriggerEvent("ActorListChanged");
+                }
+            }
+        }
+        
         public List<ActorData> GetActorList()
         {
             List<ActorData> actorList = new List<ActorData>();
@@ -642,19 +738,20 @@ namespace MMDVR.Managers
             for (int i = 0; i < actorContainer.childCount; i++)
             {
                 Transform child = actorContainer.GetChild(i);
-                var actorComponent = child.GetComponent<ActorComponent>();
+                var actorComponent = child.GetComponent<SceneActorComponent>();
                 if (actorComponent != null)
                 {
                     actorList.Add(new ActorData
                     {
-                        id = actorComponent.id,
+                        id = actorComponent.actorId,
                         displayName = actorComponent.displayName,
-                        filePath = actorComponent.filePath
+                        filePath = actorComponent.modelRef != null ? actorComponent.modelRef.filePath : ""
                     });
                 }
             }
             
-            return actorList;        }
+            return actorList;
+        }
 
         // ===== 动作资源管理 =====
           public string AddMotion(string filePath)
@@ -701,17 +798,17 @@ namespace MMDVR.Managers
         {
             Transform motionObj = motionContainer.Find($"Motion_{motionId}");
             
-            // 修复：通过ActorComponent的id字段来查找Actor，而不是依赖GameObject名称
-            Transform actorTransform = null; // Renamed from actorObj to avoid conflict
-            ActorComponent currentActorComponent = null; // To store the found actor's component
+            // 修复：通过SceneActorComponent的actorId字段来查找Actor，而不是依赖GameObject名称
+            Transform actorTransform = null;
+            SceneActorComponent currentActorComponent = null;
             for (int i = 0; i < actorContainer.childCount; i++)
             {
                 Transform child = actorContainer.GetChild(i);
-                var ac = child.GetComponent<ActorComponent>(); // Renamed to ac
-                if (ac != null && ac.id == actorId)
+                var ac = child.GetComponent<SceneActorComponent>();
+                if (ac != null && ac.actorId == actorId)
                 {
                     actorTransform = child;
-                    currentActorComponent = ac; // Store the component
+                    currentActorComponent = ac;
                     break;
                 }
             }
@@ -724,35 +821,22 @@ namespace MMDVR.Managers
                 if (motionComponent != null && mmdGameObject != null && !string.IsNullOrEmpty(motionComponent.filePath))
                 {
                     try
-                    {                        // 检查VMD文件是否存在
+                    {
                         if (File.Exists(motionComponent.filePath))
                         {
-                            // 使用文件路径加载动作到MMD模型
                             mmdGameObject.LoadMotion(motionComponent.filePath);
-                              // 设置渲染配置，启用物理效果
                             mmdGameObject.UpdateConfig(new LibMMD.Unity3D.MmdUnityConfig
                             {
                                 EnableDrawSelfShadow = LibMMD.Unity3D.MmdConfigSwitch.ForceFalse,
                                 EnableCastShadow = LibMMD.Unity3D.MmdConfigSwitch.ForceFalse,
-                                // 物理模式通过PhysicsMode属性直接设置，不在Config中
                             });
-                            
-                            // 设置物理模式
                             mmdGameObject.PhysicsMode = LibMMD.Unity3D.MmdGameObject.PhysicsModeEnum.Bullet;
-                            
-                            // 在Actor中记录当前动作ID，而不是在Motion中记录Actor
-                            // Original: actorComponent.currentMotionId = motionId;
-                            if (currentActorComponent != null) // Use the stored component
-                            {
-                                currentActorComponent.currentMotionId = motionId;
-                            }
-                              // 设置时间同步 - 确保动作从当前播放时间开始
+                            // 不再在actorComponent上记录currentMotionId
                             if (isPlaying)
                             {
-                                mmdGameObject.SetMotionPos(playTime); // SetMotionPos只接受一个参数
+                                mmdGameObject.SetMotionPos(playTime);
                                 mmdGameObject.Playing = true;
                             }
-                            
                             Debug.Log($"动作 {motionComponent.displayName} 成功分配给演员 {actorId} 并启用物理效果");
                         }
                         else
@@ -784,19 +868,8 @@ namespace MMDVR.Managers
                 var motionComponent = child.GetComponent<MotionComponent>();
                 if (motionComponent != null)
                 {
-                    // 查找哪个Actor在使用这个Motion
+                    // 查找哪个Actor在使用这个Motion（此处不再支持，assignedActorId留空或后续用映射管理）
                     string assignedActorId = "";
-                    for (int j = 0; j < actorContainer.childCount; j++)
-                    {
-                        Transform actorChild = actorContainer.GetChild(j);
-                        var actorComponent = actorChild.GetComponent<ActorComponent>();
-                        if (actorComponent != null && actorComponent.currentMotionId == motionComponent.id)
-                        {
-                            assignedActorId = actorComponent.id;
-                            break;
-                        }
-                    }
-                    
                     motionList.Add(new MotionData
                     {
                         id = motionComponent.id,
@@ -806,13 +879,57 @@ namespace MMDVR.Managers
                     });
                 }
             }
-            
-            return motionList;
+              return motionList;
+        }
+
+        /// <summary>
+        /// 移除动作资源
+        /// </summary>
+        public void RemoveMotionResource(string motionId)
+        {
+            Transform motionObj = motionContainer.Find($"Motion_{motionId}");
+            if (motionObj != null)
+            {
+                var motionComponent = motionObj.GetComponent<MotionComponent>();
+                if (motionComponent != null)
+                {
+                    Debug.Log($"移除动作资源: {motionComponent.displayName} (ID: {motionId})");
+                    
+                    // 断开所有关联
+                    DisconnectAllMotionAssociations(motionId);
+                    
+                    // 删除动作资源
+                    DestroyImmediate(motionObj.gameObject);
+                    
+                    EventManager.Instance?.TriggerEvent("MotionListChanged");
+                }
+            }
+        }
+
+        /// <summary>
+        /// 获取动作数据列表（为控制器提供）
+        /// </summary>
+        public List<MotionData> GetMotionDataList()
+        {
+            return GetMotionList();
         }
 
         // ===== 播放控制 =====
           public void Play()
         {
+            // 修复：如果currentActiveMusicId无效，自动选择第一个可用音乐
+            if (string.IsNullOrEmpty(currentActiveMusicId) || musicContainer.Find($"Music_{currentActiveMusicId}") == null)
+            {
+                if (musicContainer.childCount > 0)
+                {
+                    var firstMusic = musicContainer.GetChild(0).GetComponent<MusicComponent>();
+                    if (firstMusic != null && !string.IsNullOrEmpty(firstMusic.id))
+                    {
+                        SetActiveMusic(firstMusic.id);
+                    }
+                }
+            }
+            
             if (!string.IsNullOrEmpty(currentActiveMusicId))
             {
                 Transform musicObj = musicContainer.Find($"Music_{currentActiveMusicId}");
@@ -1017,6 +1134,183 @@ namespace MMDVR.Managers
             return cameraList.Find(c => c.id == currentActiveCameraId);
         }
         
+        // ===== 模型-动作关联管理 =====
+        
+        /// <summary>
+        /// 关联模型和动作
+        /// </summary>
+        public void AssociateModelWithMotion(string modelId, string motionId)
+        {
+            if (string.IsNullOrEmpty(modelId) || string.IsNullOrEmpty(motionId))
+                return;
+                
+            if (!modelMotionAssociations.ContainsKey(modelId))
+            {
+                modelMotionAssociations[modelId] = new List<string>();
+            }
+            
+            if (!modelMotionAssociations[modelId].Contains(motionId))
+            {
+                modelMotionAssociations[modelId].Add(motionId);
+                Debug.Log($"关联模型 {modelId} 与动作 {motionId}");
+                EventManager.Instance?.TriggerEvent("ModelMotionAssociationChanged");
+            }
+        }
+        
+        /// <summary>
+        /// 取消模型和动作的关联
+        /// </summary>
+        public void DisassociateModelFromMotion(string modelId, string motionId)
+        {
+            if (modelMotionAssociations.ContainsKey(modelId))
+            {
+                if (modelMotionAssociations[modelId].Remove(motionId))
+                {
+                    Debug.Log($"取消关联模型 {modelId} 与动作 {motionId}");
+                    EventManager.Instance?.TriggerEvent("ModelMotionAssociationChanged");
+                }
+                
+                if (modelMotionAssociations[modelId].Count == 0)
+                {
+                    modelMotionAssociations.Remove(modelId);
+                }
+            }
+        }
+        
+        /// <summary>
+        /// 断开模型的所有动作关联
+        /// </summary>
+        public void DisconnectAllModelAssociations(string modelId)
+        {
+            if (modelMotionAssociations.ContainsKey(modelId))
+            {
+                modelMotionAssociations.Remove(modelId);
+                Debug.Log($"断开模型 {modelId} 的所有关联");
+                EventManager.Instance?.TriggerEvent("ModelMotionAssociationChanged");
+            }
+        }
+          /// <summary>
+        /// 断开动作的所有模型关联
+        /// </summary>
+        public void DisconnectAllMotionAssociations(string motionId)
+        {
+            var keysToUpdate = new List<string>();
+            foreach (var kvp in modelMotionAssociations)
+            {
+                if (kvp.Value.Contains(motionId))
+                {
+                    keysToUpdate.Add(kvp.Key);
+                }
+            }
+            
+            foreach (var key in keysToUpdate)
+            {
+                modelMotionAssociations[key].Remove(motionId);
+                if (modelMotionAssociations[key].Count == 0)
+                {
+                    modelMotionAssociations.Remove(key);
+                }
+            }
+            
+            if (keysToUpdate.Count > 0)
+            {
+                Debug.Log($"断开动作 {motionId} 的所有关联");
+                EventManager.Instance?.TriggerEvent("ModelMotionAssociationChanged");
+            }
+        }
+
+        /// <summary>
+        /// 获取模型关联的动作列表
+        /// </summary>
+        public List<string> GetModelAssociatedMotions(string modelId)
+        {
+            if (modelMotionAssociations.ContainsKey(modelId))
+            {
+                return new List<string>(modelMotionAssociations[modelId]);
+            }
+            return new List<string>();
+        }
+        
+        /// <summary>
+        /// 获取模型关联的动作列表
+        /// </summary>
+        public List<string> GetAssociatedMotions(string modelId)
+        {
+            if (modelMotionAssociations.ContainsKey(modelId))
+            {
+                return new List<string>(modelMotionAssociations[modelId]);
+            }
+            return new List<string>();
+        }
+        
+        /// <summary>
+        /// 获取动作关联的模型列表
+        /// </summary>
+        public List<string> GetAssociatedModels(string motionId)
+        {
+            var result = new List<string>();
+            foreach (var kvp in modelMotionAssociations)
+            {
+                if (kvp.Value.Contains(motionId))
+                {
+                    result.Add(kvp.Key);
+                }
+            }
+            return result;
+        }
+        
+        // ===== 模型状态管理 =====
+        
+        /// <summary>
+        /// 禁用模型
+        /// </summary>
+        public void DisableModel(string modelId)
+        {
+            disabledModelIds.Add(modelId);
+            UpdateModelVisibility(modelId, false);
+            Debug.Log($"禁用模型 {modelId}");
+            EventManager.Instance?.TriggerEvent("ModelStateChanged");
+        }
+        
+        /// <summary>
+        /// 启用模型
+        /// </summary>
+        public void EnableModel(string modelId)
+        {
+            if (disabledModelIds.Remove(modelId))
+            {
+                UpdateModelVisibility(modelId, true);
+                Debug.Log($"启用模型 {modelId}");
+                EventManager.Instance?.TriggerEvent("ModelStateChanged");
+            }
+        }
+        
+        /// <summary>
+        /// 检查模型是否被禁用
+        /// </summary>
+        public bool IsModelDisabled(string modelId)
+        {
+            return disabledModelIds.Contains(modelId);
+        }
+        
+        /// <summary>
+        /// 更新模型可见性
+        /// </summary>
+        private void UpdateModelVisibility(string modelId, bool visible)
+        {
+            // 查找对应的Actor GameObject并设置可见性
+            for (int i = 0; i < actorContainer.childCount; i++)
+            {
+                Transform actorChild = actorContainer.GetChild(i);
+                var actorComponent = actorChild.GetComponent<SceneActorComponent>();
+                if (actorComponent != null && actorComponent.modelRef != null && actorComponent.modelRef.id == modelId)
+                {
+                    actorChild.gameObject.SetActive(visible);
+                    break;
+                }
+            }
+        }
+        
         // ===== 测试辅助方法 =====
         
         /// <summary>
@@ -1024,16 +1318,40 @@ namespace MMDVR.Managers
         /// </summary>
         public void AddActorForTesting(string actorId, string displayName)
         {
+            string filePath = $"TestData/{displayName}.pmx";
+            string id = displayName;
+            // 先查找modelContainer下是否已有对应ModelComponent（通过filePath）
+            ModelComponent modelComponent = null;
+            for (int i = 0; i < modelContainer.childCount; i++)
+            {
+                var child = modelContainer.GetChild(i);
+                var mc = child.GetComponent<ModelComponent>();
+                if (mc != null && mc.filePath == filePath)
+                {
+                    modelComponent = mc;
+                    break;
+                }
+            }
+            // 没有则新建
+            if (modelComponent == null)
+            {
+                GameObject modelObj = new GameObject($"Model_{id}_Test");
+                modelObj.transform.SetParent(modelContainer);
+                modelComponent = modelObj.AddComponent<ModelComponent>();
+                modelComponent.id = id;
+                modelComponent.displayName = displayName;
+                modelComponent.filePath = filePath;
+            }
+
             // 创建演员资源GameObject
-            GameObject actorObj = new GameObject($"Actor_{actorId}");
+            GameObject actorObj = new GameObject($"Actor_{id}");
             actorObj.transform.SetParent(actorContainer);
             
             // 添加组件
-            var actorComponent = actorObj.AddComponent<ActorComponent>();
-            actorComponent.id = actorId;
-            actorComponent.displayName = displayName;
-            actorComponent.filePath = $"TestData/{displayName}.pmx"; // 虚拟路径
-            actorComponent.isPlaceholder = true; // 标记为测试占位符
+            var actorComponent = actorObj.AddComponent<SceneActorComponent>();
+            actorComponent.modelRef = modelComponent;
+            actorComponent.actorId = modelComponent.id;
+            actorComponent.displayName = modelComponent.displayName;
             
             // 创建可视化占位符
             var placeholder = GameObject.CreatePrimitive(PrimitiveType.Capsule);
@@ -1051,7 +1369,7 @@ namespace MMDVR.Managers
                 renderer.material = material;
             }
             
-            Debug.Log($"测试演员已添加: {displayName} (ID: {actorId})");
+            Debug.Log($"测试演员已添加: {displayName} (ID: {id})");
             EventManager.Instance?.TriggerEvent("ActorListUpdated");
         }
         
@@ -1089,6 +1407,138 @@ namespace MMDVR.Managers
             Debug.Log($"测试动作已添加: {displayName} (ID: {motionId})");
             EventManager.Instance?.TriggerEvent("MotionListUpdated");
         }
+        
+        /// <summary>
+        /// 添加模型资源（仅资源，不实例化到场景）
+        /// </summary>
+        public string AddModel(string filePath)
+        {
+            string id = System.Guid.NewGuid().ToString();
+            string displayName = System.IO.Path.GetFileNameWithoutExtension(filePath);
+
+            // 创建模型资源GameObject
+            GameObject modelObj = new GameObject($"Model_{id}");
+            modelObj.transform.SetParent(modelContainer);
+
+            // 添加组件
+            var modelComponent = modelObj.AddComponent<ModelComponent>();
+            modelComponent.id = id;
+            modelComponent.displayName = displayName;
+            modelComponent.filePath = filePath;
+
+            EventManager.OnActorListChanged?.Invoke();
+            return id;
+        }
+
+        /// <summary>
+        /// 添加动作资源（仅资源，不实例化到场景）
+        /// </summary>
+        // public string AddMotion(string filePath)
+        // {
+        //     var motionData = new MotionData
+        //     {
+        //         id = System.Guid.NewGuid().ToString(),
+        //         displayName = Path.GetFileNameWithoutExtension(filePath),
+        //         filePath = filePath
+        //     };
+        //     if (motionDataList == null) motionDataList = new List<MotionData>();
+        //     motionDataList.Add(motionData);
+        //     EventManager.OnMotionListChanged?.Invoke();
+        //     return motionData.id;
+        // }
+        
+        // ===== 通过ID获取实际GameObject和组件的核心API =====
+        
+        /// <summary>
+        /// 通过ID获取模型GameObject
+        /// </summary>
+        public GameObject GetModelObjectById(string id)
+        {
+            Transform modelObj = modelContainer.Find($"Model_{id}");
+            return modelObj?.gameObject;
+        }
+        
+        /// <summary>
+        /// 通过ID获取模型组件
+        /// </summary>
+        public ModelComponent GetModelComponentById(string id)
+        {
+            GameObject modelObj = GetModelObjectById(id);
+            return modelObj?.GetComponent<ModelComponent>();
+        }
+        
+        /// <summary>
+        /// 通过ID获取音乐GameObject
+        /// </summary>
+        public GameObject GetMusicObjectById(string id)
+        {
+            Transform musicObj = musicContainer.Find($"Music_{id}");
+            return musicObj?.gameObject;
+        }
+        
+        /// <summary>
+        /// 通过ID获取音乐组件
+        /// </summary>
+        public MusicComponent GetMusicComponentById(string id)
+        {
+            GameObject musicObj = GetMusicObjectById(id);
+            return musicObj?.GetComponent<MusicComponent>();
+        }
+        
+        /// <summary>
+        /// 通过ID获取动作GameObject
+        /// </summary>
+        public GameObject GetMotionObjectById(string id)
+        {
+            Transform motionObj = motionContainer.Find($"Motion_{id}");
+            return motionObj?.gameObject;
+        }
+        
+        /// <summary>
+        /// 通过ID获取动作组件
+        /// </summary>
+        public MotionComponent GetMotionComponentById(string id)
+        {
+            GameObject motionObj = GetMotionObjectById(id);
+            return motionObj?.GetComponent<MotionComponent>();
+        }
+        
+        /// <summary>
+        /// 通过ID获取摄像机GameObject（包括VMD摄像机和Free摄像机）
+        /// </summary>
+        public GameObject GetCameraObjectById(string id)
+        {
+            if (id == "BUILTIN_FREE_CAMERA")
+            {
+                Transform freeCamerasContainer = cameraContainer.Find("FreeCameras");
+                Transform freeCamObj = freeCamerasContainer?.Find("FreeCamera_Resource");
+                return freeCamObj?.gameObject;
+            }
+            else
+            {
+                Transform mmdCamerasContainer = cameraContainer.Find("MMDCameras");
+                Transform cameraObj = mmdCamerasContainer?.Find($"VMDCamera_{id}");
+                return cameraObj?.gameObject;
+            }
+        }
+        
+        /// <summary>
+        /// 通过ID获取演员GameObject
+        /// </summary>
+        public GameObject GetActorObjectById(string id)
+        {
+            Transform actorObj = actorContainer.Find($"Actor_{id}");
+            return actorObj?.gameObject;
+        }
+        
+        /// <summary>
+        /// 通过ID获取演员组件
+        /// </summary>
+        public SceneActorComponent GetActorComponentById(string id)
+        {
+            GameObject actorObj = GetActorObjectById(id);
+            return actorObj?.GetComponent<SceneActorComponent>();
+        }
     }
 
     // ===== 资源组件定义 =====
@@ -1103,98 +1553,25 @@ namespace MMDVR.Managers
         public string filePath;
         public AudioSource audioSource;
     }    /// <summary>
-    /// 演员组件 - 存储演员资源的元数据和运行时状态
+    /// 模型组件 - 存储模型资源的元数据
     /// </summary>
-    public class ActorComponent : MonoBehaviour
+    public class ModelComponent : MonoBehaviour
     {
         [Header("资源信息")]
         public string id;
         public string displayName;
         public string filePath;
-        public bool isLoaded = false;
-        public bool isPlaceholder = false;
-        
-        [Header("运行时状态")]
-        // 重构：支持多个Motion的映射关系
-        [SerializeField] private List<string> assignedMotionIds = new List<string>();
-        [SerializeField] private Dictionary<string, MotionInstanceData> motionInstances = new Dictionary<string, MotionInstanceData>();
-        
-        // 当前主要播放的Motion（用于UI显示和主要控制）
-        public string primaryMotionId = "";
-        
-        // mmdComponent 可以通过GetComponent获取
-        #if LIBMMD_AVAILABLE
-        private LibMMD.Unity3D.MmdGameObject mmdGameObject;
-        
-        public LibMMD.Unity3D.MmdGameObject GetMmdGameObject()
-        {
-            if (mmdGameObject == null)
-                mmdGameObject = GetComponent<LibMMD.Unity3D.MmdGameObject>();
-            return mmdGameObject;
-        }
-        #endif
-        
-        // 管理Motion映射关系的方法
-        public void AssignMotion(string motionId, bool setAsPrimary = true)
-        {
-            if (!assignedMotionIds.Contains(motionId))
-            {
-                assignedMotionIds.Add(motionId);
-                motionInstances[motionId] = new MotionInstanceData
-                {
-                    motionId = motionId,
-                    isActive = true,
-                    assignTime = System.DateTime.Now
-                };
-            }
-            
-            if (setAsPrimary)
-            {
-                primaryMotionId = motionId;
-            }
-        }
-        
-        public void UnassignMotion(string motionId)
-        {
-            if (assignedMotionIds.Contains(motionId))
-            {
-                assignedMotionIds.Remove(motionId);
-                motionInstances.Remove(motionId);
-                
-                // 如果移除的是主要Motion，重新设置
-                if (primaryMotionId == motionId)
-                {
-                    primaryMotionId = assignedMotionIds.Count > 0 ? assignedMotionIds[0] : "";
-                }
-            }
-        }
-        
-        public List<string> GetAssignedMotionIds()
-        {
-            return new List<string>(assignedMotionIds);
-        }
-        
-        public bool HasMotionAssigned(string motionId)
-        {
-            return assignedMotionIds.Contains(motionId);
-        }
-        
-        // 为了兼容现有代码，保留currentMotionId属性
-        [System.Obsolete("Use primaryMotionId instead")]
-        public string currentMotionId
-        {
-            get { return primaryMotionId; }
-            set { 
-                if (!string.IsNullOrEmpty(value))
-                {
-                    AssignMotion(value, true);
-                }
-                else
-                {
-                    primaryMotionId = "";
-                }
-            }
-        }
+    }
+
+    /// <summary>
+    /// 场景演员组件 - 存储场景中演员的元数据和运行时状态
+    /// </summary>
+    public class SceneActorComponent : MonoBehaviour
+    {
+        [Header("唯一关联的Model")]
+        public ModelComponent modelRef;
+        public string actorId; // == modelRef.id
+        public string displayName; // == modelRef.displayName
     }
     
     /// <summary>
@@ -1295,10 +1672,21 @@ namespace MMDVR.Managers
         public string displayName;
         public string filePath;
 
+        public string ID => id;        public string DisplayName => displayName;
+        public string FilePath => filePath;
+        public ResourceType Type => ResourceType.Model;
+    }
+
+    public class ModelData : IResourceInfo
+    {
+        public string id;
+        public string displayName;
+        public string filePath;
+
         public string ID => id;
         public string DisplayName => displayName;
         public string FilePath => filePath;
-        public ResourceType Type => ResourceType.Actor;
+        public ResourceType Type => ResourceType.Model;
     }
 
     public class MotionData : IResourceInfo

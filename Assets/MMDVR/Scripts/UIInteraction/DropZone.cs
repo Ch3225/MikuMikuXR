@@ -10,19 +10,17 @@ using System.Linq; // Added for LINQ's Select method
 public class GameObjectUnityEvent : UnityEvent<GameObject> { }
 
 public class DropZone : MonoBehaviour, IDropHandler, IPointerEnterHandler, IPointerExitHandler
-{
-    // NEW: Enum to define the action this drop zone performs
+{    // NEW: Enum to define the action this drop zone performs
     public enum DropActionType
     {
         None,
-        SortAndActivate,          // For list sorting and activating the first item
+        SortAndActivate,          // For list sorting and activating items
         Uninstall,                // For uninstalling any resource type
-        LinkToModel,              // Example: Dragging a motion onto a model item
-        LinkToMotion,             // Example: Dragging a model onto a motion item
-        // Add other specific actions as needed
-        ModelEnable, 
-        ModelDisable,
-        ModelDisconnectMotion
+        LinkToModel,              // Dragging a motion onto a model item
+        LinkToMotion,             // Dragging a model onto a motion item
+        EnableDisable,            // Enable/Disable models, Activate music/camera
+        Disconnect,               // Disconnect all associations
+        ListSort                  // For sorting within lists
     }
     public DropActionType actionType = DropActionType.None; 
 

@@ -1,0 +1,346 @@
+using UnityEngine;
+using System.Collections.Generic;
+using TMPro;
+using MMDVR.Scripts.UIInteraction;
+using MMDVR.Managers; // 确保 ModelData/MotionData/MusicData 类型引用
+
+/// <summary>
+/// 模型列表控制器 - 管理模型资源（resources）的列表展示和拖拽功能
+/// </summary>
+public class ModelListController : MonoBehaviour
+{
+    public static ModelListController Instance { get; private set; }
+
+    [Header("UI References")]
+    public GameObject listItemPrefab;
+    public Transform listContainer;
+    public DropZone listSortableAreaDropZone;
+    public DropZone uninstallDropZone;
+    public DropZone enableDropZone;
+    public DropZone disableDropZone;
+    public DropZone disconnectDropZone;
+
+    private List<GameObject> uiListItemObjects = new List<GameObject>();
+    private List<IResourceInfo> internalResourceList = new List<IResourceInfo>();
+
+    void Awake()
+    {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+        Instance = this;
+    }
+
+    void Start()
+    {
+        if (listItemPrefab == null || listContainer == null)
+        {
+            Debug.LogError("ModelListController: UI References not set!");
+            enabled = false;
+            return;
+        }
+
+        // 配置各种DropZone处理器
+        if (listSortableAreaDropZone != null)
+        {
+            listSortableAreaDropZone.onItemDropped.AddListener(HandleDropOnListArea);
+        }
+        if (uninstallDropZone != null)
+        {
+            uninstallDropZone.onItemDropped.AddListener(HandleDropOnUninstallZone);
+        }
+        if (enableDropZone != null)
+        {
+            enableDropZone.onItemDropped.AddListener(HandleDropOnEnableZone);
+        }
+        if (disableDropZone != null)
+        {
+            disableDropZone.onItemDropped.AddListener(HandleDropOnDisableZone);
+        }
+        if (disconnectDropZone != null)
+        {
+            disconnectDropZone.onItemDropped.AddListener(HandleDropOnDisconnectZone);
+        }
+
+        // 监听事件（修正为直接用 += 绑定静态事件）
+        EventManager.OnActorListChanged += RefreshList;
+        EventManager.OnMotionListChanged += UpdateAllItemVisuals;
+        // 如有 ModelStateChanged、ModelMotionAssociationChanged 事件，也应在 EventManager 中声明为 public static Action
+        // EventManager.OnModelStateChanged += UpdateAllItemVisuals;
+        // EventManager.OnModelMotionAssociationChanged += UpdateAllItemVisuals;
+
+        RefreshList();
+    }
+
+    void OnDestroy()
+    {
+        EventManager.OnActorListChanged -= RefreshList;
+        EventManager.OnMotionListChanged -= UpdateAllItemVisuals;
+        // EventManager.OnModelStateChanged -= UpdateAllItemVisuals;
+        // EventManager.OnModelMotionAssociationChanged -= UpdateAllItemVisuals;
+    }
+
+    public void RefreshList()
+    {
+        // 清除现有UI项
+        foreach (GameObject item in uiListItemObjects)
+        {
+            if (item != null) Destroy(item);
+        }
+        uiListItemObjects.Clear();
+
+        // 重新获取最新数据
+        if (SceneStatesManager.Instance != null)
+        {
+            internalResourceList.Clear();
+            var modelDataList = SceneStatesManager.Instance.GetModelList();
+            foreach (var modelData in modelDataList)
+            {
+                internalResourceList.Add(modelData);
+            }
+        }
+
+        // 为每个资源创建UI项
+        for (int i = 0; i < internalResourceList.Count; i++)
+        {
+            IResourceInfo resourceData = internalResourceList[i];
+            GameObject listItemGO = Instantiate(listItemPrefab, listContainer);
+            listItemGO.name = resourceData.Type + "_Item_" + resourceData.DisplayName.Replace(" ", "");            DraggableItem draggableItem = listItemGO.GetComponent<DraggableItem>();
+            if (draggableItem != null)
+            {
+                draggableItem.Data = resourceData;
+                Debug.Log($"[ModelListController] 设置DraggableItem.Data: ID={resourceData.ID}, DisplayName={resourceData.DisplayName}, Type={resourceData.Type}");
+            }
+            else
+            {
+                Debug.LogError($"[ModelListController] listItemPrefab上没有DraggableItem组件！");
+            }
+
+            TextMeshProUGUI titleText = listItemGO.GetComponentInChildren<TextMeshProUGUI>();
+            if (titleText != null)
+            {
+                titleText.text = resourceData.DisplayName;
+            }
+
+            // 添加点击事件监听 - 模型不需要激活逻辑，但可以用于选择或其他操作
+            UnityEngine.UI.Button button = listItemGO.GetComponent<UnityEngine.UI.Button>();
+            if (button == null)
+                button = listItemGO.AddComponent<UnityEngine.UI.Button>();
+            
+            var resourceDataCopy = resourceData;
+            button.onClick.AddListener(() => SelectModel(resourceDataCopy));
+
+            uiListItemObjects.Add(listItemGO);
+        }
+
+        UpdateAllItemVisuals();
+    }
+
+    public void HandleDropOnListArea(GameObject droppedGameObject)
+    {
+        DraggableItem droppedItemComponent = droppedGameObject.GetComponent<DraggableItem>();
+        if (droppedItemComponent == null || droppedItemComponent.Data == null) 
+            return;
+
+        // 支持模型列表内排序 和 动作拖到模型上建立关联
+        if (droppedItemComponent.Data is ModelData)
+        {
+            // 重新构建内部列表基于UI顺序（列表排序）
+            List<IResourceInfo> newOrderedInternalList = new List<IResourceInfo>();
+            for (int i = 0; i < listContainer.childCount; i++)
+            {
+                Transform child = listContainer.GetChild(i);
+                DraggableItem item = child.GetComponent<DraggableItem>();
+                if (item != null && item.Data != null)
+                {
+                    newOrderedInternalList.Add(item.Data);
+                }
+            }
+            internalResourceList = newOrderedInternalList;
+
+            Debug.Log("模型列表重新排序");
+            UpdateAllItemVisuals();
+        }
+        else if (droppedItemComponent.Data is MotionData)
+        {
+            // 动作拖到模型列表区域，需要确定具体拖到哪个模型上
+            // 这需要更精确的拖拽检测，暂时简化为拖到第一个模型
+            if (internalResourceList.Count > 0 && internalResourceList[0] is ModelData)
+            {
+                var motionData = droppedItemComponent.Data as MotionData;
+                var modelData = internalResourceList[0] as ModelData;
+                
+                if (SceneStatesManager.Instance != null)
+                {
+                    SceneStatesManager.Instance.AssociateModelWithMotion(modelData.ID, motionData.ID);
+                    Debug.Log($"关联动作 {motionData.DisplayName} 到模型 {modelData.DisplayName}");
+                }
+            }
+        }
+    }
+
+    public void HandleDropOnUninstallZone(GameObject droppedGameObject)
+    {
+        Debug.Log("=== ModelListController: HandleDropOnUninstallZone called ===");
+        DraggableItem draggableItem = droppedGameObject.GetComponent<DraggableItem>();
+        if (draggableItem == null || draggableItem.Data == null) 
+        {
+            Debug.LogWarning("DraggableItem or Data is null");
+            RefreshList();
+            return;
+        }
+        ModelData droppedModelData = draggableItem.Data as ModelData;
+        if (droppedModelData == null)
+        {
+            Debug.LogWarning("Dropped item is not a valid ModelData.");
+            RefreshList();
+            return;
+        }
+        Debug.Log($"Dropped model data: {droppedModelData.DisplayName}, FilePath: {droppedModelData.FilePath}");
+        // 通过SceneStatesManager删除模型资源（内部会删除资源、场景实例、更新映射）
+        if (SceneStatesManager.Instance != null)
+        {
+            SceneStatesManager.Instance.RemoveModelResource(droppedModelData.ID);
+            Debug.Log($"Requested uninstall for Model: {droppedModelData.DisplayName}");
+        }
+        else
+        {
+            Debug.LogError("SceneStatesManager.Instance is null!");
+        }
+        // 拖拽后强制刷新UI，防止布局异常
+        RefreshList();
+    }
+
+    public void HandleDropOnEnableZone(GameObject droppedGameObject)
+    {
+        DraggableItem draggableItem = droppedGameObject.GetComponent<DraggableItem>();
+        if (draggableItem == null || draggableItem.Data == null) 
+            return;
+
+        ModelData droppedModelData = draggableItem.Data as ModelData;
+        if (droppedModelData == null)
+            return;
+
+        if (SceneStatesManager.Instance != null)
+        {
+            SceneStatesManager.Instance.EnableModel(droppedModelData.ID);
+            Debug.Log($"Enabled Model: {droppedModelData.DisplayName}");
+        }
+    }
+
+    public void HandleDropOnDisableZone(GameObject droppedGameObject)
+    {
+        DraggableItem draggableItem = droppedGameObject.GetComponent<DraggableItem>();
+        if (draggableItem == null || draggableItem.Data == null) 
+            return;
+
+        ModelData droppedModelData = draggableItem.Data as ModelData;
+        if (droppedModelData == null)
+            return;
+
+        if (SceneStatesManager.Instance != null)
+        {
+            SceneStatesManager.Instance.DisableModel(droppedModelData.ID);
+            Debug.Log($"Disabled Model: {droppedModelData.DisplayName}");
+        }
+    }
+
+    public void HandleDropOnDisconnectZone(GameObject droppedGameObject)
+    {
+        DraggableItem draggableItem = droppedGameObject.GetComponent<DraggableItem>();
+        if (draggableItem == null || draggableItem.Data == null) 
+            return;
+
+        ModelData droppedModelData = draggableItem.Data as ModelData;
+        if (droppedModelData == null)
+            return;
+
+        if (SceneStatesManager.Instance != null)
+        {
+            SceneStatesManager.Instance.DisconnectAllModelAssociations(droppedModelData.ID);
+            Debug.Log($"Disconnected all associations for Model: {droppedModelData.DisplayName}");
+        }
+    }
+
+    // 通过索引获取资源信息，用于向后兼容
+    public IResourceInfo GetResourceInfoAt(int index)
+    {
+        if (index >= 0 && index < internalResourceList.Count)
+        {
+            return internalResourceList[index];
+        }
+        Debug.LogWarning($"ModelListController.GetResourceInfoAt: Index {index} is out of bounds for internalResourceList count {internalResourceList.Count}.");
+        return null;
+    }
+
+    // 选择模型（点击或其他方式）
+    void SelectModel(IResourceInfo resourceData)
+    {
+        if (!(resourceData is ModelData)) return;
+        ModelData modelDataToSelect = resourceData as ModelData;
+
+        Debug.Log($"Selecting Model: {modelDataToSelect.DisplayName}");
+        
+        // 模型选择逻辑可以在这里添加，比如高亮显示等
+        // 暂时只是日志输出
+    }
+
+    void UpdateAllItemVisuals()
+    {
+        HashSet<string> disabledModelIds = new HashSet<string>();
+        Dictionary<string, List<string>> modelMotionAssociations = new Dictionary<string, List<string>>();
+        
+        if (SceneStatesManager.Instance != null)
+        {
+            // 获取禁用的模型ID列表和模型-动作关联
+            for (int i = 0; i < internalResourceList.Count; i++)
+            {
+                if (internalResourceList[i] is ModelData modelData)
+                {
+                    if (SceneStatesManager.Instance.IsModelDisabled(modelData.ID))
+                    {
+                        disabledModelIds.Add(modelData.ID);
+                    }
+                }
+            }
+        }
+
+        for (int i = 0; i < uiListItemObjects.Count; i++)
+        {
+            GameObject uiItemGO = uiListItemObjects[i];
+            DraggableItem draggable = uiItemGO.GetComponent<DraggableItem>();
+            if (draggable != null && draggable.Data != null && draggable.Data is ModelData)
+            {
+                ModelData currentItemModelData = draggable.Data as ModelData;
+                bool isDisabled = disabledModelIds.Contains(currentItemModelData.ID);
+                UpdateItemVisual(uiItemGO, currentItemModelData, isDisabled);
+            }
+        }
+    }
+
+    void UpdateItemVisual(GameObject itemGO, ModelData modelData, bool isDisabled)
+    {
+        UnityEngine.UI.Image bgImage = itemGO.GetComponent<UnityEngine.UI.Image>();
+        if (bgImage != null)
+        {
+            if (isDisabled)
+            {
+                bgImage.color = Color.gray; // 禁用状态为灰色
+            }
+            else
+            {
+                bgImage.color = Color.white; // 正常状态为白色
+            }
+        }
+
+        // 可以添加其他视觉指示器，如关联数量标记等
+        Transform associationIndicator = itemGO.transform.Find("AssociationIndicator");
+        if (associationIndicator != null)
+        {
+            // 显示关联的动作数量等信息
+            associationIndicator.gameObject.SetActive(!isDisabled);
+        }
+    }
+}

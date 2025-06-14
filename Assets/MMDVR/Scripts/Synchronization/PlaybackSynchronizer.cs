@@ -174,13 +174,16 @@ namespace MMDVR.Scripts.Synchronization
             for (int i = 0; i < sceneManager.actorContainer.childCount; i++)
             {
                 Transform actorObj = sceneManager.actorContainer.GetChild(i);
-                var actorComponent = actorObj.GetComponent<ActorComponent>();
-                if (actorComponent != null && !string.IsNullOrEmpty(actorComponent.currentMotionId))
+                var actorComponent = actorObj.GetComponent<SceneActorComponent>();
+                if (actorComponent != null)
                 {
-                    var mmdGameObject = actorObj.GetComponent<LibMMD.Unity3D.MmdGameObject>();                    if (mmdGameObject != null)
+                    var mmdGameObject = actorObj.GetComponent<LibMMD.Unity3D.MmdGameObject>();
+                    if (mmdGameObject != null)
                     {
-                        // 使用LibMMD的精确时间设置，启用物理效果
-                        mmdGameObject.SetMotionPos(adjustedTime); // SetMotionPos只接受一个参数
+                        if (hardUpdate) // 只有强制同步时才设置动作进度
+                        {
+                            mmdGameObject.SetMotionPos(adjustedTime);
+                        }
                         mmdGameObject.Playing = sceneManager.isPlaying;
                     }
                 }
