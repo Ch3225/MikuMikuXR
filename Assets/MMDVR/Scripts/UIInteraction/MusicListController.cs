@@ -90,22 +90,40 @@ public class MusicListController : MonoBehaviour
         }
 
         RefreshResourceListUI();
-    }
-
-    void RefreshResourceListUI()
+    }    void RefreshResourceListUI()
     {
-        // 清除现有UI项
-        foreach (Transform child in listContainer)
+        Debug.Log($"MusicListController: RefreshResourceListUI called. Current UI items count: {uiListItemObjects.Count}");
+        
+        // 立即销毁现有UI项
+        foreach (GameObject obj in uiListItemObjects)
         {
-            Destroy(child.gameObject);
+            if (obj != null)
+            {
+                DestroyImmediate(obj);
+            }
         }
         uiListItemObjects.Clear();
+        
+        // 额外确保容器完全清空
+        List<Transform> childrenToDestroy = new List<Transform>();
+        foreach (Transform child in listContainer)
+        {
+            childrenToDestroy.Add(child);
+        }
+        foreach (Transform child in childrenToDestroy)
+        {
+            if (child != null)
+            {
+                DestroyImmediate(child.gameObject);
+            }
+        }
 
         // 重新获取最新数据
         if (SceneStatesManager.Instance != null)
         {
             internalResourceList.Clear();
             var musicDataList = SceneStatesManager.Instance.GetMusicDataList();
+            Debug.Log($"MusicListController: Refreshed data. Music count: {musicDataList.Count}");
             foreach (var musicData in musicDataList)
             {
                 internalResourceList.Add(musicData);
@@ -113,11 +131,12 @@ public class MusicListController : MonoBehaviour
         }
 
         // 为每个资源创建UI项
+        Debug.Log($"[DEBUG] 准备创建 {internalResourceList.Count} 个UI项");
         for (int i = 0; i < internalResourceList.Count; i++)
         {
             IResourceInfo resourceData = internalResourceList[i];
             GameObject listItemGO = Instantiate(listItemPrefab, listContainer);
-            listItemGO.name = resourceData.Type + "_Item_" + resourceData.DisplayName.Replace(" ", "");            DraggableItem draggableItem = listItemGO.GetComponent<DraggableItem>();
+            listItemGO.name = resourceData.Type + "_Item_" + resourceData.DisplayName.Replace(" ", "");DraggableItem draggableItem = listItemGO.GetComponent<DraggableItem>();
             if (draggableItem != null)
             {
                 draggableItem.Data = resourceData;
@@ -182,38 +201,24 @@ public class MusicListController : MonoBehaviour
     {
         Debug.Log("=== MusicListController: HandleDropOnUninstallZone called ===");
         DraggableItem draggableItem = droppedGameObject.GetComponent<DraggableItem>();
-        if (draggableItem == null) 
+        if (draggableItem == null || draggableItem.Data == null) 
         {
-            Debug.LogError("[MusicListController] DraggableItem组件为null！");
-            RefreshResourceListUI();
+            Debug.LogWarning("MusicListController: DraggableItem or Data is null");
             return;
         }
-        
-        if (draggableItem.Data == null)
-        {
-            Debug.LogError("[MusicListController] DraggableItem.Data为null！这是核心问题！");
-            RefreshResourceListUI();
-            return;
-        }
-        
-        Debug.Log($"[MusicListController] DraggableItem.Data不为null，类型：{draggableItem.Data.GetType().Name}");
-        
+        Debug.Log($"MusicListController: Data type: {draggableItem.Data.GetType().Name}, Data.Type: {(draggableItem.Data as IResourceInfo)?.Type}, Data.ID: {(draggableItem.Data as IResourceInfo)?.ID}");
         MusicData droppedMusicData = draggableItem.Data as MusicData;
         if (droppedMusicData == null)
         {
-            Debug.LogError($"[MusicListController] 无法转换为MusicData！实际类型：{draggableItem.Data.GetType().Name}");
-            RefreshResourceListUI();
+            Debug.LogWarning($"MusicListController: Dropped item is not a valid MusicData. Actual type: {draggableItem.Data.GetType().Name}");
             return;
         }
         
-        if (string.IsNullOrEmpty(droppedMusicData.ID))
-        {
-            Debug.LogError($"[MusicListController] MusicData.ID为空！DisplayName: {droppedMusicData.DisplayName}");
-            RefreshResourceListUI();
-            return;
-        }
+        Debug.Log($"MusicListController: Preparing to delete music: ID={droppedMusicData.ID}, DisplayName={droppedMusicData.DisplayName}");
         
-        Debug.Log($"[MusicListController] 准备删除音乐: ID={droppedMusicData.ID}, DisplayName={droppedMusicData.DisplayName}");
+        // 记录删除前的状态
+        int beforeCount = internalResourceList.Count;
+        Debug.Log($"Before deletion: Internal list count = {beforeCount}, UI objects count = {uiListItemObjects.Count}");
         
         // 如果是当前播放音乐，先暂停
         if (SceneStatesManager.Instance != null && SceneStatesManager.Instance.currentActiveMusicId == droppedMusicData.ID)
@@ -221,18 +226,21 @@ public class MusicListController : MonoBehaviour
             SceneStatesManager.Instance.Pause();
             SceneStatesManager.Instance.currentActiveMusicId = null;
         }
+        
         // 通过SceneStatesManager删除音乐资源
         if (SceneStatesManager.Instance != null)
         {
             SceneStatesManager.Instance.RemoveMusicResource(droppedMusicData.ID);
-            Debug.Log($"[MusicListController] 已调用RemoveMusicResource: {droppedMusicData.DisplayName}");
+            Debug.Log($"MusicListController: Requested uninstall for music: {droppedMusicData.DisplayName}");
+            
+            // 删除后立即强制刷新UI以确保同步
+            // 注意：这里不调用RefreshResourceListUI，因为事件系统会自动触发
+            Debug.Log("Music deletion request completed. UI should refresh via event system.");
         }
         else
         {
             Debug.LogError("SceneStatesManager.Instance is null!");
         }
-        // 拖拽后强制刷新UI，防止布局异常
-        RefreshResourceListUI();
     }
 
     public void HandleDropOnEnableZone(GameObject droppedGameObject)

@@ -44,9 +44,11 @@ namespace MMDVR.Managers
                     OnCameraListChanged?.Invoke();
                     break;
                 case "ActorListUpdated":
+                case "ActorListChanged":
                     OnActorListChanged?.Invoke();
                     break;
                 case "MotionListUpdated":
+                case "MotionListChanged":
                     OnMotionListChanged?.Invoke();
                     break;
                 case "MusicActivated":

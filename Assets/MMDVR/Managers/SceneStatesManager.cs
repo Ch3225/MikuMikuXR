@@ -271,9 +271,7 @@ namespace MMDVR.Managers
                     Debug.LogError($"音频加载失败: {www.error}");
                 }
             }
-        }
-
-        public void RemoveMusic(string musicId)
+        }        public void RemoveMusic(string musicId)
         {
             Transform musicObj = musicContainer.Find($"Music_{musicId}");
             if (musicObj != null)
@@ -288,6 +286,10 @@ namespace MMDVR.Managers
                 DestroyImmediate(musicObj.gameObject);
                 EventManager.Instance?.TriggerEvent("MusicListUpdated");
                 Debug.Log($"音乐已移除: {musicId}");
+            }
+            else
+            {
+                Debug.LogWarning($"未找到要删除的音乐: Music_{musicId}");
             }
         }
 
@@ -394,8 +396,8 @@ namespace MMDVR.Managers
                     ActivateCamera("BUILTIN_FREE_CAMERA");
                 }
                 
-                // 使用Destroy而不是DestroyImmediate，这样在运行时是安全的
-                Destroy(cameraObj.gameObject);
+                // 立即销毁，确保UI刷新时已经不存在了
+                DestroyImmediate(cameraObj.gameObject);
                 EventManager.Instance?.TriggerEvent("CameraListUpdated");
                 Debug.Log($"摄像机已移除: {cameraId}");
             }
@@ -783,9 +785,7 @@ namespace MMDVR.Managers
             Debug.Log($"动作已添加: {displayName} (ID: {id})");
             
             return id;
-        }
-
-        public void RemoveMotion(string motionId)
+        }        public void RemoveMotion(string motionId)
         {
             Transform motionObj = motionContainer.Find($"Motion_{motionId}");
             if (motionObj != null)
@@ -794,7 +794,11 @@ namespace MMDVR.Managers
                 EventManager.Instance?.TriggerEvent("MotionListUpdated");
                 Debug.Log($"动作已移除: {motionId}");
             }
-        }        public void AssignMotionToActor(string motionId, string actorId)
+            else
+            {
+                Debug.LogWarning($"未找到要删除的动作: Motion_{motionId}");
+            }
+        }public void AssignMotionToActor(string motionId, string actorId)
         {
             Transform motionObj = motionContainer.Find($"Motion_{motionId}");
             

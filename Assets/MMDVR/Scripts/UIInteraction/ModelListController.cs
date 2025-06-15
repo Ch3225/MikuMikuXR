@@ -80,22 +80,40 @@ public class ModelListController : MonoBehaviour
         EventManager.OnMotionListChanged -= UpdateAllItemVisuals;
         // EventManager.OnModelStateChanged -= UpdateAllItemVisuals;
         // EventManager.OnModelMotionAssociationChanged -= UpdateAllItemVisuals;
-    }
-
-    public void RefreshList()
+    }    public void RefreshList()
     {
-        // 清除现有UI项
-        foreach (GameObject item in uiListItemObjects)
+        Debug.Log($"ModelListController: RefreshList called. Current UI items count: {uiListItemObjects.Count}");
+        
+        // 立即销毁现有UI项
+        foreach (GameObject obj in uiListItemObjects)
         {
-            if (item != null) Destroy(item);
+            if (obj != null)
+            {
+                DestroyImmediate(obj);
+            }
         }
         uiListItemObjects.Clear();
+        
+        // 额外确保容器完全清空
+        List<Transform> childrenToDestroy = new List<Transform>();
+        foreach (Transform child in listContainer)
+        {
+            childrenToDestroy.Add(child);
+        }
+        foreach (Transform child in childrenToDestroy)
+        {
+            if (child != null)
+            {
+                DestroyImmediate(child.gameObject);
+            }
+        }
 
         // 重新获取最新数据
         if (SceneStatesManager.Instance != null)
         {
             internalResourceList.Clear();
             var modelDataList = SceneStatesManager.Instance.GetModelList();
+            Debug.Log($"ModelListController: Refreshed data. Model count: {modelDataList.Count}");
             foreach (var modelData in modelDataList)
             {
                 internalResourceList.Add(modelData);
@@ -179,38 +197,42 @@ public class ModelListController : MonoBehaviour
                 }
             }
         }
-    }
-
-    public void HandleDropOnUninstallZone(GameObject droppedGameObject)
+    }    public void HandleDropOnUninstallZone(GameObject droppedGameObject)
     {
         Debug.Log("=== ModelListController: HandleDropOnUninstallZone called ===");
         DraggableItem draggableItem = droppedGameObject.GetComponent<DraggableItem>();
         if (draggableItem == null || draggableItem.Data == null) 
         {
-            Debug.LogWarning("DraggableItem or Data is null");
-            RefreshList();
+            Debug.LogWarning("ModelListController: DraggableItem or Data is null");
             return;
         }
+        Debug.Log($"ModelListController: Data type: {draggableItem.Data.GetType().Name}, Data.Type: {(draggableItem.Data as IResourceInfo)?.Type}, Data.ID: {(draggableItem.Data as IResourceInfo)?.ID}");
         ModelData droppedModelData = draggableItem.Data as ModelData;
         if (droppedModelData == null)
         {
-            Debug.LogWarning("Dropped item is not a valid ModelData.");
-            RefreshList();
+            Debug.LogWarning($"ModelListController: Dropped item is not a valid ModelData. Actual type: {draggableItem.Data.GetType().Name}");
             return;
         }
-        Debug.Log($"Dropped model data: {droppedModelData.DisplayName}, FilePath: {droppedModelData.FilePath}");
+        Debug.Log($"ModelListController: Dropped model data: {droppedModelData.DisplayName}, FilePath: {droppedModelData.FilePath}");
+        
+        // 记录删除前的状态
+        int beforeCount = internalResourceList.Count;
+        Debug.Log($"Before deletion: Internal list count = {beforeCount}, UI objects count = {uiListItemObjects.Count}");
+        
         // 通过SceneStatesManager删除模型资源（内部会删除资源、场景实例、更新映射）
         if (SceneStatesManager.Instance != null)
         {
             SceneStatesManager.Instance.RemoveModelResource(droppedModelData.ID);
-            Debug.Log($"Requested uninstall for Model: {droppedModelData.DisplayName}");
+            Debug.Log($"ModelListController: Requested uninstall for Model: {droppedModelData.DisplayName}");
+            
+            // 删除后立即强制刷新UI以确保同步
+            // 注意：这里不调用RefreshList，因为事件系统会自动触发
+            Debug.Log("Model deletion request completed. UI should refresh via event system.");
         }
         else
         {
             Debug.LogError("SceneStatesManager.Instance is null!");
         }
-        // 拖拽后强制刷新UI，防止布局异常
-        RefreshList();
     }
 
     public void HandleDropOnEnableZone(GameObject droppedGameObject)

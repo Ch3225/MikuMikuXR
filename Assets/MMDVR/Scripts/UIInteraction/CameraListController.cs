@@ -115,16 +115,33 @@ public class CameraListController : MonoBehaviour
         }
 
         RefreshResourceListUI();
-    }
-
-    void RefreshResourceListUI()
+    }    void RefreshResourceListUI()
     {
-        // 清除现有UI项
-        foreach (Transform child in listContainer)
+        Debug.Log($"CameraListController: RefreshResourceListUI called. Current UI items count: {uiListItemObjects.Count}");
+        
+        // 立即销毁现有UI项
+        foreach (GameObject obj in uiListItemObjects)
         {
-            Destroy(child.gameObject);
+            if (obj != null)
+            {
+                DestroyImmediate(obj);
+            }
         }
         uiListItemObjects.Clear();
+        
+        // 额外确保容器完全清空
+        List<Transform> childrenToDestroy = new List<Transform>();
+        foreach (Transform child in listContainer)
+        {
+            childrenToDestroy.Add(child);
+        }
+        foreach (Transform child in childrenToDestroy)
+        {
+            if (child != null)
+            {
+                DestroyImmediate(child.gameObject);
+            }
+        }
 
         // 重新获取最新数据
         if (SceneStatesManager.Instance != null)
@@ -135,6 +152,7 @@ public class CameraListController : MonoBehaviour
             {
                 internalResourceList.Add(cameraData);
             }
+            Debug.Log($"CameraListController: Refreshed data. Camera count: {cameraDataList.Count}");
         }
 
         // 为每个资源创建UI项
@@ -207,41 +225,47 @@ public class CameraListController : MonoBehaviour
         if (draggableItem == null || draggableItem.Data == null) 
         {
             Debug.LogWarning("DraggableItem or Data is null");
-            RefreshResourceListUI();
             return;
         }
         UICameraData droppedCamData = draggableItem.Data as UICameraData;
         if (droppedCamData == null)
         {
             Debug.LogWarning("Dropped item is not a valid CameraData.");
-            RefreshResourceListUI();
             return;
         }
         Debug.Log($"Dropped camera data: {droppedCamData.DisplayName}, FilePath: {droppedCamData.FilePath}, isFreeCamera: {droppedCamData.isFreeCamera}");
+        
         // 不能删除Free Camera
         if (droppedCamData.isFreeCamera)
         {
             Debug.Log("Attempted to uninstall Free Camera. This action is blocked.");
-            RefreshResourceListUI();
             return; 
         }
+        
+        // 记录删除前的状态
+        int beforeCount = internalResourceList.Count;
+        Debug.Log($"Before deletion: Internal list count = {beforeCount}, UI objects count = {uiListItemObjects.Count}");
+        
         // 如果是当前激活摄像机，先切换到Free Camera
         if (SceneStatesManager.Instance != null && SceneStatesManager.Instance.currentActiveCameraId == droppedCamData.ID)
         {
             SceneStatesManager.Instance.ActivateCamera("BUILTIN_FREE_CAMERA");
         }
+        
         // 通过SceneStatesManager删除摄像机资源
         if (SceneStatesManager.Instance != null)
         {
             SceneStatesManager.Instance.RemoveCameraResource(droppedCamData.ID);
             Debug.Log($"Requested uninstall for VMD Camera: {droppedCamData.DisplayName}");
+            
+            // 删除后立即强制刷新UI以确保同步
+            // 注意：这里不调用RefreshResourceListUI，因为事件系统会自动触发
+            Debug.Log("Camera deletion request completed. UI should refresh via event system.");
         }
         else
         {
             Debug.LogError("SceneStatesManager.Instance is null!");
         }
-        // 拖拽后强制刷新UI，防止布局异常
-        RefreshResourceListUI();
     }
 
     // 添加一个简化的备用方法，用于Unity Inspector绑定

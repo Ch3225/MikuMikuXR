@@ -66,22 +66,40 @@ public class MotionListController : MonoBehaviour
     {
         EventManager.OnMotionListChanged -= RefreshList;
         // EventManager.OnModelMotionAssociationChanged -= UpdateAllItemVisuals;
-    }
-
-    public void RefreshList()
+    }    public void RefreshList()
     {
-        // 清除现有UI项
-        foreach (GameObject item in uiListItemObjects)
+        Debug.Log($"MotionListController: RefreshList called. Current UI items count: {uiListItemObjects.Count}");
+        
+        // 立即销毁现有UI项
+        foreach (GameObject obj in uiListItemObjects)
         {
-            if (item != null) Destroy(item);
+            if (obj != null)
+            {
+                DestroyImmediate(obj);
+            }
         }
         uiListItemObjects.Clear();
+        
+        // 额外确保容器完全清空
+        List<Transform> childrenToDestroy = new List<Transform>();
+        foreach (Transform child in listContainer)
+        {
+            childrenToDestroy.Add(child);
+        }
+        foreach (Transform child in childrenToDestroy)
+        {
+            if (child != null)
+            {
+                DestroyImmediate(child.gameObject);
+            }
+        }
 
         // 重新获取最新数据
         if (SceneStatesManager.Instance != null)
         {
             internalResourceList.Clear();
             var motionDataList = SceneStatesManager.Instance.GetMotionDataList();
+            Debug.Log($"MotionListController: Refreshed data. Motion count: {motionDataList.Count}");
             foreach (var motionData in motionDataList)
             {
                 internalResourceList.Add(motionData);
@@ -170,30 +188,35 @@ public class MotionListController : MonoBehaviour
         DraggableItem draggableItem = droppedGameObject.GetComponent<DraggableItem>();
         if (draggableItem == null || draggableItem.Data == null) 
         {
-            Debug.LogWarning("DraggableItem or Data is null");
-            RefreshList();
+            Debug.LogWarning("MotionListController: DraggableItem or Data is null");
             return;
         }
+        Debug.Log($"MotionListController: Data type: {draggableItem.Data.GetType().Name}, Data.Type: {(draggableItem.Data as IResourceInfo)?.Type}, Data.ID: {(draggableItem.Data as IResourceInfo)?.ID}");
         MotionData droppedMotionData = draggableItem.Data as MotionData;
         if (droppedMotionData == null)
         {
-            Debug.LogWarning("Dropped item is not a valid MotionData.");
-            RefreshList();
+            Debug.LogWarning($"MotionListController: Dropped item is not a valid MotionData. Actual type: {draggableItem.Data.GetType().Name}");
             return;
-        }
-        Debug.Log($"Dropped motion data: {droppedMotionData.DisplayName}, FilePath: {droppedMotionData.FilePath}");
+        }        Debug.Log($"MotionListController: Dropped motion data: {droppedMotionData.DisplayName}, FilePath: {droppedMotionData.FilePath}");
+        
+        // 记录删除前的状态
+        int beforeCount = internalResourceList.Count;
+        Debug.Log($"Before deletion: Internal list count = {beforeCount}, UI objects count = {uiListItemObjects.Count}");
+        
         // 通过SceneStatesManager删除动作资源（内部会断开所有关联并重置模型动作）
         if (SceneStatesManager.Instance != null)
         {
             SceneStatesManager.Instance.RemoveMotionResource(droppedMotionData.ID);
-            Debug.Log($"Requested uninstall for Motion: {droppedMotionData.DisplayName}");
+            Debug.Log($"MotionListController: Requested uninstall for Motion: {droppedMotionData.DisplayName}");
+            
+            // 删除后立即强制刷新UI以确保同步
+            // 注意：这里不调用RefreshList，因为事件系统会自动触发
+            Debug.Log("Motion deletion request completed. UI should refresh via event system.");
         }
         else
         {
             Debug.LogError("SceneStatesManager.Instance is null!");
         }
-        // 拖拽后强制刷新UI，防止布局异常
-        RefreshList();
     }
 
     public void HandleDropOnDisconnectZone(GameObject droppedGameObject)
