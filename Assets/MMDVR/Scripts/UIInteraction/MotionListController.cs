@@ -40,7 +40,17 @@ public class MotionListController : MonoBehaviour
             return;
         }
 
-        // 配置各种DropZone处理器
+        // 自动查找所有Uninstall类型DropZone并绑定
+        DropZone[] allDropZones = FindObjectsOfType<DropZone>();
+        foreach (DropZone dz in allDropZones)
+        {
+            if (dz.actionType == DropZone.DropActionType.Uninstall)
+            {
+                dz.onItemDropped.AddListener(HandleDropOnUninstallZone);
+                Debug.Log($"MotionListController: Bound HandleDropOnUninstallZone to Uninstall DropZone: {dz.gameObject.name}");
+            }
+        }
+
         if (listSortableAreaDropZone != null)
         {
             listSortableAreaDropZone.onItemDropped.AddListener(HandleDropOnListArea);
@@ -191,7 +201,7 @@ public class MotionListController : MonoBehaviour
             Debug.LogWarning("MotionListController: DraggableItem or Data is null");
             return;
         }
-        Debug.Log($"MotionListController: Data type: {draggableItem.Data.GetType().Name}, Data.Type: {(draggableItem.Data as IResourceInfo)?.Type}, Data.ID: {(draggableItem.Data as IResourceInfo)?.ID}");
+        Debug.Log($"MotionListController: Processing item with type: {(draggableItem.Data as IResourceInfo)?.Type}, id: {(draggableItem.Data as IResourceInfo)?.ID}, 实际类型: {draggableItem.Data.GetType().Name}");
         MotionData droppedMotionData = draggableItem.Data as MotionData;
         if (droppedMotionData == null)
         {
