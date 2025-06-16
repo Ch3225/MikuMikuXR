@@ -498,50 +498,48 @@ namespace MMDVR.Managers
         }
 
         // ===== 演员资源管理 =====
-        
-        public void AddActor(string filePath)
+          public void AddActor(string filePath)
         {
-            string id = System.IO.Path.GetFileNameWithoutExtension(filePath); // 资源id直接用文件名
-            string displayName = id;
+            string displayName = System.IO.Path.GetFileNameWithoutExtension(filePath);
 
             // 先查找modelContainer下是否已有对应ModelComponent（通过filePath）
             ModelComponent modelComponent = null;
             for (int i = 0; i < modelContainer.childCount; i++)
             {
-                var child = modelContainer.GetChild(i);
-                var mc = child.GetComponent<ModelComponent>();
+                var mc = modelContainer.GetChild(i).GetComponent<ModelComponent>();
                 if (mc != null && mc.filePath == filePath)
                 {
                     modelComponent = mc;
                     break;
                 }
-            }
-            // 没有则新建
+            }            // 如果没有找到，则创建一个新的ModelComponent
             if (modelComponent == null)
             {
-                GameObject modelObj = new GameObject($"Model_{id}");
+                string newModelId = System.Guid.NewGuid().ToString(); // 为新模型生成GUID
+                GameObject modelObj = new GameObject($"Model_{newModelId}");
                 modelObj.transform.SetParent(modelContainer);
-                modelComponent = modelObj.AddComponent<ModelComponent>();
-                modelComponent.id = id;
+                modelComponent = modelObj.AddComponent<ModelComponent>();modelComponent.id = newModelId;
                 modelComponent.displayName = displayName;
                 modelComponent.filePath = filePath;
+                // 触发模型列表更新事件
+                EventManager.Instance?.TriggerEvent("ModelListChanged");
             }
 
-            // 创建演员资源GameObject
-            GameObject actorObj = new GameObject($"Actor_{id}");
+            // 创建Actor GameObject
+            GameObject actorObj = new GameObject($"Actor_{displayName}");
             actorObj.transform.SetParent(actorContainer);
 
             // 添加组件
             var actorComponent = actorObj.AddComponent<SceneActorComponent>();
             actorComponent.modelRef = modelComponent;
-            actorComponent.actorId = modelComponent.id;
+            actorComponent.actorId = modelComponent.id; // Actor ID 与 Model ID 保持一致
             actorComponent.displayName = modelComponent.displayName;
 
             // 加载PMX模型
             try
             {
                 LoadPMXModel(filePath, actorObj, actorComponent);
-                Debug.Log($"演员已添加: {displayName} (ID: {id})");
+                Debug.Log($"演员已添加: {displayName} (ID: {actorComponent.actorId})");
             }
             catch (System.Exception e)
             {
@@ -1263,8 +1261,29 @@ namespace MMDVR.Managers
             return result;
         }
         
-        // ===== 模型状态管理 =====
-        
+        // ===== 模型状态管理 =====        
+        /// <summary>
+        /// 切换模型启用/禁用状态
+        /// </summary>
+        public void ToggleModel(string modelId)
+        {
+            if (IsModelDisabled(modelId))
+            {
+                // 当前是禁用状态，启用它
+                disabledModelIds.Remove(modelId);
+                UpdateModelVisibility(modelId, true);
+                Debug.Log($"启用模型 {modelId}");
+            }
+            else
+            {
+                // 当前是启用状态，禁用它
+                disabledModelIds.Add(modelId);
+                UpdateModelVisibility(modelId, false);
+                Debug.Log($"禁用模型 {modelId}");
+            }
+            EventManager.Instance?.TriggerEvent("ModelStateChanged");
+        }
+
         /// <summary>
         /// 禁用模型
         /// </summary>
@@ -1275,18 +1294,15 @@ namespace MMDVR.Managers
             Debug.Log($"禁用模型 {modelId}");
             EventManager.Instance?.TriggerEvent("ModelStateChanged");
         }
-        
-        /// <summary>
+          /// <summary>
         /// 启用模型
         /// </summary>
         public void EnableModel(string modelId)
         {
-            if (disabledModelIds.Remove(modelId))
-            {
-                UpdateModelVisibility(modelId, true);
-                Debug.Log($"启用模型 {modelId}");
-                EventManager.Instance?.TriggerEvent("ModelStateChanged");
-            }
+            disabledModelIds.Remove(modelId); // 不管是否存在都尝试移除
+            UpdateModelVisibility(modelId, true);
+            Debug.Log($"启用模型 {modelId}");
+            EventManager.Instance?.TriggerEvent("ModelStateChanged");
         }
         
         /// <summary>
@@ -1296,22 +1312,50 @@ namespace MMDVR.Managers
         {
             return disabledModelIds.Contains(modelId);
         }
-        
-        /// <summary>
+          /// <summary>
         /// 更新模型可见性
         /// </summary>
         private void UpdateModelVisibility(string modelId, bool visible)
         {
-            // 查找对应的Actor GameObject并设置可见性
+            Debug.Log($"[UpdateModelVisibility] Try set modelId={modelId} visible={visible}, actorContainer.childCount={actorContainer.childCount}");
+            bool found = false;
+            
             for (int i = 0; i < actorContainer.childCount; i++)
             {
                 Transform actorChild = actorContainer.GetChild(i);
                 var actorComponent = actorChild.GetComponent<SceneActorComponent>();
-                if (actorComponent != null && actorComponent.modelRef != null && actorComponent.modelRef.id == modelId)
+                if (actorComponent == null)
                 {
+                    Debug.Log($"[UpdateModelVisibility] actorChild {actorChild.name} has no SceneActorComponent");
+                    continue;
+                }
+                if (actorComponent.modelRef == null)
+                {
+                    Debug.Log($"[UpdateModelVisibility] actorChild {actorChild.name} SceneActorComponent.modelRef is null");
+                    continue;
+                }
+                Debug.Log($"[UpdateModelVisibility] actorChild {actorChild.name} modelRef.id={actorComponent.modelRef.id} (type={actorComponent.modelRef.id?.GetType()})");
+                if (actorComponent.modelRef.id == modelId)
+                {
+                    found = true;
+                    Debug.Log($"[UpdateModelVisibility] MATCHED: Before SetActive({visible}) for {actorChild.name}, current active state: {actorChild.gameObject.activeSelf}");
+                    
+                    // 确保父容器是激活的
+                    if (visible && !actorContainer.gameObject.activeSelf)
+                    {
+                        Debug.Log($"[UpdateModelVisibility] Parent actorContainer is inactive, activating it first");
+                        actorContainer.gameObject.SetActive(true);
+                    }
+                    
                     actorChild.gameObject.SetActive(visible);
+                    Debug.Log($"[UpdateModelVisibility] After SetActive({visible}) for {actorChild.name}, current active state: {actorChild.gameObject.activeSelf}");
                     break;
                 }
+            }
+            
+            if (!found)
+            {
+                Debug.LogWarning($"[UpdateModelVisibility] No actor found with modelId={modelId}");
             }
         }
         
@@ -1565,6 +1609,48 @@ namespace MMDVR.Managers
         public string id;
         public string displayName;
         public string filePath;
+        
+        [Header("元数据")]
+        public System.DateTime loadTime; // 加载时间，用于去重判断
+        
+        private void Awake()
+        {
+            // 确保ID唯一性
+            if (string.IsNullOrEmpty(id))
+            {
+                GenerateUniqueId();
+            }
+            loadTime = System.DateTime.Now;
+        }
+        
+        /// <summary>
+        /// 生成唯一ID，避免重复加载时的冲突
+        /// </summary>
+        public void GenerateUniqueId()
+        {
+            if (!string.IsNullOrEmpty(filePath))
+            {
+                // 基于文件路径和时间戳生成唯一ID
+                string fileHash = filePath.GetHashCode().ToString("X");
+                string timeStamp = System.DateTime.Now.Ticks.ToString();
+                id = $"Model_{fileHash}_{timeStamp}";
+            }
+            else
+            {
+                // 如果没有文件路径，使用GUID
+                id = $"Model_{System.Guid.NewGuid():N}";
+            }
+        }
+        
+        /// <summary>
+        /// 检查是否与其他Model是同一个文件
+        /// </summary>
+        public bool IsSameFile(string otherFilePath)
+        {
+            return !string.IsNullOrEmpty(filePath) && 
+                   !string.IsNullOrEmpty(otherFilePath) && 
+                   System.IO.Path.GetFullPath(filePath).Equals(System.IO.Path.GetFullPath(otherFilePath));
+        }
     }
 
     /// <summary>

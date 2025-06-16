@@ -211,42 +211,32 @@ public class MusicListController : MonoBehaviour
         UpdateAllItemVisuals();
     }    public void HandleDropOnUninstallZone(GameObject droppedGameObject)
     {
-        Debug.Log("=== MusicListController: HandleDropOnUninstallZone called ===");
-        DraggableItem draggableItem = droppedGameObject.GetComponent<DraggableItem>();
-        if (draggableItem == null || draggableItem.Data == null) 
+        // 先缓存数据，避免销毁后访问
+        DraggableItem draggableItem = droppedGameObject != null ? droppedGameObject.GetComponent<DraggableItem>() : null;
+        var data = draggableItem != null ? draggableItem.Data : null;
+        if (data == null)
         {
             Debug.LogWarning("MusicListController: DraggableItem or Data is null");
             return;
         }
-        Debug.Log($"MusicListController: Processing item with type: {(draggableItem.Data as IResourceInfo)?.Type}, id: {(draggableItem.Data as IResourceInfo)?.ID}, 实际类型: {draggableItem.Data.GetType().Name}");
-        MusicData droppedMusicData = draggableItem.Data as MusicData;
+        Debug.Log($"MusicListController: Processing item with type: {(data as IResourceInfo)?.Type}, id: {(data as IResourceInfo)?.ID}, 实际类型: {data.GetType().Name}");
+        MusicData droppedMusicData = data as MusicData;
         if (droppedMusicData == null)
         {
-            Debug.LogWarning($"MusicListController: Dropped item is not a valid MusicData. Actual type: {draggableItem.Data.GetType().Name}");
+            Debug.LogWarning($"MusicListController: Dropped item is not a valid MusicData. Actual type: {data.GetType().Name}");
             return;
         }
-        
         Debug.Log($"MusicListController: Preparing to delete music: ID={droppedMusicData.ID}, DisplayName={droppedMusicData.DisplayName}");
-        
-        // 记录删除前的状态
         int beforeCount = internalResourceList.Count;
         Debug.Log($"Before deletion: Internal list count = {beforeCount}, UI objects count = {uiListItemObjects.Count}");
-        
-        // 如果是当前播放音乐，先暂停
         if (SceneStatesManager.Instance != null && SceneStatesManager.Instance.currentActiveMusicId == droppedMusicData.ID)
         {
             SceneStatesManager.Instance.Pause();
-            SceneStatesManager.Instance.currentActiveMusicId = null;
         }
-        
-        // 通过SceneStatesManager删除音乐资源
         if (SceneStatesManager.Instance != null)
         {
             SceneStatesManager.Instance.RemoveMusicResource(droppedMusicData.ID);
-            Debug.Log($"MusicListController: Requested uninstall for music: {droppedMusicData.DisplayName}");
-            
-            // 删除后立即强制刷新UI以确保同步
-            // 注意：这里不调用RefreshResourceListUI，因为事件系统会自动触发
+            Debug.Log($"MusicListController: Requested uninstall for Music: {droppedMusicData.DisplayName}");
             Debug.Log("Music deletion request completed. UI should refresh via event system.");
         }
         else

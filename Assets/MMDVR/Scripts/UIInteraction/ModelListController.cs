@@ -51,24 +51,32 @@ public class ModelListController : MonoBehaviour
                 dz.onItemDropped.AddListener(HandleDropOnUninstallZone);
                 Debug.Log($"ModelListController: Bound HandleDropOnUninstallZone to Uninstall DropZone: {dz.gameObject.name}");
             }
-        }
-
-        if (listSortableAreaDropZone != null)
+        }        // 自动查找所有EnableDisable类型DropZone并绑定
+        // 注意：这里不再自动绑定，而是依赖Inspector中的具体配置
+        // foreach (DropZone dz in allDropZones)
+        // {
+        //     if (dz.actionType == DropZone.DropActionType.EnableDisable)
+        //     {
+        //         dz.onItemDropped.AddListener(HandleDropOnEnableZone);
+        //         Debug.Log($"ModelListController: Bound HandleDropOnEnableZone to EnableDropZone: {dz.gameObject.name}");
+        //     }
+        // }        if (listSortableAreaDropZone != null)
         {
             listSortableAreaDropZone.onItemDropped.AddListener(HandleDropOnListArea);
         }
         if (uninstallDropZone != null)
         {
             uninstallDropZone.onItemDropped.AddListener(HandleDropOnUninstallZone);
-        }
-        if (enableDropZone != null)
+        }        if (enableDropZone != null)
         {
-            enableDropZone.onItemDropped.AddListener(HandleDropOnEnableZone);
+            enableDropZone.onItemDropped.AddListener(HandleDropOnToggleZone);
+            Debug.Log($"Bound enableDropZone {enableDropZone.name} to HandleDropOnToggleZone");
         }
-        if (disableDropZone != null)
-        {
-            disableDropZone.onItemDropped.AddListener(HandleDropOnDisableZone);
-        }
+        // 暂时注释掉disableDropZone，避免重复调用
+        // if (disableDropZone != null)
+        // {
+        //     disableDropZone.onItemDropped.AddListener(HandleDropOnToggleZone);
+        // }
         if (disconnectDropZone != null)
         {
             disconnectDropZone.onItemDropped.AddListener(HandleDropOnDisconnectZone);
@@ -209,43 +217,35 @@ public class ModelListController : MonoBehaviour
         }
     }    public void HandleDropOnUninstallZone(GameObject droppedGameObject)
     {
-        Debug.Log("=== ModelListController: HandleDropOnUninstallZone called ===");
-        DraggableItem draggableItem = droppedGameObject.GetComponent<DraggableItem>();
-        if (draggableItem == null || draggableItem.Data == null) 
+        // 先缓存数据，避免销毁后访问
+        DraggableItem draggableItem = droppedGameObject != null ? droppedGameObject.GetComponent<DraggableItem>() : null;
+        var data = draggableItem != null ? draggableItem.Data : null;
+        if (data == null)
         {
             Debug.LogWarning("ModelListController: DraggableItem or Data is null");
             return;
         }
-        Debug.Log($"ModelListController: Processing item with type: {(draggableItem.Data as IResourceInfo)?.Type}, id: {(draggableItem.Data as IResourceInfo)?.ID}, 实际类型: {draggableItem.Data.GetType().Name}");
-        ModelData droppedModelData = draggableItem.Data as ModelData;
+        Debug.Log($"ModelListController: Processing item with type: {(data as IResourceInfo)?.Type}, id: {(data as IResourceInfo)?.ID}, 实际类型: {data.GetType().Name}");
+        ModelData droppedModelData = data as ModelData;
         if (droppedModelData == null)
         {
-            Debug.LogWarning($"ModelListController: Dropped item is not a valid ModelData. Actual type: {draggableItem.Data.GetType().Name}");
+            Debug.LogWarning($"ModelListController: Dropped item is not a valid ModelData. Actual type: {data.GetType().Name}");
             return;
         }
         Debug.Log($"ModelListController: Dropped model data: {droppedModelData.DisplayName}, FilePath: {droppedModelData.FilePath}");
-        
-        // 记录删除前的状态
         int beforeCount = internalResourceList.Count;
         Debug.Log($"Before deletion: Internal list count = {beforeCount}, UI objects count = {uiListItemObjects.Count}");
-        
-        // 通过SceneStatesManager删除模型资源（内部会删除资源、场景实例、更新映射）
         if (SceneStatesManager.Instance != null)
         {
             SceneStatesManager.Instance.RemoveModelResource(droppedModelData.ID);
             Debug.Log($"ModelListController: Requested uninstall for Model: {droppedModelData.DisplayName}");
-            
-            // 删除后立即强制刷新UI以确保同步
-            // 注意：这里不调用RefreshList，因为事件系统会自动触发
             Debug.Log("Model deletion request completed. UI should refresh via event system.");
         }
         else
         {
             Debug.LogError("SceneStatesManager.Instance is null!");
         }
-    }
-
-    public void HandleDropOnEnableZone(GameObject droppedGameObject)
+    }    public void HandleDropOnToggleZone(GameObject droppedGameObject)
     {
         DraggableItem draggableItem = droppedGameObject.GetComponent<DraggableItem>();
         if (draggableItem == null || draggableItem.Data == null) 
@@ -257,25 +257,8 @@ public class ModelListController : MonoBehaviour
 
         if (SceneStatesManager.Instance != null)
         {
-            SceneStatesManager.Instance.EnableModel(droppedModelData.ID);
-            Debug.Log($"Enabled Model: {droppedModelData.DisplayName}");
-        }
-    }
-
-    public void HandleDropOnDisableZone(GameObject droppedGameObject)
-    {
-        DraggableItem draggableItem = droppedGameObject.GetComponent<DraggableItem>();
-        if (draggableItem == null || draggableItem.Data == null) 
-            return;
-
-        ModelData droppedModelData = draggableItem.Data as ModelData;
-        if (droppedModelData == null)
-            return;
-
-        if (SceneStatesManager.Instance != null)
-        {
-            SceneStatesManager.Instance.DisableModel(droppedModelData.ID);
-            Debug.Log($"Disabled Model: {droppedModelData.DisplayName}");
+            SceneStatesManager.Instance.ToggleModel(droppedModelData.ID);
+            Debug.Log($"Toggled Model: {droppedModelData.DisplayName}");
         }
     }
 

@@ -1,0 +1,270 @@
+我计划做一个VR下的mmd播放器。你现在所看到的是MikuMikuXR这一项目经过了一点魔改，但我们并不打算做安卓，而是做windows平台，另外我们也不做增强现实的应用，而原项目使用了一些增强现实的库。我们之后会引入SteamVR或者其它XR的工具，但目前还没到这一步。
+注意代码非常多，在解决问题时请仅查看必要的代码，否则会超过这次问答的上下文导致你崩溃。
+我已经用UGUI做出了一套UI，目前已经支持的界面引用在这里Assets/MMDVR/Managers/DesktopUIManager.cs。我希望参照某游戏来做一套新的UI。只是我是Unity新手，所以很多操作不熟悉，现在我打算为我的UI增添逻辑，你需要写出对应的操作步骤。对于mmd相关的模型的加载，控制等请参见Assets_Packs\LibMmd。
+不过在正式做修改之前，我想先请你确认一下截图的内容，描述一下我已经上传给你截图，然后我会告诉你我具体怎么做。
+
+
+
+
+
+
+我们现在计划增加摄像机。在Hierarchy里，Cameras下边挂载了MainCamera，它挂载了Assets/MikuMikuXR/UI/Desktop/Scripts/CameraManager.cs、Assets/MikuMikuXR/UI/Desktop/Scripts/FreeCameraController.cs、Assets/_Packs/LibMmd/Unity3D/MmdCameraObject.cs这三个组件。FreeCamera的那个是自由相机，而MMDCamera的那个则是根据下拉框里选定的动作来移动（如果没有选定任何动作则是自由相机）。FreeCamera和MMDCamera两个同时只能用一个，因为用户只有一个界面嘛。DesktopUIManager.cs里边有一个进度条，拖拽的时候会更改动作位置和播放的进度。现在加入了相机，相机的进度也要改。DesktopUIManager还未引用CameraDropdown以及BtnAddCamera，这两者你需要仿照着加入动作这个逻辑写（因为动作格式也是vmd）。相机的数据可以全局存储。他不会直接关联动作或者模型，能影响Camera的只有：Camera的下拉框、添加camera的按钮、play pause按钮、进度条。
+请试着解决我的问题，考虑到无法一次性完成全部工作量过大，只读入必要的文档。必要的上下文已提供，另外你有编辑的权限，你可以直接将生成的代码或文档直接写入，无需在对话中提供代码。之后有任何不确定的问题都可以来问我，实现效果的细节可以描述清楚问我定夺。
+
+
+
+在界面中有添加模型、动作等若干项，点击它之后能够查看电脑中的文件资源，来加载对应的文件，这一点已经实现，你可做参考。它们都可以通过添加对应的项加载到文件中。
+请试着解决我的问题，考虑到无法一次性完成全部工作量过大，只读入必要的文档。必要的上下文已提供，另外你有编辑的权限，你可以直接将生成的代码或文档直接写入，无需在对话中提供代码。之后有任何不确定的问题都可以来问我，实现效果的细节可以描述清楚问我定夺。
+现在我来解释一下问题：在没有音乐的时候，我加载了一个动作，人物动作的播放暂停都正常。
+但在有音乐的时候，人物动作会经常卡在开始的一帧再回到目前时间点的状态，这导致播放时模型破乱，也就是位置切换太快导致人物模型扭曲。与没有音乐播放时形成对比。模型虽然在播放过程中几乎是处于其在对应时间的动作，而在播放过程中模型也时常被退回到刚开始的位置。
+我原本的思路是，由于人物动作在没有音乐时播放是正常的而有音乐播放时就不正常，那么我们令两者独立播放，播放时不要把动作同步到音乐，仅在按下暂停按钮或者拖动滑块时再将动作和音乐做同步。但是令CodingAI按照这个思路几度修改都无效。libmmd里边的代码可能也有问题，Libmmd在这里Assets/_Packs/LibMmd，你可以进行分析。为什么有音乐和没有音乐这两种情况，模型表现的不一样呢？没有音乐的时候动作一切正常，有音乐反而模型会炸。真令人费解！
+必要的上下文已经提供给你。
+
+
+本来在没有引入SteamVR时候，我的VR下的Controller是有问题的，似乎OpenXR在Unity下无法读入Controller的信息，Unity应用程序使用控制器什么反映都没有，但是SteamVR是能够读到我的VR Controller。我不确定是不是它的XR对我的Controller支持不是很好，是Nolo的，DPVR的设备。我希望你帮我寻找这个问题的方案。现在我通过Cluade3.7Sonnet尝试解决这个问题，但是这个问题仍问解决却超过了最大的问答的上下文长度。目前它的解决思路似乎是将SteamVR的信息，桥接到OpenXR上，用到了Nolo VR Manager，Nolo Controller Adapter，Nolo to OpenXR Bridge这些类。但目前还有编译错误。
+
+实施优先级建议
+第一阶段：接口层设计与UI框架搭建
+
+提取核心接口
+设计基础UI框架
+第二阶段：画质与物理优化
+
+调整渲染设置
+优化物理参数
+第三阶段：完整UI实现与功能扩展
+
+完成桌面UI实现
+添加更多功能选项
+第四阶段：VR模式支持
+
+基于新架构设计VR交互
+实现VR特有功能
+您觉得这个方案如何？我们可以从接口层设计开始，逐步推进这个改造过程。
+
+
+
+
+你看到的上下文不全面，我更改了更全面的上下文。
+我计划做一个VR下的mmd播放器。你现在所看到的是MikuMikuXR这一项目经过了一点魔改，但我们并不打算做安卓，而是做windows平台，另外我们也不做增强现实的应用，而原项目使用了一些增强现实的库。我们之后会引入SteamVR或者其它XR的工具，但目前还没到这一步。
+注意代码非常多，在解决问题时请仅查看必要的代码，否则会超过这次问答的上下文导致你崩溃。
+我现在已经做出了一个UI的界面，以下是参考：
+Assets/MikuMikuXR/UI/Desktop/Resources/DesktopUiPanelSettings.asset 还有 Assets/MikuMikuXR/UI/Desktop/Documents/MainUI.uxml。
+但是我们不打算沿用UI Toolkit给出的ui，现在我打算用UGUI体系参考MainUI.uxml重做。只是我是Unity新手，所以很多操作不熟悉，你需要写出对应的操作步骤。美术风格考虑为半透明灰色黑字，方框的话要给出轻微圆角。现在我已经做出了上下的模型加载的下拉列表和下边的播放的条。现在我再考虑读取文件，为此我引入了simple file browser在Assets/Plugins/SimpleFileBrowser。
+原本读取文件、加载模型的逻辑可以在这里或者由这个的引用找到：Assets/MikuMikuXR/SceneController/MainSceneController.cs，虽然原有的读取的界面等已经被废弃。现在请试着为我的界面增加背后的逻辑。如果有不明白的可以问我。在模型的下拉列表里有添加模型这一项。我希望点击它之后能够查看电脑中的文件资源，来加载对应的PMD或者PMX等文件。动作文件和相机文件的类型均为VMD。音乐则一般为wav，也有mp3等格式。它们都可以通过添加对应的项加载到文件中。
+请试着实现我的要求，考虑到无法一次性完成全部工作量过大，我们首先针对UGUI做界面的实现。必要的上下文已提供，另外你有编辑的权限，你可以直接将生成的代码或文档直接写入，无需在对话中提供代码。之后有任何不确定的问题都可以来问我，实现效果的细节可以描述清楚问我定夺。
+以下是它的文档。你需要告诉我如何做才能部署这个东西，并利用它来加载我需要的模型，并读入动作。
+HOW TO
+
+NOTE: On Android Q (10) or later, it is impossible to work with File APIs. On these devices, SimpleFileBrowser uses Storage Access Framework (SAF) to browse the files. However, paths returned by SAF are not File API compatible. To simulate the behaviour of the File API on all devices (including SAF), you can check out the FileBrowserHelpers functions. For reference, here is an example SAF path: content://com.android.externalstorage.documents/tree/primary%3A/document/primary%3APictures
+
+First, add using SimpleFileBrowser; to your script.
+
+The file browser can be shown either as a save dialog or a load dialog. In load mode, the returned path(s) always lead to existing files or folders. In save mode, the returned path(s) can point to non-existing files, as well. You can use the following functions to show the file browser:
+
+public static bool ShowSaveDialog( OnSuccess onSuccess, OnCancel onCancel, PickMode pickMode, bool allowMultiSelection = false, string initialPath = null, string initialFilename = null, string title = "Save", string saveButtonText = "Save" );
+public static bool ShowLoadDialog( OnSuccess onSuccess, OnCancel onCancel, PickMode pickMode, bool allowMultiSelection = false, string initialPath = null, string initialFilename = null, string title = "Load", string loadButtonText = "Select" );
+
+public delegate void OnSuccess( string[] paths );
+public delegate void OnCancel();
+
+There can only be one dialog active at a time. These functions will return true if the dialog is shown successfully (if no other dialog is active), false otherwise. You can query the FileBrowser.IsOpen property to see if there is an active dialog at the moment.
+
+If user presses the Cancel button, onCancel callback is called. Otherwise, onSuccess callback is called with the paths of the selected files/folders as parameter. pickMode can be Files, Folders or FilesAndFolders. Setting allowMultiSelection to true will allow picking multiple files/folders.
+
+There are also coroutine variants of these functions that will yield while the dialog is active:
+
+public static IEnumerator WaitForSaveDialog( PickMode pickMode, bool allowMultiSelection = false, string initialPath = null, string initialFilename = null, string title = "Save", string saveButtonText = "Save" );									 
+public static IEnumerator WaitForLoadDialog( PickMode pickMode, bool allowMultiSelection = false, string initialPath = null, string initialFilename = null, string title = "Load", string loadButtonText = "Select" );
+
+After the dialog is closed, you can check the FileBrowser.Success property to see whether the user has selected some files/folders or cancelled the operation and if FileBrowser.Success is set to true, you can use the FileBrowser.Result property to get the paths of the selected files/folders.
+
+You can force close an open dialog using the following function:
+
+public static void HideDialog( bool invokeCancelCallback = false );
+
+If there is an open dialog and the invokeCancelCallback parameter is set to true, the onCancel callback of the dialog will be invoked. This function can also be used to initialize the file browser ahead of time, which in turn will reduce the lag when you first open a dialog.
+
+To add a quick link to the browser, you can use the following function (to clear all quick links, use ClearQuickLinks()):
+
+public static bool AddQuickLink( string name, string path, Sprite icon = null );
+
+When icon parameter is left as null, the quick link will have a folder icon.
+
+By default, the file browser doesn't show files with .lnk or .tmp extensions. You can extend this list or remove this restriction altogether using the following function:
+
+public static void SetExcludedExtensions( params string[] excludedExtensions );
+
+Lastly, you can use the following functions to set the file filters (filters should include the period, e.g. ".jpg" instead of "jpg"):
+
+public static void SetFilters( bool showAllFilesFilter, IEnumerable<string> filters );
+public static void SetFilters( bool showAllFilesFilter, params string[] filters );
+public static void SetFilters( bool showAllFilesFilter, IEnumerable<FileBrowser.Filter> filters );
+public static void SetFilters( bool showAllFilesFilter, params FileBrowser.Filter[] filters );
+
+When showAllFilesFilter is set to true, a filter by the name "All Files (.*)" will appear that will show all the files when selected. To select a default filter, use the following function:
+
+public static bool SetDefaultFilter( string defaultFilter );
+
+You can programmatically filter the files/folders displayed in the file browser via the DisplayedEntriesFilter event:
+
+FileBrowser.DisplayedEntriesFilter += ( entry ) =>
+{
+	if( !entry.IsDirectory )
+		return true; // Don't filter files
+
+	return entry.Name.StartsWith( "Save" ); // Show only the directories whose name start with "Save"
+};
+
+You can set whether or not hidden files should be shown in the file browser via FileBrowser.ShowHiddenFiles (has no effect when Storage Access Framework is used on Android 10+). This value can also be changed from the "Show hidden files" toggle in the user interface. To change the visibility of that toggle, you can use FileBrowser.DisplayHiddenFilesToggle. Note that this toggle is always hidden on Android 10+ when Storage Access Framework is used or on mobile devices when device is held in portrait orientation.
+
+To open files or directories in the file browser with a single click (instead of double clicking), you can set FileBrowser.SingleClickMode to true.
+
+File browser refreshes the list of drives at a regular interval to detect the insertion/removal of USB drives. This interval can be changed via FileBrowser.DrivesRefreshInterval. If its value is less than 0, list of drives won't be refreshed. By default, this value is 5 seconds on standalone platforms and -1 on mobile platforms.
+
+In file saving mode, if the user selects one or more existing files, the file browser will show a file overwrite dialog. To disable this behaviour, you can set FileBrowser.ShowFileOverwriteDialog to false.
+
+While saving files/folders or loading folders, file browser can check if the user has write access to the destination folder(s) to ensure that any file operations inside those folder(s) will work without any issues. To do that, file browser attempts to create dummy files inside those folder(s) and if it fails, an error dialog is displayed to the user. This feature is disabled by default because some folders may have write access but not delete access, in which case the created dummy file will remain in the destination folder(s). To enable this feature, you can set FileBrowser.CheckWriteAccessToDestinationDirectory to true.
+
+File browser comes bundled with two premade skins in the Skins directory: LightSkin and DarkSkin. New UISkins can be created via Assets-Create-yasirkula-SimpleFileBrowser-UI Skin. A UISkin can be assigned to the file browser in two ways:
+
+    By changing SimpleFileBrowserCanvas prefab's Skin field
+    By changing the value of FileBrowser.Skin property from a C# script
+
+On Android, file browser requires external storage access to function properly. You can use the following functions to handle runtime permissions:
+
+public delegate void PermissionCallback( Permission permission );
+
+public static bool CheckPermission();
+public static void RequestPermissionAsync( PermissionCallback callback );
+
+FileBrowser.Permission is an enum that can take 3 values:
+
+    Granted: we have the permission to access the external storage
+    ShouldAsk: we don't have permission yet but we can continue asking the user for permission. As long as the user doesn't select "Don't ask again" while denying the permission, ShouldAsk is returned
+    Denied: we don't have permission and we can't ask the user for permission. In this case, user has to give the permission from Settings. This happens when user selects "Don't ask again" while denying the permission or when user is not allowed to give that permission (parental controls etc.)
+
+Note that FileBrowser automatically calls RequestPermissionAsync before opening a dialog. If you want, you can turn this feature off by setting FileBrowser.AskPermissions to false.
+
+The following file manipulation functions work on all platforms (including Storage Access Framework (SAF) on Android 10+). These functions should be called with the paths returned by the FileBrowser functions only:
+
+public static bool FileBrowserHelpers.FileExists( string path );
+public static bool FileBrowserHelpers.DirectoryExists( string path );
+public static bool FileBrowserHelpers.IsDirectory( string path );
+public static bool FileBrowserHelpers.IsPathDescendantOfAnother( string path, string parentFolderPath );
+public static string FileBrowserHelpers.GetDirectoryName( string path );
+public static FileSystemEntry[] FileBrowserHelpers.GetEntriesInDirectory( string path, bool extractOnlyLastSuffixFromExtensions ); // Returns all files and folders in a directory. If you want "File.tar.gz"s extension to be extracted as ".tar.gz" instead of ".gz", set 'extractOnlyLastSuffixFromExtensions' to false
+public static string FileBrowserHelpers.CreateFileInDirectory( string directoryPath, string filename ); // Returns the created file's path
+public static string FileBrowserHelpers.CreateFolderInDirectory( string directoryPath, string folderName ); // Returns the created folder's path
+public static void FileBrowserHelpers.WriteBytesToFile( string targetPath, byte[] bytes );
+public static void FileBrowserHelpers.WriteTextToFile( string targetPath, string text );
+public static void FileBrowserHelpers.AppendBytesToFile( string targetPath, byte[] bytes );
+public static void FileBrowserHelpers.AppendTextToFile( string targetPath, string text );
+public static byte[] FileBrowserHelpers.ReadBytesFromFile( string sourcePath );
+public static string FileBrowserHelpers.ReadTextFromFile( string sourcePath );
+public static void FileBrowserHelpers.CopyFile( string sourcePath, string destinationPath );
+public static void FileBrowserHelpers.CopyDirectory( string sourcePath, string destinationPath );
+public static void FileBrowserHelpers.MoveFile( string sourcePath, string destinationPath );
+public static void FileBrowserHelpers.MoveDirectory( string sourcePath, string destinationPath );
+public static string FileBrowserHelpers.RenameFile( string path, string newName ); // Returns the new path of the file
+public static string FileBrowserHelpers.RenameDirectory( string path, string newName ); // Returns the new path of the directory
+public static void FileBrowserHelpers.DeleteFile( string path );
+public static void FileBrowserHelpers.DeleteDirectory( string path );
+public static string FileBrowserHelpers.GetFilename( string path );
+public static long FileBrowserHelpers.GetFilesize( string path );
+public static DateTime FileBrowserHelpers.GetLastModifiedDate( string path );
+
+EXAMPLE CODE
+
+using UnityEngine;
+using System.Collections;
+using System.IO;
+using SimpleFileBrowser;
+
+public class FileBrowserTest : MonoBehaviour
+{
+	// Warning: paths returned by FileBrowser dialogs do not contain a trailing '\' character
+	// Warning: FileBrowser can only show 1 dialog at a time
+
+	void Start()
+	{
+		// Set filters (optional)
+		// It is sufficient to set the filters just once (instead of each time before showing the file browser dialog), 
+		// if all the dialogs will be using the same filters
+		FileBrowser.SetFilters( true, new FileBrowser.Filter( "Images", ".jpg", ".png" ), new FileBrowser.Filter( "Text Files", ".txt", ".pdf" ) );
+
+		// Set default filter that is selected when the dialog is shown (optional)
+		// Returns true if the default filter is set successfully
+		// In this case, set Images filter as the default filter
+		FileBrowser.SetDefaultFilter( ".jpg" );
+
+		// Set excluded file extensions (optional) (by default, .lnk and .tmp extensions are excluded)
+		// Note that when you use this function, .lnk and .tmp extensions will no longer be
+		// excluded unless you explicitly add them as parameters to the function
+		FileBrowser.SetExcludedExtensions( ".lnk", ".tmp", ".zip", ".rar", ".exe" );
+
+		// Add a new quick link to the browser (optional) (returns true if quick link is added successfully)
+		// It is sufficient to add a quick link just once
+		// Name: Users
+		// Path: C:\Users
+		// Icon: default (folder icon)
+		FileBrowser.AddQuickLink( "Users", "C:\\Users", null );
+		
+		// !!! Uncomment any of the examples below to show the file browser !!!
+
+		// Example 1: Show a save file dialog using callback approach
+		// onSuccess event: not registered (which means this dialog is pretty useless)
+		// onCancel event: not registered
+		// Save file/folder: file, Allow multiple selection: false
+		// Initial path: "C:\", Initial filename: "Screenshot.png"
+		// Title: "Save As", Submit button text: "Save"
+		// FileBrowser.ShowSaveDialog( null, null, FileBrowser.PickMode.Files, false, "C:\\", "Screenshot.png", "Save As", "Save" );
+
+		// Example 2: Show a select folder dialog using callback approach
+		// onSuccess event: print the selected folder's path
+		// onCancel event: print "Canceled"
+		// Load file/folder: folder, Allow multiple selection: false
+		// Initial path: default (Documents), Initial filename: empty
+		// Title: "Select Folder", Submit button text: "Select"
+		// FileBrowser.ShowLoadDialog( ( paths ) => { Debug.Log( "Selected: " + paths[0] ); },
+		//						   () => { Debug.Log( "Canceled" ); },
+		//						   FileBrowser.PickMode.Folders, false, null, null, "Select Folder", "Select" );
+
+		// Example 3: Show a select file dialog using coroutine approach
+		// StartCoroutine( ShowLoadDialogCoroutine() );
+	}
+
+	IEnumerator ShowLoadDialogCoroutine()
+	{
+		// Show a load file dialog and wait for a response from user
+		// Load file/folder: file, Allow multiple selection: true
+		// Initial path: default (Documents), Initial filename: empty
+		// Title: "Load File", Submit button text: "Load"
+		yield return FileBrowser.WaitForLoadDialog( FileBrowser.PickMode.Files, true, null, null, "Select Files", "Load" );
+
+		// Dialog is closed
+		// Print whether the user has selected some files or cancelled the operation (FileBrowser.Success)
+		Debug.Log( FileBrowser.Success );
+
+		if( FileBrowser.Success )
+			OnFilesSelected( FileBrowser.Result ); // FileBrowser.Result is null, if FileBrowser.Success is false
+	}
+	
+	void OnFilesSelected( string[] filePaths )
+	{
+		// Print paths of the selected files
+		for( int i = 0; i < filePaths.Length; i++ )
+			Debug.Log( filePaths[i] );
+
+		// Get the file path of the first selected file
+		string filePath = filePaths[0];
+
+		// Read the bytes of the first file via FileBrowserHelpers
+		// Contrary to File.ReadAllBytes, this function works on Android 10+, as well
+		byte[] bytes = FileBrowserHelpers.ReadBytesFromFile( filePath );
+
+		// Or, copy the first file to persistentDataPath
+		string destinationPath = Path.Combine( Application.persistentDataPath, FileBrowserHelpers.GetFilename( filePath ) );
+		FileBrowserHelpers.CopyFile( filePath, destinationPath );
+	}
+}

@@ -1,0 +1,13 @@
+我计划做一个VR下的mmd播放器。你现在所看到的是MikuMikuXR这一项目经过了一点魔改，但我们并不打算做安卓，而是做windows平台，另外我们也不做增强现实的应用，而原项目使用了一些增强现实的库。
+注意代码非常多，在解决问题时请仅查看必要的代码，否则会超过这次问答的上下文导致你崩溃。
+我已经用UGUI做出了一套UI，之后我们可能还会改。只是我是Unity新手，所以很多操作不熟悉，现在我打算为我的UI增添逻辑，你需要写出对应的操作步骤。对于mmd相关的模型的加载，控制等请参见Assets_Packs\LibMmd。也可以参考Assets/MikuMikuXR/SceneController/MainSceneController.cs的引用和间接引用，这是原有的已被废弃的读取界面所引用的内容。
+我已经尝试在我的界面增加背后的逻辑于Assets/MikuMikuXR/UI/Desktop/Scripts/DesktopUIManager.cs。其中加载模型和加载模型动作和加载音乐的功能已基本完成，并且能完成一些简单的控制。
+简单介绍一下，我的项目已经引入了必要的XR交互的包和SteamVR、NoloVR的包。
+现在我的VR出现问题。这是汇总。截图中的下边vrui中的三个对象分别是来自XR Origin里的prefab，来自SteamVR下的Prefab，来自NoloVR下的prefab。以下是本项目测试的症状：
+在XR Plugin Management里边启动OpenXR时：
+1.使用XR Origin，能打开摄像头，但是控制器是老问题，不能自动启动，并且角度无法读取
+2.使用SteamVR的预制件，控制器完全不能用（无论是角度还是动作），摄像头能用。
+3.使用Nolo Mangaer：摄像头不能调角度（应该是Nolo没有姿态设置的问题），但是控制器读取角度正常。
+在XR Plugin Management里边启动OpenVR时：
+头显内的应用程序无法正常启动（停留在加载界面），控制器表现同上。
+另外，我将TMP\Reference\VR Room-LU的原始项目升级到了6000版本（本项目下的是一个副本，并没有升级）。它的steamVR表现完全正常 ，控制器也表现正常。此项目在XR Plugin Management里边启动了OpenVR。我希望你至少能让我的OpenXR或者OpenVR下的任何一者表现正常。
