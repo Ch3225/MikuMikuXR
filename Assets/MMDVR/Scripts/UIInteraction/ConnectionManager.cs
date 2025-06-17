@@ -12,9 +12,12 @@ namespace MMDVR.Scripts.UIInteraction
     public class ConnectionManager : MonoBehaviour
     {
         public static ConnectionManager Instance { get; private set; }
-          [Header("连线层配置")]
-        public Canvas connectionCanvas; // 专门用于显示连线的Canvas        [Header("连线样式")]
-        public Color defaultLineColor = Color.magenta; // 改为紫红色，更醒目
+        
+        [Header("连线层配置")]
+        public Canvas connectionCanvas; // 专门用于显示连线的Canvas
+        
+        [Header("连线样式")]
+        public Color defaultLineColor = Color.yellow; // 默认黄色
         public float defaultLineWidth = 10f; // 增加到10像素，更容易看见
         
         // 存储所有活动的连线
@@ -24,10 +27,13 @@ namespace MMDVR.Scripts.UIInteraction
         private Dictionary<string, RectTransform> modelItemTransforms = new Dictionary<string, RectTransform>();
         private Dictionary<string, RectTransform> motionItemTransforms = new Dictionary<string, RectTransform>();
         
+        [Header("Connection Layer 对象（强制指定，推荐直接拖拽ConnectionLayer GameObject）")]
+        public GameObject connectionLayerObject;
+        
         [Header("Connection Layer 配置")]
         [Tooltip("可选：显式指定ConnectionLayer。如果不指定，将自动查找Canvas/MainUI/ConnectionLayer。")]
         public Transform explicitConnectionLayer;
-        private RectTransform connectionLayerToUse;
+        private Transform connectionLayerToUse;
         
         [Header("连线材质（HDRP专用）")]
         public Material connectionLineMaterial;
@@ -40,7 +46,9 @@ namespace MMDVR.Scripts.UIInteraction
                 return;
             }
             Instance = this;
-        }        void Start()
+        }
+        
+        void Start()
         {
             // 如果没有设置连线Canvas，创建一个
             if (connectionCanvas == null)
@@ -56,7 +64,9 @@ namespace MMDVR.Scripts.UIInteraction
         {
             // 取消事件监听
             EventManager.OnMotionListChanged -= RefreshAllConnections;
-        }        /// <summary>
+        }
+        
+        /// <summary>
         /// 创建连线Canvas
         /// </summary>
         private void CreateConnectionCanvas()
@@ -73,7 +83,26 @@ namespace MMDVR.Scripts.UIInteraction
             // 不添加GraphicRaycaster，避免阻挡UI交互
             
             Debug.Log($"创建ConnectionCanvas: sortingOrder={connectionCanvas.sortingOrder}, renderMode={connectionCanvas.renderMode}");
-        }/// <summary>
+        }
+        
+        /// <summary>
+        /// 获取GameObject的完整路径（用于调试）
+        /// </summary>
+        private string GetGameObjectPath(GameObject obj)
+        {
+            if (obj == null) return "null";
+            
+            string path = obj.name;
+            Transform parent = obj.transform.parent;
+            while (parent != null)
+            {
+                path = parent.name + "/" + path;
+                parent = parent.parent;
+            }
+            return path;
+        }
+        
+        /// <summary>
         /// 创建连线GameObject（直接创建，不使用预制体）
         /// </summary>
         private GameObject CreateConnectionLineGameObject()
@@ -84,47 +113,97 @@ namespace MMDVR.Scripts.UIInteraction
             rectTransform.anchorMax = Vector2.one;
             rectTransform.anchoredPosition = Vector2.zero;
             rectTransform.sizeDelta = Vector2.zero;
+            
+            // 详细调试ConnectionLayer状态
+            Debug.Log($"[DEBUG] connectionLayerToUse: {(connectionLayerToUse != null ? connectionLayerToUse.name : "null")}");
+            Debug.Log($"[DEBUG] connectionLayerToUse的GameObject路径: {(connectionLayerToUse != null ? GetGameObjectPath(connectionLayerToUse.gameObject) : "null")}");
+            
             // 父对象设为ConnectionLayer
             if (connectionLayerToUse != null)
-                lineGO.transform.SetParent(connectionLayerToUse, false);
+            {
+                lineGO.transform.SetParent(connectionLayerToUse, true); // 改为true，保持世界坐标
+                Debug.Log($"ConnectionLine已设置父对象为: {connectionLayerToUse.name}");
+                Debug.Log($"[验证] ConnectionLine实际父对象: {(lineGO.transform.parent != null ? lineGO.transform.parent.name : "null")}");
+                Debug.Log($"[验证] ConnectionLine完整路径: {GetGameObjectPath(lineGO)}");
+            }
             else
-                lineGO.transform.SetParent(connectionCanvas.transform, false);
+            {
+                lineGO.transform.SetParent(connectionCanvas.transform, true);
+                Debug.Log($"ConnectionLine设置父对象为ConnectionCanvas: {connectionCanvas.name}");
+            }
+            
+            // 添加CanvasRenderer组件
             CanvasRenderer canvasRenderer = lineGO.AddComponent<CanvasRenderer>();
+            
+            // 添加ConnectionLine组件
             ConnectionLine connectionLine = lineGO.AddComponent<ConnectionLine>();
             connectionLine.lineWidth = defaultLineWidth;
-            connectionLine.lineColor = defaultLineColor;
+            connectionLine.color = defaultLineColor;
             connectionLine.raycastTarget = false;
-            if (connectionLineMaterial != null)
-                connectionLine.material = connectionLineMaterial;
+            
+            // 不设置材质，优先用color属性
+            Debug.Log($"创建ConnectionLine: width={defaultLineWidth}, color={defaultLineColor}");
+            
             return lineGO;
         }
         
         private void InitConnectionLayer()
         {
-            if (explicitConnectionLayer != null)
+            Debug.Log("[DEBUG] 开始初始化ConnectionLayer...");
+            
+            if (connectionLayerObject != null)
             {
-                connectionLayerToUse = explicitConnectionLayer as RectTransform;
+                connectionLayerToUse = connectionLayerObject.transform;
+                Debug.Log($"使用显式指定的ConnectionLayer对象: {connectionLayerToUse.name}");
+                Debug.Log($"[DEBUG] ConnectionLayer对象路径: {GetGameObjectPath(connectionLayerObject)}");
             }
-            else if (connectionCanvas != null)
+            else if (explicitConnectionLayer != null)
             {
-                Transform mainUiTransform = connectionCanvas.name == "MainUI"
-                    ? connectionCanvas.transform
-                    : connectionCanvas.transform.Find("MainUI");
-                if (mainUiTransform != null)
+                connectionLayerToUse = explicitConnectionLayer;
+                Debug.Log($"使用显式指定的ConnectionLayer: {connectionLayerToUse.name}");
+                Debug.Log($"[DEBUG] explicitConnectionLayer路径: {GetGameObjectPath(explicitConnectionLayer.gameObject)}");
+            }
+            else
+            {
+                Debug.Log("[DEBUG] 开始自动查找ConnectionLayer...");
+                // 查找主UI Canvas下的ConnectionLayer
+                Canvas[] allCanvases = FindObjectsOfType<Canvas>();
+                Debug.Log($"[DEBUG] 找到 {allCanvases.Length} 个Canvas");
+                
+                foreach (Canvas canvas in allCanvases)
                 {
-                    var foundLayer = mainUiTransform.Find("ConnectionLayer");
-                    if (foundLayer != null)
-                        connectionLayerToUse = foundLayer as RectTransform;
+                    Debug.Log($"[DEBUG] 检查Canvas: {canvas.name}");
+                    Transform mainUiTransform = canvas.name == "MainUI"
+                        ? canvas.transform
+                        : canvas.transform.Find("MainUI");
+                    
+                    if (mainUiTransform != null)
+                    {
+                        Debug.Log($"[DEBUG] 找到MainUI: {mainUiTransform.name}");
+                        var foundLayer = mainUiTransform.Find("ConnectionLayer");
+                        if (foundLayer != null)
+                        {
+                            connectionLayerToUse = foundLayer;
+                            Debug.Log($"找到ConnectionLayer: {connectionLayerToUse.name}");
+                            Debug.Log($"[DEBUG] 自动找到的ConnectionLayer路径: {GetGameObjectPath(foundLayer.gameObject)}");
+                            break;
+                        }
+                        else
+                        {
+                            Debug.Log($"[DEBUG] 在 {mainUiTransform.name} 下未找到ConnectionLayer");
+                        }
+                    }
                 }
             }
-            if (connectionLayerToUse == null && connectionCanvas != null)
+            
+            if (connectionLayerToUse == null)
             {
-                Debug.LogWarning("ConnectionLayer未找到，使用Canvas根节点作为兜底。", this);
-                connectionLayerToUse = connectionCanvas.transform as RectTransform;
+                Debug.LogWarning("ConnectionLayer未找到，连线将放在ConnectionCanvas根节点。建议在MainUI下创建ConnectionLayer。", this);
+                connectionLayerToUse = connectionCanvas.transform;
             }
-            else if (connectionLayerToUse == null)
+            else
             {
-                Debug.LogError("未找到可用的ConnectionLayer和Canvas！", this);
+                Debug.Log($"[SUCCESS] 最终使用的ConnectionLayer: {connectionLayerToUse.name}, 路径: {GetGameObjectPath(connectionLayerToUse.gameObject)}");
             }
         }
         
@@ -179,23 +258,24 @@ namespace MMDVR.Scripts.UIInteraction
             if (!modelItemTransforms.ContainsKey(modelId) || !motionItemTransforms.ContainsKey(motionId))
             {
                 Debug.LogWarning($"无法创建连线：找不到对应的UI项 Model:{modelId} Motion:{motionId}");
-                return;            }            // 创建连线GameObject
+                return;
+            }
+            
+            // 创建连线GameObject
             GameObject lineGO = CreateConnectionLineGameObject();
             lineGO.name = $"Connection_{modelId}_{motionId}";
-            lineGO.transform.SetParent(connectionCanvas.transform, false);
-              // 获取ConnectionLine组件
+            
+            // 获取ConnectionLine组件并设置连线
             ConnectionLine connectionLine = lineGO.GetComponent<ConnectionLine>();
+            RectTransform startPoint = modelItemTransforms[modelId];
+            RectTransform endPoint = motionItemTransforms[motionId];
             
-            // 设置连线端点
-            connectionLine.SetPoints(
-                modelItemTransforms[modelId], 
-                motionItemTransforms[motionId], 
-                modelId, 
-                motionId
-            );
+            connectionLine.SetPoints(startPoint, endPoint, modelId, motionId);
             
+            // 存储连线
             activeConnections[connectionKey] = connectionLine;
-            Debug.Log($"创建连线: {modelId} -> {motionId}, 起点:{modelItemTransforms[modelId].position}, 终点:{motionItemTransforms[motionId].position}");
+            
+            Debug.Log($"创建连线: {modelId} -> {motionId}, 起点:{startPoint.position:F2}, 终点:{endPoint.position:F2}");
         }
         
         /// <summary>
@@ -204,12 +284,12 @@ namespace MMDVR.Scripts.UIInteraction
         public void RemoveConnection(string modelId, string motionId)
         {
             string connectionKey = GetConnectionKey(modelId, motionId);
-            
             if (activeConnections.ContainsKey(connectionKey))
             {
-                if (activeConnections[connectionKey] != null)
+                ConnectionLine connection = activeConnections[connectionKey];
+                if (connection != null)
                 {
-                    Destroy(activeConnections[connectionKey].gameObject);
+                    Destroy(connection.gameObject);
                 }
                 activeConnections.Remove(connectionKey);
                 Debug.Log($"移除连线: {modelId} -> {motionId}");
@@ -231,54 +311,26 @@ namespace MMDVR.Scripts.UIInteraction
             activeConnections.Clear();
             Debug.Log("清除所有连线");
         }
-        
-        /// <summary>
-        /// 刷新所有连线（根据SceneStatesManager中的关联数据）
+          /// <summary>
+        /// 刷新所有连线
         /// </summary>
         public void RefreshAllConnections()
         {
-            Debug.Log("刷新所有连线");
-            
-            // 清除现有连线
-            ClearAllConnections();
-            
-            // 根据SceneStatesManager重新创建连线
-            if (SceneStatesManager.Instance != null)
+            foreach (var connection in activeConnections.Values)
             {
-                var modelList = SceneStatesManager.Instance.GetModelList();
-                var motionList = SceneStatesManager.Instance.GetMotionList();
-                
-                // 遍历所有模型-动作关联
-                foreach (var model in modelList)
+                if (connection != null)
                 {
-                    foreach (var motion in motionList)
-                    {
-                        // 检查是否有关联（这里需要SceneStatesManager提供查询方法）
-                        if (IsModelMotionAssociated(model.ID, motion.ID))
-                        {
-                            CreateConnection(model.ID, motion.ID);
-                        }
-                    }
+                    connection.SetVerticesDirty();
                 }
             }
         }
         
         /// <summary>
-        /// 检查模型和动作是否已关联（需要SceneStatesManager提供此方法）
-        /// </summary>
-        private bool IsModelMotionAssociated(string modelId, string motionId)
-        {
-            // 这里需要SceneStatesManager提供查询关联的方法
-            // 暂时返回false，等待SceneStatesManager添加相应方法
-            return false;
-        }
-        
-        /// <summary>
-        /// 生成连线的唯一键
+        /// 获取连线的唯一标识
         /// </summary>
         private string GetConnectionKey(string modelId, string motionId)
         {
-            return $"{modelId}->{motionId}";
+            return $"{modelId}_{motionId}";
         }
         
         /// <summary>
@@ -288,15 +340,13 @@ namespace MMDVR.Scripts.UIInteraction
         {
             defaultLineColor = color;
             defaultLineWidth = width;
-            
             // 更新现有连线样式
             foreach (var connection in activeConnections.Values)
             {
                 if (connection != null)
                 {
-                    connection.lineColor = color;
-                    connection.lineWidth = width;
                     connection.color = color;
+                    connection.lineWidth = width;
                 }
             }
         }
@@ -341,12 +391,10 @@ namespace MMDVR.Scripts.UIInteraction
             Debug.Log($"ConnectionCanvas: {(connectionCanvas != null ? connectionCanvas.name : "null")}");
             Debug.Log($"SortingOrder: {(connectionCanvas != null ? connectionCanvas.sortingOrder.ToString() : "null")}");
             Debug.Log($"活动连线数量: {activeConnections.Count}");
-            
             foreach (var kvp in activeConnections)
             {
                 string key = kvp.Key;
                 ConnectionLine line = kvp.Value;
-                
                 if (line != null)
                 {
                     Debug.Log($"连线 {key}:");
@@ -356,7 +404,7 @@ namespace MMDVR.Scripts.UIInteraction
                     Debug.Log($"  - StartPoint: {(line.startPoint != null ? line.startPoint.name : "null")}");
                     Debug.Log($"  - EndPoint: {(line.endPoint != null ? line.endPoint.name : "null")}");
                     Debug.Log($"  - LineWidth: {line.lineWidth}");
-                    Debug.Log($"  - LineColor: {line.lineColor}");
+                    Debug.Log($"  - LineColor: {line.color}");
                     Debug.Log($"  - Active: {line.gameObject.activeInHierarchy}");
                     Debug.Log($"  - Canvas: {(line.canvas != null ? line.canvas.name : "null")}");
                 }

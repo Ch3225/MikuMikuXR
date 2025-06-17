@@ -27597,6 +27597,7 @@ MonoBehaviour:
   explicitConnectionLayer: {fileID: 499042359}
   connectionLineMaterial: {fileID: -876546973899608171, guid: c6c389e23b063ff458e1614c1babc402,
     type: 3}
+  connectionLayerObject: {fileID: 499042358}
 --- !u!1 &2074922291
 GameObject:
   m_ObjectHideFlags: 0

@@ -11,7 +11,6 @@ namespace MMDVR.Scripts.UIInteraction
     {
         [Header("连线配置")]
         public float lineWidth = 10f;
-        public Color lineColor = Color.magenta;
         
         [Header("连线端点")]
         public RectTransform startPoint;
@@ -29,7 +28,6 @@ namespace MMDVR.Scripts.UIInteraction
         protected override void Start()
         {
             base.Start();
-            color = lineColor;
             raycastTarget = false; // 确保不会阻挡UI交互
         }
         
@@ -38,8 +36,8 @@ namespace MMDVR.Scripts.UIInteraction
             // 只在位置发生变化时才更新
             if (startPoint != null && endPoint != null)
             {
-                Vector2 currentStartPos = GetUIPosition(startPoint);
-                Vector2 currentEndPos = GetUIPosition(endPoint);
+                Vector2 currentStartPos = GetLocalPosInLayer(startPoint);
+                Vector2 currentEndPos = GetLocalPosInLayer(endPoint);
                 
                 // 检查位置是否发生变化
                 if (Vector2.Distance(currentStartPos, lastStartPos) > 1f || 
@@ -70,29 +68,12 @@ namespace MMDVR.Scripts.UIInteraction
             this.motionId = motionId;
             
             // 初始化位置记录
-            if (start != null) lastStartPos = GetUIPosition(start);
-            if (end != null) lastEndPos = GetUIPosition(end);
+            if (start != null) lastStartPos = GetLocalPosInLayer(start);
+            if (end != null) lastEndPos = GetLocalPosInLayer(end);
             
             needsUpdate = true;
             UpdateRectTransform();
             SetVerticesDirty();
-        }
-        
-        /// <summary>
-        /// 获取UI元素在Canvas中的位置
-        /// </summary>
-        private Vector2 GetUIPosition(RectTransform target)
-        {
-            if (target == null) return Vector2.zero;
-            
-            // 直接获取相对于Canvas的位置
-            Vector2 localPos;
-            RectTransformUtility.ScreenPointToLocalPointInRectangle(
-                rectTransform.parent as RectTransform, 
-                RectTransformUtility.WorldToScreenPoint(canvas.worldCamera, target.position), 
-                canvas.worldCamera, 
-                out localPos);
-            return localPos;
         }
         
         private RectTransform GetLayerRect()
@@ -103,7 +84,11 @@ namespace MMDVR.Scripts.UIInteraction
         
         private Vector2 GetLocalPosInLayer(RectTransform target)
         {
+            if (target == null) return Vector2.zero;
+            
             var layer = GetLayerRect();
+            if (layer == null) return Vector2.zero;
+            
             Vector2 screenPos = RectTransformUtility.WorldToScreenPoint(null, target.position);
             Vector2 localPos;
             RectTransformUtility.ScreenPointToLocalPointInRectangle(layer, screenPos, null, out localPos);
@@ -124,7 +109,8 @@ namespace MMDVR.Scripts.UIInteraction
             rectTransform.sizeDelta = size;
             _localStart = start - center;
             _localEnd = end - center;
-        }        
+        }
+        
         protected override void OnPopulateMesh(VertexHelper vh)
         {
             vh.Clear();
@@ -138,7 +124,10 @@ namespace MMDVR.Scripts.UIInteraction
             Vector2 v2 = start - perpendicular;
             Vector2 v3 = end - perpendicular;
             Vector2 v4 = end + perpendicular;
-            Color32 lineColor32 = new Color32(255, 0, 255, 255);
+            
+            // 使用基类的color属性，确保颜色正确
+            Color32 lineColor32 = color;
+            
             vh.AddVert(v1, lineColor32, Vector2.zero);
             vh.AddVert(v2, lineColor32, Vector2.zero);
             vh.AddVert(v3, lineColor32, Vector2.zero);
