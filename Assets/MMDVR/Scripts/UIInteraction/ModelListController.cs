@@ -154,6 +154,28 @@ public class ModelListController : MonoBehaviour
                 Debug.LogError($"[ModelListController] listItemPrefab上没有DraggableItem组件！");
             }
 
+            // 配置DropZone用于接受动作拖拽
+            DropZone dropZone = listItemGO.GetComponentInChildren<DropZone>();
+            if (dropZone != null)
+            {
+                dropZone.actionType = DropZone.DropActionType.LinkToModel;
+                dropZone.acceptedResourceTypes = new List<ResourceType> { ResourceType.Motion };
+                var currentModelData = resourceData as ModelData;
+                dropZone.onItemDropped.RemoveAllListeners();
+                dropZone.onItemDropped.AddListener((draggedGO) => {
+                    var draggedItem = draggedGO.GetComponent<DraggableItem>();
+                    var motionData = draggedItem?.Data as MotionData;
+                    if (motionData != null && currentModelData != null)
+                    {
+                        Debug.Log($"拖拽动作 {motionData.DisplayName} 到模型 {currentModelData.DisplayName}");
+                        if (SceneStatesManager.Instance != null)
+                        {
+                            SceneStatesManager.Instance.AssignMotionToActor(motionData.ID, currentModelData.ID);
+                        }
+                    }
+                });
+            }
+
             TextMeshProUGUI titleText = listItemGO.GetComponentInChildren<TextMeshProUGUI>();
             if (titleText != null)
             {

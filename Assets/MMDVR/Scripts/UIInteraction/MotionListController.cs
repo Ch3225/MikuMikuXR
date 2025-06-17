@@ -121,12 +121,32 @@ public class MotionListController : MonoBehaviour
         {
             IResourceInfo resourceData = internalResourceList[i];
             GameObject listItemGO = Instantiate(listItemPrefab, listContainer);
-            listItemGO.name = resourceData.Type + "_Item_" + resourceData.DisplayName.Replace(" ", "");
-
-            DraggableItem draggableItem = listItemGO.GetComponent<DraggableItem>();
+            listItemGO.name = resourceData.Type + "_Item_" + resourceData.DisplayName.Replace(" ", "");            DraggableItem draggableItem = listItemGO.GetComponent<DraggableItem>();
             if (draggableItem != null)
             {
                 draggableItem.Data = resourceData;
+            }
+
+            // 配置DropZone用于接受模型拖拽
+            DropZone dropZone = listItemGO.GetComponentInChildren<DropZone>();
+            if (dropZone != null)
+            {
+                dropZone.actionType = DropZone.DropActionType.LinkToMotion;
+                dropZone.acceptedResourceTypes = new List<ResourceType> { ResourceType.Model };
+                var currentMotionData = resourceData as MotionData;
+                dropZone.onItemDropped.RemoveAllListeners();
+                dropZone.onItemDropped.AddListener((draggedGO) => {
+                    var draggedItem = draggedGO.GetComponent<DraggableItem>();
+                    var modelData = draggedItem?.Data as ModelData;
+                    if (modelData != null && currentMotionData != null)
+                    {
+                        Debug.Log($"拖拽模型 {modelData.DisplayName} 到动作 {currentMotionData.DisplayName}");
+                        if (SceneStatesManager.Instance != null)
+                        {
+                            SceneStatesManager.Instance.AssignMotionToActor(currentMotionData.ID, modelData.ID);
+                        }
+                    }
+                });
             }
 
             TextMeshProUGUI titleText = listItemGO.GetComponentInChildren<TextMeshProUGUI>();
