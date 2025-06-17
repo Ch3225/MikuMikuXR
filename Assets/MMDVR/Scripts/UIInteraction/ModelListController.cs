@@ -102,6 +102,18 @@ public class ModelListController : MonoBehaviour
     {
         Debug.Log($"ModelListController: RefreshList called. Current UI items count: {uiListItemObjects.Count}");
         
+        // 清除旧的UI项注册
+        if (ConnectionManager.Instance != null)
+        {
+            foreach (var item in internalResourceList)
+            {
+                if (item is ModelData)
+                {
+                    ConnectionManager.Instance.UnregisterModelItem(item.ID);
+                }
+            }
+        }
+        
         // 立即销毁现有UI项
         foreach (GameObject obj in uiListItemObjects)
         {
@@ -152,9 +164,7 @@ public class ModelListController : MonoBehaviour
             else
             {
                 Debug.LogError($"[ModelListController] listItemPrefab上没有DraggableItem组件！");
-            }
-
-            // 配置DropZone用于接受动作拖拽
+            }            // 配置DropZone用于接受动作拖拽
             DropZone dropZone = listItemGO.GetComponentInChildren<DropZone>();
             if (dropZone != null)
             {
@@ -171,9 +181,20 @@ public class ModelListController : MonoBehaviour
                         if (SceneStatesManager.Instance != null)
                         {
                             SceneStatesManager.Instance.AssignMotionToActor(motionData.ID, currentModelData.ID);
+                            // 创建连线
+                            if (ConnectionManager.Instance != null)
+                            {
+                                ConnectionManager.Instance.CreateConnection(currentModelData.ID, motionData.ID);
+                            }
                         }
                     }
                 });
+            }
+
+            // 向ConnectionManager注册此UI项
+            if (ConnectionManager.Instance != null && resourceData is ModelData)
+            {
+                ConnectionManager.Instance.RegisterModelItem(resourceData.ID, listItemGO.GetComponent<RectTransform>());
             }
 
             TextMeshProUGUI titleText = listItemGO.GetComponentInChildren<TextMeshProUGUI>();
@@ -194,6 +215,12 @@ public class ModelListController : MonoBehaviour
         }
 
         UpdateAllItemVisuals();
+        
+        // 刷新连线显示
+        if (ConnectionManager.Instance != null)
+        {
+            ConnectionManager.Instance.RefreshAllConnections();
+        }
     }
 
     public void HandleDropOnListArea(GameObject droppedGameObject)

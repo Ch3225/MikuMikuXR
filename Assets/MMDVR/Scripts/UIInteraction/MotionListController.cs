@@ -80,6 +80,18 @@ public class MotionListController : MonoBehaviour
     {
         Debug.Log($"MotionListController: RefreshList called. Current UI items count: {uiListItemObjects.Count}");
         
+        // 清除旧的UI项注册
+        if (ConnectionManager.Instance != null)
+        {
+            foreach (var item in internalResourceList)
+            {
+                if (item is MotionData)
+                {
+                    ConnectionManager.Instance.UnregisterMotionItem(item.ID);
+                }
+            }
+        }
+        
         // 立即销毁现有UI项
         foreach (GameObject obj in uiListItemObjects)
         {
@@ -125,9 +137,7 @@ public class MotionListController : MonoBehaviour
             if (draggableItem != null)
             {
                 draggableItem.Data = resourceData;
-            }
-
-            // 配置DropZone用于接受模型拖拽
+            }            // 配置DropZone用于接受模型拖拽
             DropZone dropZone = listItemGO.GetComponentInChildren<DropZone>();
             if (dropZone != null)
             {
@@ -144,9 +154,20 @@ public class MotionListController : MonoBehaviour
                         if (SceneStatesManager.Instance != null)
                         {
                             SceneStatesManager.Instance.AssignMotionToActor(currentMotionData.ID, modelData.ID);
+                            // 创建连线
+                            if (ConnectionManager.Instance != null)
+                            {
+                                ConnectionManager.Instance.CreateConnection(modelData.ID, currentMotionData.ID);
+                            }
                         }
                     }
                 });
+            }
+
+            // 向ConnectionManager注册此UI项
+            if (ConnectionManager.Instance != null && resourceData is MotionData)
+            {
+                ConnectionManager.Instance.RegisterMotionItem(resourceData.ID, listItemGO.GetComponent<RectTransform>());
             }
 
             TextMeshProUGUI titleText = listItemGO.GetComponentInChildren<TextMeshProUGUI>();
@@ -167,6 +188,12 @@ public class MotionListController : MonoBehaviour
         }
 
         UpdateAllItemVisuals();
+        
+        // 刷新连线显示
+        if (ConnectionManager.Instance != null)
+        {
+            ConnectionManager.Instance.RefreshAllConnections();
+        }
     }
 
     public void HandleDropOnListArea(GameObject droppedGameObject)
