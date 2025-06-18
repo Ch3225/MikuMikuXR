@@ -1188,10 +1188,75 @@ namespace MMDVR.Managers
             {
                 modelMotionAssociations.Remove(modelId);
                 Debug.Log($"断开模型 {modelId} 的所有关联");
+                // 为模型加载空动作
+                LoadEmptyMotionForModel(modelId);
                 EventManager.Instance?.TriggerEvent("ModelMotionAssociationChanged");
             }
         }
-          /// <summary>
+        
+        /// <summary>
+        /// 为模型加载空动作
+        /// </summary>
+        public void LoadEmptyMotionForModel(string modelId)
+        {
+            // 查找模型对应的Actor GameObject
+            Transform actorTransform = actorContainer?.Find(modelId);
+            if (actorTransform != null)
+            {
+                // 查找MmdGameObject组件
+                var mmdGameObject = actorTransform.GetComponentInChildren<LibMMD.Unity3D.MmdGameObject>();
+                if (mmdGameObject != null)
+                {
+                    // 重置到默认姿态（无动作）
+                    mmdGameObject.ResetMotion();
+                    Debug.Log($"已为模型 {modelId} 加载空动作");
+                }
+                else
+                {
+                    Debug.LogWarning($"模型 {modelId} 没有找到MmdGameObject组件");
+                }
+            }
+            else
+            {
+                Debug.LogWarning($"模型 {modelId} 的Actor对象未找到");
+            }
+        }
+        
+        /// <summary>
+        /// 重新加载模型的动作列表（用于动作断开连接后的刷新）
+        /// </summary>
+        public void ReloadModelMotions(string modelId)
+        {
+            // 查找模型对应的Actor GameObject
+            Transform actorTransform = actorContainer?.Find(modelId);
+            if (actorTransform != null)
+            {
+                var mmdGameObject = actorTransform.GetComponentInChildren<LibMMD.Unity3D.MmdGameObject>();
+                if (mmdGameObject != null)
+                {
+                    // 获取模型当前关联的动作
+                    var associatedMotions = GetModelAssociatedMotions(modelId);
+                    // 清除当前动作
+                    mmdGameObject.ResetMotion();
+                    if (associatedMotions.Count > 0)
+                    {
+                        var motionData = GetMotionResourceById(associatedMotions[0]);
+                        if (motionData != null)
+                        {
+                            mmdGameObject.LoadMotion(motionData.FilePath);
+                            Debug.Log($"已为模型 {modelId} 重新加载动作: {motionData.DisplayName}");
+                        }
+                    }
+                    else
+                    {
+                        // 如果没有关联动作，加载空动作
+                        LoadEmptyMotionForModel(modelId);
+                    }
+                }
+            }
+        }
+        
+        /// <summary>
         /// 断开动作的所有模型关联
         /// </summary>
         public void DisconnectAllMotionAssociations(string motionId)
@@ -1204,7 +1269,6 @@ namespace MMDVR.Managers
                     keysToUpdate.Add(kvp.Key);
                 }
             }
-            
             foreach (var key in keysToUpdate)
             {
                 modelMotionAssociations[key].Remove(motionId);
@@ -1212,11 +1276,12 @@ namespace MMDVR.Managers
                 {
                     modelMotionAssociations.Remove(key);
                 }
+                // 为每个受影响的模型重新加载动作列表
+                ReloadModelMotions(key);
             }
-            
             if (keysToUpdate.Count > 0)
             {
-                Debug.Log($"断开动作 {motionId} 的所有关联");
+                Debug.Log($"断开动作 {motionId} 的所有关联，并重新加载了 {keysToUpdate.Count} 个模型的动作");
                 EventManager.Instance?.TriggerEvent("ModelMotionAssociationChanged");
             }
         }
@@ -1586,6 +1651,43 @@ namespace MMDVR.Managers
         {
             GameObject actorObj = GetActorObjectById(id);
             return actorObj?.GetComponent<SceneActorComponent>();
+        }        /// <summary>
+        /// 通过ID获取Motion资源
+        /// </summary>
+        private MotionData GetMotionResourceById(string motionId)
+        {
+            if (motionContainer == null) return null;
+            // 兼容命名方式：Motion_{id}
+            Transform motionTransform = motionContainer.Find($"Motion_{motionId}");
+            if (motionTransform != null)
+            {
+                var motionComponent = motionTransform.GetComponent<MotionComponent>();
+                if (motionComponent != null)
+                {
+                    return new MotionData
+                    {
+                        id = motionComponent.id,
+                        displayName = motionComponent.displayName,
+                        filePath = motionComponent.filePath
+                    };
+                }
+            }
+            // 兼容直接用id
+            motionTransform = motionContainer.Find(motionId);
+            if (motionTransform != null)
+            {
+                var motionComponent = motionTransform.GetComponent<MotionComponent>();
+                if (motionComponent != null)
+                {
+                    return new MotionData
+                    {
+                        id = motionComponent.id,
+                        displayName = motionComponent.displayName,
+                        filePath = motionComponent.filePath
+                    };
+                }
+            }
+            return null;
         }
     }
 

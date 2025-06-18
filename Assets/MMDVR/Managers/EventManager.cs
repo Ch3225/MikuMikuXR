@@ -30,6 +30,9 @@ namespace MMDVR.Managers
 
         // 音乐列表变更事件
         public static Action OnMusicListChanged;
+        
+        // 模型-动作关联变更事件
+        public static Action OnModelMotionAssociationChanged;
 
         // 相机激活事件
         public static Action<MMDVR.Scripts.UIInteraction.CameraData> OnCameraActivated;        // 通用事件触发方法
@@ -50,6 +53,9 @@ namespace MMDVR.Managers
                 case "MotionListUpdated":
                 case "MotionListChanged":
                     OnMotionListChanged?.Invoke();
+                    break;
+                case "ModelMotionAssociationChanged":
+                    OnModelMotionAssociationChanged?.Invoke();
                     break;
                 case "MusicActivated":
                 case "PlaybackStateChanged":

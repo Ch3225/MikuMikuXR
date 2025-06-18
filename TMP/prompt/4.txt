@@ -8,3 +8,10 @@ MusicListPanel挂载了Assets/MMDVR/Scripts/UIInteraction/MusicListController.cs
 
 
 
+我计划做一个VR下的mmd播放器。你现在所看到的是MikuMikuXR这一项目经过了一点魔改，但我们并不打算做安卓，而是做windows平台，另外我们也不做增强现实的应用，而原项目使用了一些增强现实的库。
+注意代码非常多，在解决问题时请仅查看必要的代码，否则会超过这次问答的上下文导致你崩溃。
+我已经用UGUI做出了一套UI，之后我们可能还会改。只是我是Unity新手，所以很多操作不熟悉，现在我打算为我的UI增添逻辑，你需要写出对应的操作步骤。对于mmd相关的模型的加载，控制等请参见Assets_Packs\LibMmd。也可以参考Assets/MMDVR/Managers/SceneStatesManager.cs的引用和间接引用，这是原有的已被废弃的读取界面所引用的内容。
+现在我们可以实现拖拽Draggable item到对应的位置Dropzone来实现不同的功能。可是现在还有一些功能未实现。比如将模型或者动作拖拽到Action Type为Disconnect的Drop zone。现在我希望你实现如下效果：
+如果拖拽模型到Disconnect：清理模型和所有关联的动作，并加载空动作；
+如果拖拽动作到Disconnect：对所有的模型在动作列表中删除该动作，并使得模型重新加载动作列表。
+对于Uninstall对模型的动作的处理，虽然原有的代码已经写出来，但确保以下逻辑：在拖拽取消连接的基础上，删除所拖拽draggable item所对应的资源。

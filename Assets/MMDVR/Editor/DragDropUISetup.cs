@@ -153,16 +153,15 @@ namespace MMDVR.Editor
                 {
                     dropZone = uninstallZone.AddComponent<DropZone>();
                 }
-                
-                dropZone.actionType = DropZone.DropActionType.Uninstall;
+                  dropZone.actionType = DropZone.DropActionType.Uninstall;
                 dropZone.acceptedResourceTypes.Clear();
-                // 接受所有类型
+                // 接受所有类型（Actor和Model是同一回事，都使用ResourceType.Model）
                 dropZone.acceptedResourceTypes.Add(ResourceType.Model);
                 dropZone.acceptedResourceTypes.Add(ResourceType.Motion);
                 dropZone.acceptedResourceTypes.Add(ResourceType.Music);
                 dropZone.acceptedResourceTypes.Add(ResourceType.Camera);
                 
-                Debug.Log("配置了Uninstall DropZone");
+                Debug.Log("配置了Uninstall DropZone - 接受Model, Motion, Music, Camera类型");
             }
         }
         
@@ -186,8 +185,7 @@ namespace MMDVR.Editor
                 Debug.Log("配置了Enable DropZone");
             }
         }
-        
-        static void SetupDisconnectDropZone()
+          static void SetupDisconnectDropZone()
         {
             GameObject disconnectZone = GameObject.Find("DropZoneDisconnect");
             if (disconnectZone != null)
@@ -200,10 +198,11 @@ namespace MMDVR.Editor
                 
                 dropZone.actionType = DropZone.DropActionType.Disconnect;
                 dropZone.acceptedResourceTypes.Clear();
+                // 添加Model和Motion类型（Actor和Model是同一回事）
                 dropZone.acceptedResourceTypes.Add(ResourceType.Model);
                 dropZone.acceptedResourceTypes.Add(ResourceType.Motion);
                 
-                Debug.Log("配置了Disconnect DropZone");
+                Debug.Log("配置了Disconnect DropZone - 接受Model和Motion类型");
             }
         }
     }

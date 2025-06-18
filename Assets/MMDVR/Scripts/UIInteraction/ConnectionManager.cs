@@ -58,12 +58,15 @@ namespace MMDVR.Scripts.UIInteraction
             InitConnectionLayer();
             // 监听关联变化事件 - 使用static Action
             EventManager.OnMotionListChanged += RefreshAllConnections;
+            // 监听模型-动作关联变化事件（这是最重要的）
+            EventManager.OnModelMotionAssociationChanged += RebuildAllConnections;
         }
         
         void OnDestroy()
         {
             // 取消事件监听
             EventManager.OnMotionListChanged -= RefreshAllConnections;
+            EventManager.OnModelMotionAssociationChanged -= RebuildAllConnections;
         }
         
         /// <summary>
@@ -430,6 +433,98 @@ namespace MMDVR.Scripts.UIInteraction
                 }
             }
             Debug.Log("强制刷新所有连线");
+        }
+        
+        /// <summary>
+        /// 重建所有连线（根据实际关联状态）
+        /// </summary>
+        public void RebuildAllConnections()
+        {
+            Debug.Log("开始重建所有连线...");
+            
+            // 1. 清理无效连线（端点已销毁的连线）
+            CleanupInvalidConnections();
+            
+            // 2. 根据实际关联状态重建连线
+            if (SceneStatesManager.Instance != null)
+            {
+                var modelList = SceneStatesManager.Instance.GetModelList();
+                foreach (var model in modelList)
+                {
+                    var associatedMotions = SceneStatesManager.Instance.GetModelAssociatedMotions(model.ID);
+                    foreach (var motionId in associatedMotions)
+                    {
+                        string connectionKey = GetConnectionKey(model.ID, motionId);
+                        
+                        // 如果连线不存在或无效，创建新连线
+                        if (!activeConnections.ContainsKey(connectionKey) || 
+                            activeConnections[connectionKey] == null || 
+                            !activeConnections[connectionKey].IsValid())
+                        {
+                            CreateConnection(model.ID, motionId);
+                        }
+                    }
+                }
+                
+                // 3. 删除不应该存在的连线
+                var connectionsToRemove = new List<string>();
+                foreach (var kvp in activeConnections)
+                {
+                    if (kvp.Value != null && kvp.Value.IsValid())
+                    {
+                        string modelId = kvp.Value.modelId;
+                        string motionId = kvp.Value.motionId;
+                        var associatedMotions = SceneStatesManager.Instance.GetModelAssociatedMotions(modelId);
+                        
+                        // 如果实际关联中不包含这个动作，标记删除
+                        if (!associatedMotions.Contains(motionId))
+                        {
+                            connectionsToRemove.Add(kvp.Key);
+                        }
+                    }
+                }
+                
+                // 删除标记的连线
+                foreach (string key in connectionsToRemove)
+                {
+                    if (activeConnections.ContainsKey(key))
+                    {
+                        if (activeConnections[key] != null)
+                        {
+                            Destroy(activeConnections[key].gameObject);
+                        }
+                        activeConnections.Remove(key);
+                    }
+                }
+            }
+            
+            Debug.Log($"连线重建完成，当前活动连线数量: {activeConnections.Count}");
+        }
+        
+        /// <summary>
+        /// 清理无效连线（端点已销毁的连线）
+        /// </summary>
+        private void CleanupInvalidConnections()
+        {
+            var invalidConnections = new List<string>();
+            
+            foreach (var kvp in activeConnections)
+            {
+                if (kvp.Value == null || !kvp.Value.IsValid())
+                {
+                    invalidConnections.Add(kvp.Key);
+                }
+            }
+            
+            foreach (string key in invalidConnections)
+            {
+                if (activeConnections[key] != null)
+                {
+                    Destroy(activeConnections[key].gameObject);
+                }
+                activeConnections.Remove(key);
+                Debug.Log($"清理无效连线: {key}");
+            }
         }
     }
 }

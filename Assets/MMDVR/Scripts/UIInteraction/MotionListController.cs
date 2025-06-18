@@ -38,9 +38,7 @@ public class MotionListController : MonoBehaviour
             Debug.LogError("MotionListController: UI References not set!");
             enabled = false;
             return;
-        }
-
-        // 自动查找所有Uninstall类型DropZone并绑定
+        }        // 自动查找所有Uninstall类型DropZone并绑定
         DropZone[] allDropZones = FindObjectsOfType<DropZone>();
         foreach (DropZone dz in allDropZones)
         {
@@ -48,6 +46,11 @@ public class MotionListController : MonoBehaviour
             {
                 dz.onItemDropped.AddListener(HandleDropOnUninstallZone);
                 Debug.Log($"MotionListController: Bound HandleDropOnUninstallZone to Uninstall DropZone: {dz.gameObject.name}");
+            }
+            else if (dz.actionType == DropZone.DropActionType.Disconnect)
+            {
+                dz.onItemDropped.AddListener(HandleDropOnDisconnectZone);
+                Debug.Log($"MotionListController: Bound HandleDropOnDisconnectZone to Disconnect DropZone: {dz.gameObject.name}");
             }
         }
 
@@ -273,6 +276,8 @@ public class MotionListController : MonoBehaviour
 
     public void HandleDropOnDisconnectZone(GameObject droppedGameObject)
     {
+        // 防御：对象已被销毁或为null时直接返回，避免MissingReferenceException
+        if (droppedGameObject == null || droppedGameObject.Equals(null)) return;
         DraggableItem draggableItem = droppedGameObject.GetComponent<DraggableItem>();
         if (draggableItem == null || draggableItem.Data == null) 
             return;
@@ -283,8 +288,22 @@ public class MotionListController : MonoBehaviour
 
         if (SceneStatesManager.Instance != null)
         {
+            // 断开所有模型与该动作的关联
             SceneStatesManager.Instance.DisconnectAllMotionAssociations(droppedMotionData.ID);
-            Debug.Log($"Disconnected all associations for Motion: {droppedMotionData.DisplayName}");
+            // 遍历所有模型，强制刷新其动作（让模型重新读入动作）
+            var modelList = SceneStatesManager.Instance.GetModelList();
+            foreach (var model in modelList)
+            {
+                SceneStatesManager.Instance.ReloadModelMotions(model.ID);
+            }
+            Debug.Log($"Disconnected all associations for Motion: {droppedMotionData.DisplayName}，并强制刷新所有模型动作");
+        }
+        // 强制刷新UI
+        RefreshList();
+        // 强制更新连线显示
+        if (ConnectionManager.Instance != null)
+        {
+            ConnectionManager.Instance.RebuildAllConnections();
         }
     }
 

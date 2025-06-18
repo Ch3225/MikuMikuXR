@@ -33,6 +33,13 @@ namespace MMDVR.Scripts.UIInteraction
         
         void Update()
         {
+            // 首先检查连线是否仍然有效
+            if (!IsValid())
+            {
+                // 如果连线无效，不再更新
+                return;
+            }
+            
             // 只在位置发生变化时才更新
             if (startPoint != null && endPoint != null)
             {
@@ -114,6 +121,13 @@ namespace MMDVR.Scripts.UIInteraction
         protected override void OnPopulateMesh(VertexHelper vh)
         {
             vh.Clear();
+            
+            // 检查连线是否有效
+            if (!IsValid())
+            {
+                return;
+            }
+            
             if (startPoint == null || endPoint == null) return;
             Vector2 start = _localStart;
             Vector2 end = _localEnd;
@@ -141,8 +155,12 @@ namespace MMDVR.Scripts.UIInteraction
         /// </summary>
         public bool IsValid()
         {
-            return startPoint != null && endPoint != null && 
-                   !string.IsNullOrEmpty(modelId) && !string.IsNullOrEmpty(motionId);
+            // 检查端点是否存在且未被销毁
+            bool startValid = startPoint != null && !startPoint.Equals(null) && startPoint.gameObject != null;
+            bool endValid = endPoint != null && !endPoint.Equals(null) && endPoint.gameObject != null;
+            bool idsValid = !string.IsNullOrEmpty(modelId) && !string.IsNullOrEmpty(motionId);
+            
+            return startValid && endValid && idsValid;
         }
     }
 }
