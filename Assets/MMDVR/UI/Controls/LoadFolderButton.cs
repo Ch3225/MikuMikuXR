@@ -70,39 +70,145 @@ public class LoadFolderButton : MonoBehaviour
         if (mainControlPanel != null) mainControlPanel.SetActive(false);
         ShowFileBrowserPanel();
 
-        FileBrowser.SetFilters(true, new FileBrowser.Filter("资源", fileExtensions));
-        FileBrowser.SetDefaultFilter(fileExtensions.Length > 0 ? fileExtensions[0] : "");
+        // 文件夹选择模式不需要设置文件过滤器
+        // FileBrowser.SetFilters(true, new FileBrowser.Filter("资源", fileExtensions));
+        // FileBrowser.SetDefaultFilter(fileExtensions.Length > 0 ? fileExtensions[0] : "");
         FileBrowser.SetExcludedExtensions(".lnk", ".tmp", ".zip", ".rar", ".exe");
 
-        // 使用新版API，直接用回调方式处理成功和取消
+        // 使用 ShowLoadDialog 并设置 pickMode 为 Folders 来选择文件夹
         FileBrowser.ShowLoadDialog(
-            (paths) => {
+            (paths) => { // 成功回调
                 if (paths != null && paths.Length > 0)
                 {
                     string folderPath = paths[0];
-                    lastPath = folderPath;
-                    PlayerPrefs.SetString(prefsKey, lastPath);
-                    var files = new List<string>();
-                    foreach (var ext in fileExtensions)
+                    if (!string.IsNullOrEmpty(folderPath) && System.IO.Directory.Exists(folderPath))
                     {
-                        files.AddRange(System.IO.Directory.GetFiles(folderPath, "*" + ext, System.IO.SearchOption.TopDirectoryOnly));
+                        lastPath = folderPath;
+                        PlayerPrefs.SetString(prefsKey, lastPath);
+                        LoadResourcesFromFolder(folderPath);
                     }
-                    if (files.Count > maxFileCount)
-                    {
-                        Debug.LogWarning($"文件数量超出上限({maxFileCount})，仅加载前{maxFileCount}个。");
-                        files = files.GetRange(0, maxFileCount);
-                    }
-                    // TODO: 这里可以调用 MotionManager/ActorManager 进行批量加载
                 }
                 RestoreMainPanel();
             },
-            () => {
+            () => { // 取消回调
                 RestoreMainPanel();
             },
-            FileBrowser.PickMode.Folders,
-            false,
-            lastPath
+            pickMode: FileBrowser.PickMode.Folders, // 设置为文件夹选择模式
+            allowMultiSelection: false, // 不允许多选
+            initialPath: lastPath, // 初始路径
+            title: "Select Folder", // 标题
+            loadButtonText: "Select" // 选择按钮文本
         );
+    }
+
+    private void LoadResourcesFromFolder(string folderPath)
+    {
+        Debug.Log($"开始从文件夹加载资源: {folderPath}");
+        var filesToLoad = new List<string>();
+        foreach (var ext in fileExtensions)
+        {
+            filesToLoad.AddRange(System.IO.Directory.GetFiles(folderPath, "*" + ext, System.IO.SearchOption.TopDirectoryOnly));
+        }
+
+        if (filesToLoad.Count > maxFileCount)
+        {
+            Debug.LogWarning($"文件数量({filesToLoad.Count})超出上限({maxFileCount})，仅加载前{maxFileCount}个。");
+            filesToLoad = filesToLoad.GetRange(0, maxFileCount);
+        }
+
+        foreach (var filePath in filesToLoad)
+        {
+            string extension = System.IO.Path.GetExtension(filePath).ToLower();
+            string fileName = System.IO.Path.GetFileName(filePath).ToLower();
+
+            switch (extension)
+            {
+                case ".pmx":
+                case ".pmd":
+                    Debug.Log($"加载模型: {filePath}");
+                    SceneStatesManager.Instance?.AddActor(filePath);
+                    break;
+                case ".vmd":
+                    {
+                        // 使用新方法判断VMD文件类型
+                        var vmdType = GetVmdFileType(filePath);
+                        if (vmdType == VmdType.Camera)
+                        {
+                            Debug.Log($"加载VMD相机: {filePath}");
+                            SceneStatesManager.Instance?.AddVMDCamera(filePath);
+                        }
+                        else if (vmdType == VmdType.Motion)
+                        {
+                            Debug.Log($"加载VMD动作: {filePath}");
+                            SceneStatesManager.Instance?.AddMotion(filePath);
+                        }
+                        else
+                        {
+                            Debug.LogWarning($"无法识别的VMD文件类型或文件损坏: {filePath}");
+                        }
+                    }
+                    break;
+                case ".mp3":
+                case ".wav":
+                case ".ogg":
+                    Debug.Log($"加载音乐: {filePath}");
+                    SceneStatesManager.Instance?.AddMusic(filePath);
+                    break;
+            }
+        }
+        Debug.Log("文件夹资源加载完成。");
+    }
+
+    private enum VmdType { Motion, Camera, Unknown }
+
+    private VmdType GetVmdFileType(string filePath)
+    {
+        try
+        {
+            using (var reader = new System.IO.BinaryReader(System.IO.File.OpenRead(filePath)))
+            {
+                if (reader.BaseStream.Length < 54) return VmdType.Unknown; // 文件太小，无法判断
+
+                // 1. 读取并验证Header (30 bytes)
+                string header = new string(reader.ReadChars(30));
+                if (!header.StartsWith("Vocaloid Motion Data"))
+                {
+                    return VmdType.Unknown;
+                }
+
+                // 2. 跳过ModelName (20 bytes)
+                reader.ReadBytes(20);
+
+                // 3. 读取MotionCount (4 bytes, uint)
+                uint motionCount = reader.ReadUInt32();
+                if (motionCount > 0)
+                {
+                    return VmdType.Motion;
+                }
+
+                // 4. 如果MotionCount为0，需要计算MorphCount并跳过，再读取CameraCount
+                //    读取MorphCount (4 bytes, uint)
+                uint morphCount = reader.ReadUInt32();
+                if (morphCount > 0)
+                {
+                    return VmdType.Motion; // 包含表情数据，也认为是动作文件
+                }
+
+                // 5. 跳过空的Morph数据块 (0 bytes since count is 0)
+                //    读取CameraCount (4 bytes, uint)
+                uint cameraCount = reader.ReadUInt32();
+                if (cameraCount > 0)
+                {
+                    return VmdType.Camera;
+                }
+            }
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogError($"判断VMD文件类型时出错 '{filePath}': {ex.Message}");
+        }
+
+        return VmdType.Unknown; // 默认或发生错误时
     }
 
     private void RestoreMainPanel()
