@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using TMPro;
 using MMDVR.Scripts.UIInteraction;
 using MMDVR.Managers; // 确保 ModelData/MotionData/MusicData 类型引用
+using UnityEngine.EventSystems;
 
 /// <summary>
 /// 模型列表控制器 - 管理模型资源（resources）的列表展示和拖拽功能
@@ -316,7 +317,6 @@ public class ModelListController : MonoBehaviour
 
     public void HandleDropOnDisconnectZone(GameObject droppedGameObject)
     {
-        // 防御：对象已被销毁或为null时直接返回，避免MissingReferenceException
         if (droppedGameObject == null || droppedGameObject.Equals(null)) return;
         DraggableItem draggableItem = droppedGameObject.GetComponent<DraggableItem>();
         if (draggableItem == null || draggableItem.Data == null) 
@@ -328,17 +328,47 @@ public class ModelListController : MonoBehaviour
 
         if (SceneStatesManager.Instance != null)
         {
-            SceneStatesManager.Instance.DisconnectAllModelAssociations(droppedModelData.ID);
-            // 断开后强制刷新模型动作（让模型重新读入动作）
-            SceneStatesManager.Instance.ReloadModelMotions(droppedModelData.ID);
-            Debug.Log($"Disconnected all associations for Model: {droppedModelData.DisplayName}，并强制刷新模型动作");
-        }
-        // 强制刷新UI
-        RefreshList();
-        // 强制更新连线显示
+            // 1. 只断开该模型的所有动作关联
+            var associatedMotions = SceneStatesManager.Instance.GetModelAssociatedMotions(droppedModelData.ID);
+            foreach (var motionId in associatedMotions)
+            {
+                SceneStatesManager.Instance.DisassociateModelFromMotion(droppedModelData.ID, motionId);
+            }
+            // 2. 让该模型的所有actor重新加载动作
+            var actorObj = SceneStatesManager.Instance.GetActorObjectById(droppedModelData.ID);
+            if (actorObj != null)
+            {                var mmdGameObject = actorObj.GetComponent<LibMMD.Unity3D.MmdGameObject>();
+                if (mmdGameObject != null)
+                {
+                    // 断开所有动作后，重置为T姿势
+                    Debug.Log($"[ModelListController] Found MmdGameObject on {actorObj.name}. Calling ResetToTPose() for model {droppedModelData.ID}");
+                    mmdGameObject.ResetToTPose();
+                }
+                else
+                {
+                    Debug.LogError($"[ModelListController] MmdGameObject component NOT FOUND on actor {actorObj.name} for model ID {droppedModelData.ID}");
+                }
+            }
+            else
+            {
+                Debug.LogError($"[ModelListController] GetActorObjectById returned NULL for model ID {droppedModelData.ID}");
+            }
+            Debug.Log($"仅断开模型 {droppedModelData.DisplayName} 的所有动作关联，并刷新其动作");
+        }        // 先清理相关连线再刷新UI
         if (ConnectionManager.Instance != null)
         {
-            ConnectionManager.Instance.RebuildAllConnections();
+            ConnectionManager.Instance.RebuildConnectionsForModel(droppedModelData.ID);
+        }
+        RefreshList();
+        // 刷新连线端点引用
+        if (ConnectionManager.Instance != null)
+        {
+            ConnectionManager.Instance.RefreshConnectionEndPoints();
+        }
+        
+        // 清除UI选择，防止意外高亮
+        if (EventSystem.current != null)
+        {            EventSystem.current.SetSelectedGameObject(null);
         }
     }
 

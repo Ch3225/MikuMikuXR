@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using TMPro;
 using MMDVR.Scripts.UIInteraction;
 using MMDVR.Managers;
+using UnityEngine.EventSystems;
 
 /// <summary>
 /// 动作列表控制器 - 管理动作资源的列表展示和拖拽功能
@@ -276,7 +277,6 @@ public class MotionListController : MonoBehaviour
 
     public void HandleDropOnDisconnectZone(GameObject droppedGameObject)
     {
-        // 防御：对象已被销毁或为null时直接返回，避免MissingReferenceException
         if (droppedGameObject == null || droppedGameObject.Equals(null)) return;
         DraggableItem draggableItem = droppedGameObject.GetComponent<DraggableItem>();
         if (draggableItem == null || draggableItem.Data == null) 
@@ -287,23 +287,102 @@ public class MotionListController : MonoBehaviour
             return;
 
         if (SceneStatesManager.Instance != null)
-        {
-            // 断开所有模型与该动作的关联
-            SceneStatesManager.Instance.DisconnectAllMotionAssociations(droppedMotionData.ID);
-            // 遍历所有模型，强制刷新其动作（让模型重新读入动作）
-            var modelList = SceneStatesManager.Instance.GetModelList();
-            foreach (var model in modelList)
+        {            // 1. 找到所有挂载该动作的模型
+            var affectedModels = SceneStatesManager.Instance.GetAssociatedModels(droppedMotionData.ID);
+            Debug.Log($"断开动作 {droppedMotionData.ID}，找到受影响模型数量: {affectedModels.Count}");
+            
+            // 调试：打印当前所有关联关系
+            var allModels = SceneStatesManager.Instance.GetModelList();
+            Debug.Log($"当前系统中共有 {allModels.Count} 个模型");
+            foreach (var model in allModels)
             {
-                SceneStatesManager.Instance.ReloadModelMotions(model.ID);
+                var motions = SceneStatesManager.Instance.GetModelAssociatedMotions(model.ID);
+                Debug.Log($"模型 {model.ID}({model.DisplayName}) 关联的动作数量: {motions.Count}");
+                foreach (var motionId in motions)
+                {
+                    if (motionId == droppedMotionData.ID)
+                    {
+                        Debug.Log($"  找到关联: 模型{model.ID} <-> 动作{motionId}");
+                    }
+                }
             }
-            Debug.Log($"Disconnected all associations for Motion: {droppedMotionData.DisplayName}，并强制刷新所有模型动作");
-        }
-        // 强制刷新UI
-        RefreshList();
-        // 强制更新连线显示
+            
+            foreach (var modelId in affectedModels)
+            {
+                Debug.Log($"处理受影响模型: {modelId}");
+                // 只断开该动作与模型的关联
+                SceneStatesManager.Instance.DisassociateModelFromMotion(modelId, droppedMotionData.ID);                // 让该模型的actor重新加载动作
+                var actorObj = SceneStatesManager.Instance.GetActorObjectById(modelId);
+                Debug.Log($"查找模型 {modelId} 的actor对象: {(actorObj != null ? "找到" : "未找到")}");
+                
+                // 如果直接查找失败，尝试遍历所有actor查找
+                if (actorObj == null)
+                {
+                    var actorList = SceneStatesManager.Instance.GetActorList();
+                    Debug.Log($"尝试从 {actorList.Count} 个actor中查找匹配的actor");
+                    foreach (var actor in actorList)
+                    {
+                        Debug.Log($"  Actor: id={actor.id}, displayName={actor.displayName}");
+                        if (actor.id == modelId)
+                        {
+                            actorObj = SceneStatesManager.Instance.GetActorObjectById(actor.id);
+                            Debug.Log($"  找到匹配的actor: {actorObj?.name}");
+                            break;
+                        }
+                    }
+                }
+                
+                if (actorObj != null)
+                {
+                    var mmdGameObject = actorObj.GetComponent<LibMMD.Unity3D.MmdGameObject>();
+                    Debug.Log($"模型 {modelId} 的MmdGameObject: {(mmdGameObject != null ? "找到" : "未找到")}");
+                    if (mmdGameObject != null)
+                    {
+                        // 如果还有剩余动作，加载第一个；否则通过加载空路径重置为T姿势
+                        var motions = SceneStatesManager.Instance.GetModelAssociatedMotions(modelId);
+                        Debug.Log($"模型 {modelId} 剩余动作数量: {motions.Count}");
+                        if (motions.Count > 0)
+                        {
+                            var motionComponent = SceneStatesManager.Instance.GetMotionComponentById(motions[0]);
+                            if (motionComponent != null && !string.IsNullOrEmpty(motionComponent.filePath))
+                            {
+                                Debug.Log($"模型 {modelId} 加载动作: {motionComponent.filePath}");
+                                mmdGameObject.LoadMotion(motionComponent.filePath);
+                            }
+                        }
+                        else
+                        {
+                            // 没有动作时，重置为T姿势
+                            Debug.Log($"[MotionListController] Model {modelId} has no more motions. Calling ResetToTPose().");
+                            mmdGameObject.ResetToTPose();
+                        }
+                    }
+                    else
+                    {
+                        Debug.LogError($"[MotionListController] MmdGameObject component NOT FOUND on actor for model ID {modelId}");
+                    }
+                }
+                else
+                {
+                    Debug.LogError($"[MotionListController] GetActorObjectById returned NULL for model ID {modelId}");
+                }
+            }            Debug.Log($"仅断开所有模型对动作 {droppedMotionData.DisplayName} 的关联，并刷新受影响模型的动作");
+        }        // 先清理相关连线再刷新UI
         if (ConnectionManager.Instance != null)
         {
-            ConnectionManager.Instance.RebuildAllConnections();
+            ConnectionManager.Instance.RebuildConnectionsForMotion(droppedMotionData.ID);
+        }
+        RefreshList();
+        // 刷新连线端点引用
+        if (ConnectionManager.Instance != null)
+        {
+            ConnectionManager.Instance.RefreshConnectionEndPoints();
+        }
+        
+        // 清除UI选择，防止意外高亮
+        if (EventSystem.current != null)
+        {
+            EventSystem.current.SetSelectedGameObject(null);
         }
     }
 

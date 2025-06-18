@@ -840,6 +840,9 @@ namespace MMDVR.Managers
                                 mmdGameObject.Playing = true;
                             }
                             Debug.Log($"动作 {motionComponent.displayName} 成功分配给演员 {actorId} 并启用物理效果");
+                            
+                            // 关联模型与动作，确保数据同步
+                            AssociateModelWithMotion(actorId, motionId);
                         }
                         else
                         {
@@ -1640,8 +1643,13 @@ namespace MMDVR.Managers
         /// </summary>
         public GameObject GetActorObjectById(string id)
         {
-            Transform actorObj = actorContainer.Find($"Actor_{id}");
-            return actorObj?.gameObject;
+            foreach (Transform child in actorContainer)
+            {
+                var comp = child.GetComponent<SceneActorComponent>();
+                if (comp != null && comp.actorId == id)
+                    return child.gameObject;
+            }
+            return null;
         }
         
         /// <summary>

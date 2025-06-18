@@ -502,6 +502,114 @@ namespace MMDVR.Scripts.UIInteraction
         }
         
         /// <summary>
+        /// 只重建/清理与指定动作相关的连线
+        /// </summary>
+        public void RebuildConnectionsForMotion(string motionId)
+        {
+            Debug.Log($"重建与动作 {motionId} 相关的连线...");
+            // 1. 清理与该动作相关的无效连线
+            var keysToRemove = new List<string>();
+            foreach (var kvp in activeConnections)
+            {
+                if (kvp.Value != null && kvp.Value.IsValid() && kvp.Value.motionId == motionId)
+                {
+                    // 检查该模型是否还与该动作关联
+                    var associatedMotions = SceneStatesManager.Instance.GetModelAssociatedMotions(kvp.Value.modelId);
+                    if (!associatedMotions.Contains(motionId))
+                    {
+                        keysToRemove.Add(kvp.Key);
+                    }
+                }
+            }
+            foreach (var key in keysToRemove)
+            {
+                if (activeConnections[key] != null)
+                    Destroy(activeConnections[key].gameObject);
+                activeConnections.Remove(key);
+            }
+            // 2. 为所有与该动作有关联的模型重建连线
+            var modelList = SceneStatesManager.Instance.GetModelList();
+            foreach (var model in modelList)
+            {
+                var associatedMotions = SceneStatesManager.Instance.GetModelAssociatedMotions(model.ID);
+                if (associatedMotions.Contains(motionId))
+                {
+                    string connectionKey = GetConnectionKey(model.ID, motionId);
+                    if (!activeConnections.ContainsKey(connectionKey) || activeConnections[connectionKey] == null || !activeConnections[connectionKey].IsValid())
+                    {
+                        CreateConnection(model.ID, motionId);
+                    }
+                }
+            }
+            Debug.Log($"与动作 {motionId} 相关的连线重建完成");
+        }
+
+        /// <summary>
+        /// 只重建/清理与指定模型相关的连线
+        /// </summary>
+        public void RebuildConnectionsForModel(string modelId)
+        {
+            Debug.Log($"重建与模型 {modelId} 相关的连线...");
+            // 1. 清理与该模型相关的无效连线
+            var keysToRemove = new List<string>();
+            foreach (var kvp in activeConnections)
+            {
+                if (kvp.Value != null && kvp.Value.IsValid() && kvp.Value.modelId == modelId)
+                {
+                    // 检查该模型是否还与该动作关联
+                    var associatedMotions = SceneStatesManager.Instance.GetModelAssociatedMotions(modelId);
+                    if (!associatedMotions.Contains(kvp.Value.motionId))
+                    {
+                        keysToRemove.Add(kvp.Key);
+                    }
+                }
+            }
+            foreach (var key in keysToRemove)
+            {
+                if (activeConnections[key] != null)
+                    Destroy(activeConnections[key].gameObject);
+                activeConnections.Remove(key);
+            }
+            // 2. 为该模型所有实际有关联的动作重建连线
+            var associatedMotionsNow = SceneStatesManager.Instance.GetModelAssociatedMotions(modelId);
+            foreach (var motionId in associatedMotionsNow)
+            {
+                string connectionKey = GetConnectionKey(modelId, motionId);
+                if (!activeConnections.ContainsKey(connectionKey) || activeConnections[connectionKey] == null || !activeConnections[connectionKey].IsValid())
+                {
+                    CreateConnection(modelId, motionId);
+                }
+            }
+            Debug.Log($"与模型 {modelId} 相关的连线重建完成");
+        }
+        
+        /// <summary>
+        /// 刷新现有连线的端点引用（解决RefreshList后EndPoint Missing问题）
+        /// </summary>
+        public void RefreshConnectionEndPoints()
+        {
+            foreach (var kvp in activeConnections)
+            {
+                if (kvp.Value != null)
+                {
+                    string modelId = kvp.Value.modelId;
+                    string motionId = kvp.Value.motionId;
+                    
+                    // 重新获取UI项的RectTransform
+                    if (modelItemTransforms.ContainsKey(modelId) && motionItemTransforms.ContainsKey(motionId))
+                    {
+                        RectTransform newStartPoint = modelItemTransforms[modelId];
+                        RectTransform newEndPoint = motionItemTransforms[motionId];
+                        
+                        // 更新连线的端点引用
+                        kvp.Value.SetPoints(newStartPoint, newEndPoint, modelId, motionId);
+                        Debug.Log($"刷新连线端点: {modelId} -> {motionId}");
+                    }
+                }
+            }
+        }
+        
+        /// <summary>
         /// 清理无效连线（端点已销毁的连线）
         /// </summary>
         private void CleanupInvalidConnections()

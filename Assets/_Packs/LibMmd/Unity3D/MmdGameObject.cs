@@ -1376,5 +1376,34 @@ namespace LibMMD.Unity3D
                 }
             }
         }
+        
+        /// <summary>
+        /// 重置模型为T姿势（无动作状态）
+        /// </summary>
+        public void ResetToTPose()
+        {
+            if (_poser == null) return;
+
+            Playing = false;
+            _playTime = 0.0;
+            
+            StopBonePoseCalculation();
+
+            _motion = null;
+            _motionPlayer = null;
+            MotionPath = null;
+
+            _poser.ResetPosing();
+
+            if (_physicsReactor != null)
+            {
+                _physicsReactor.Reset();
+            }
+            
+            _poser.PostPhysicsPosing();
+
+            UpdateBones();
+            ResetMesh();
+        }
     }
 }
