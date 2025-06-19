@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using TMPro;
 using MMDVR.Scripts.UIInteraction;
 using MMDVR.Managers;
+using UnityEngine.UI;
 
 /// <summary>
 /// 音乐列表控制器 - 直接与SceneStatesManager交互
@@ -177,6 +178,11 @@ public class MusicListController : MonoBehaviour
         }
 
         UpdateAllItemVisuals();
+        // 强制刷新布局
+        if (listContainer is RectTransform rect)
+        {
+            LayoutRebuilder.ForceRebuildLayoutImmediate(rect);
+        }
     }
 
     public void HandleDropOnListArea(GameObject droppedGameObject)

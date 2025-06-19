@@ -4,6 +4,7 @@ using TMPro;
 using MMDVR.Scripts.UIInteraction;
 using MMDVR.Managers; // 确保 ModelData/MotionData/MusicData 类型引用
 using UnityEngine.EventSystems;
+using UnityEngine.UI; // 新增：用于强制刷新布局
 
 /// <summary>
 /// 模型列表控制器 - 管理模型资源（resources）的列表展示和拖拽功能
@@ -224,6 +225,11 @@ public class ModelListController : MonoBehaviour
         if (ConnectionManager.Instance != null)
         {
             ConnectionManager.Instance.RefreshAllConnections();
+        }
+        // 强制刷新布局
+        if (listContainer is RectTransform rect)
+        {
+            LayoutRebuilder.ForceRebuildLayoutImmediate(rect);
         }
     }
 

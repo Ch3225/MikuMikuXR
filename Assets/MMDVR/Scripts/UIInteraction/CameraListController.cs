@@ -4,6 +4,7 @@ using TMPro;
 using MMDVR.Scripts.UIInteraction;
 using UICameraData = MMDVR.Scripts.UIInteraction.CameraData;
 using MMDVR.Managers;
+using UnityEngine.UI;
 
 /// <summary>
 /// 摄像机列表控制器 - 直接与SceneStatesManager交互
@@ -186,6 +187,11 @@ public class CameraListController : MonoBehaviour
         }
 
         UpdateAllItemVisuals();
+        // 强制刷新布局
+        if (listContainer is RectTransform rect)
+        {
+            LayoutRebuilder.ForceRebuildLayoutImmediate(rect);
+        }
     }
 
     public void HandleDropOnListArea(GameObject droppedGameObject)

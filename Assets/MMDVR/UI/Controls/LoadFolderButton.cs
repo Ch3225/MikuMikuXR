@@ -70,17 +70,29 @@ public class LoadFolderButton : MonoBehaviour
         if (mainControlPanel != null) mainControlPanel.SetActive(false);
         ShowFileBrowserPanel();
 
-        // 文件夹选择模式不需要设置文件过滤器
-        // FileBrowser.SetFilters(true, new FileBrowser.Filter("资源", fileExtensions));
-        // FileBrowser.SetDefaultFilter(fileExtensions.Length > 0 ? fileExtensions[0] : "");
+        // 重新启用文件过滤器，以便在浏览器中看到支持的文件类型
+        FileBrowser.SetFilters(true, new FileBrowser.Filter("资源", fileExtensions));
+        FileBrowser.SetDefaultFilter(fileExtensions.Length > 0 ? fileExtensions[0] : "");
         FileBrowser.SetExcludedExtensions(".lnk", ".tmp", ".zip", ".rar", ".exe");
 
-        // 使用 ShowLoadDialog 并设置 pickMode 为 Folders 来选择文件夹
+        // 使用 ShowLoadDialog 并设置 pickMode 为 FilesAndFolders
         FileBrowser.ShowLoadDialog(
             (paths) => { // 成功回调
                 if (paths != null && paths.Length > 0)
                 {
-                    string folderPath = paths[0];
+                    string selectedPath = paths[0];
+                    string folderPath = "";
+
+                    // 判断选择的是文件还是文件夹
+                    if (System.IO.Directory.Exists(selectedPath))
+                    {
+                        folderPath = selectedPath; // 直接是文件夹
+                    }
+                    else if (System.IO.File.Exists(selectedPath))
+                    {
+                        folderPath = System.IO.Path.GetDirectoryName(selectedPath); // 是文件，获取其所在文件夹
+                    }
+
                     if (!string.IsNullOrEmpty(folderPath) && System.IO.Directory.Exists(folderPath))
                     {
                         lastPath = folderPath;
@@ -93,10 +105,10 @@ public class LoadFolderButton : MonoBehaviour
             () => { // 取消回调
                 RestoreMainPanel();
             },
-            pickMode: FileBrowser.PickMode.Folders, // 设置为文件夹选择模式
+            pickMode: FileBrowser.PickMode.FilesAndFolders, // 设置为文件和文件夹选择模式
             allowMultiSelection: false, // 不允许多选
             initialPath: lastPath, // 初始路径
-            title: "Select Folder", // 标题
+            title: "Select Folder or any file within", // 标题
             loadButtonText: "Select" // 选择按钮文本
         );
     }

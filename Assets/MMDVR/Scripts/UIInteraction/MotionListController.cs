@@ -4,6 +4,7 @@ using TMPro;
 using MMDVR.Scripts.UIInteraction;
 using MMDVR.Managers;
 using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
 /// <summary>
 /// 动作列表控制器 - 管理动作资源的列表展示和拖拽功能
@@ -197,6 +198,11 @@ public class MotionListController : MonoBehaviour
         if (ConnectionManager.Instance != null)
         {
             ConnectionManager.Instance.RefreshAllConnections();
+        }
+        // 强制刷新布局
+        if (listContainer is RectTransform rect)
+        {
+            LayoutRebuilder.ForceRebuildLayoutImmediate(rect);
         }
     }
 

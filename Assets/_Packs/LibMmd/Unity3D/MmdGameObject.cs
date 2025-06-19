@@ -165,6 +165,10 @@ namespace LibMMD.Unity3D
             _playTime = 0.0;
             RestartBonePoseCalculation(0.0f, 1 / PhysicsFps);
             UpdateBones();
+            
+            // 修复透明度渲染异常：自动刷新所有材质的Shader
+            RefreshMaterialShaders();
+            
             return true;
         }
 
@@ -485,6 +489,54 @@ namespace LibMMD.Unity3D
             }
         }
 
+        /// <summary>
+        /// 修复透明度渲染异常：自动刷新所有材质的Shader
+        /// 通过重新赋值shader属性来强制Unity刷新材质属性，解决透明度初始化异常问题
+        /// </summary>
+        private void RefreshMaterialShaders()
+        {
+            if (_materials == null)
+            {
+                return;
+            }
+
+            Debug.Log("开始刷新材质Shader以修复透明度渲染异常...");
+            
+            // 遍历所有材质，重新赋值shader以强制刷新
+            for (var i = 0; i < _materials.Length; i++)
+            {
+                var material = _materials[i];
+                if (material != null && material.shader != null)
+                {
+                    var originalShader = material.shader;
+                    // 重新赋值shader，强制Unity刷新材质属性
+                    material.shader = originalShader;
+                    Debug.LogFormat("已刷新材质 {0} 的Shader: {1}", i, originalShader.name);
+                }
+            }
+            
+            // 如果使用了分部网格，也需要刷新分部对象的材质
+            if (Mesh == null && transform.childCount > 0)
+            {
+                var modelChild = transform.Find("Model");
+                if (modelChild != null)
+                {
+                    var renderers = modelChild.GetComponentsInChildren<SkinnedMeshRenderer>();
+                    foreach (var renderer in renderers)
+                    {
+                        if (renderer.material != null && renderer.material.shader != null)
+                        {
+                            var originalShader = renderer.material.shader;
+                            renderer.material.shader = originalShader;
+                            Debug.LogFormat("已刷新分部网格渲染器材质的Shader: {0}", originalShader.name);
+                        }
+                    }
+                }
+            }
+            
+            Debug.Log("材质Shader刷新完成");
+        }
+        
         private void FillSubMesh(Mesh mesh, int triangleCount, int[] triangles)
         {
             mesh.subMeshCount = _model.Parts.Length;
