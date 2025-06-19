@@ -1,20 +1,19 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.XR;
+using UnityEngine.EventSystems;
+using UnityEngine.XR.Interaction.Toolkit.UI;
 using MMDVR.UI.Controls;
 
 namespace MMDVR
 {
     /// <summary>
-    /// VR模式下将UGUI面板跟随到XR控制器前方，并监听菜单键呼出/隐藏UI
+    /// VR和桌面模式UI适配器，使用单一UI实例根据呼出方式动态切換Canvas模式
     /// </summary>
     public class VRDesktopUIAdapter : MonoBehaviour
     {
-        [Header("桌面模式UI (Screen Space Overlay)")]
-        public GameObject desktopUIPanel;
-        
-        [Header("VR模式UI (World Space)")]
-        public GameObject vrUIPanel;
+        [Header("主UI面板（单一实例）")]
+        public GameObject mainUIPanel;
 
         [Header("（可选）VR摄像机，不设置则尝试Camera.main")]
         public Camera vrCamera; // User can assign this in Inspector for reliability
@@ -25,24 +24,40 @@ namespace MMDVR
         [Header("可选：同步UI按钮（ToggleUISectionButton）")]
         public ToggleUISectionButton toggleUIButton;
 
-        // 提供兼容性的uiPanel属性，指向当前激活的UI面板
+        // 提供兼容性的uiPanel属性，指向主UI面板
         public GameObject uiPanel 
         {
             get 
             {
-                if (IsVRActive() && vrUIPanel != null && vrUIPanel.activeSelf)
-                    return vrUIPanel;
-                else if (desktopUIPanel != null && desktopUIPanel.activeSelf)
-                    return desktopUIPanel;
-                else
-                    return IsVRActive() ? vrUIPanel : desktopUIPanel;
+                return mainUIPanel;
             }
+        }
+
+        // 向后兼容的属性
+        [System.Obsolete("Use mainUIPanel instead")]
+        public GameObject desktopUIPanel 
+        {
+            get { return mainUIPanel; }
+            set { mainUIPanel = value; }
+        }
+        
+        [System.Obsolete("Use mainUIPanel instead")]
+        public GameObject vrUIPanel        {
+            get { return mainUIPanel; }
+            set { mainUIPanel = value; }
         }
 
         private List<InputDevice> devices = new List<InputDevice>();
         private Dictionary<uint, bool> lastButtonStates = new Dictionary<uint, bool>();
         private Quaternion fixedUIRotation; 
         private Vector3 worldOffsetFromHmd; // To store the fixed world-space offset vector from HMD
+        private Canvas mainCanvas; // 缓存主Canvas组件
+        private bool isCurrentlyInVRMode = false; // 当前是否处于VR模式显示
+        
+        // Input Module 管理
+        private XRUIInputModule xrInputModule;
+        private StandaloneInputModule standaloneInputModule;
+        private bool lastVRActiveState = false;
 
         public enum UIShowSource
         {
@@ -52,13 +67,30 @@ namespace MMDVR
 
         void Start()
         {
-            // 确保两个UI初始时均为隐藏状态
-            if (desktopUIPanel != null)
-                desktopUIPanel.SetActive(false);
-            
-            if (vrUIPanel != null)
-                vrUIPanel.SetActive(false);
-            
+            // 初始化主UI面板
+            if (mainUIPanel != null)
+            {
+                mainCanvas = mainUIPanel.GetComponent<Canvas>();
+                if (mainCanvas == null)
+                {
+                    Debug.LogError("VRDesktopUIAdapter: MainUIPanel must have a Canvas component!");
+                    return;
+                }
+                
+                // 初始时隐藏UI
+                mainUIPanel.SetActive(false);
+                
+                // 根据当前是否在VR模式中设置初始Canvas状态
+                if (IsVRActive())
+                {
+                    SetupForVRMode();
+                }
+                else
+                {
+                    SetupForDesktopMode();
+                }
+            }
+
             if (vrCamera == null) // If user hasn't assigned it
             {
                 vrCamera = Camera.main;
@@ -69,66 +101,75 @@ namespace MMDVR
                 Debug.LogError("VRDesktopUIAdapter: VR Camera not found or assigned! UI positioning will not work correctly. Please assign the VR Camera in the Inspector or ensure a Camera is tagged 'MainCamera'.");
             }
             
-            // 确保桌面UI为Screen Space Overlay模式
-            if (desktopUIPanel != null)
-            {
-                Canvas desktopCanvas = desktopUIPanel.GetComponent<Canvas>();
-                if (desktopCanvas != null)
-                {
-                    desktopCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
-                }
-            }
+            // 初始化Input Module管理
+            InitializeInputModules();
             
-            // 确保VR UI为World Space模式
-            if (vrUIPanel != null)
-            {
-                Canvas vrCanvas = vrUIPanel.GetComponent<Canvas>();
-                if (vrCanvas != null)
-                {
-                    vrCanvas.renderMode = RenderMode.WorldSpace;
-                    vrUIPanel.transform.localScale = Vector3.one * 0.001f; // 设置适合VR的缩放
-                }
-            }
+            // 根据当前VR状态设置正确的Input Module
+            bool vrActive = IsVRActive();
+            lastVRActiveState = vrActive;
+            UpdateInputModules(vrActive);
+        }
+
+        private void SetupForVRMode()
+        {
+            if (mainCanvas == null) return;
+            
+            mainCanvas.renderMode = RenderMode.WorldSpace;
+            mainUIPanel.transform.localScale = Vector3.one * 0.001f; // 设置适合VR的缩放
+            isCurrentlyInVRMode = true;
+        }
+
+        private void SetupForDesktopMode()
+        {
+            if (mainCanvas == null) return;
+              mainCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            mainUIPanel.transform.localScale = Vector3.one; // 重置为默认缩放
+            isCurrentlyInVRMode = false;
         }
 
         public void ToggleUI(UIShowSource source)
         {
+            if (mainUIPanel == null || mainCanvas == null) return;
+
+            bool isCurrentlyActive = mainUIPanel.activeSelf;
+            
             if (source == UIShowSource.Desktop)
             {
-                // 桌面模式：切换桌面UI的显示/隐藏
-                if (desktopUIPanel != null)
+                // 桌面模式：切换UI显示/隐藏，并确保Canvas为ScreenSpaceOverlay模式
+                if (!isCurrentlyActive)
                 {
-                    // 关闭VR UI，打开/关闭桌面UI
-                    if (vrUIPanel != null)
-                        vrUIPanel.SetActive(false);
-                    
-                    desktopUIPanel.SetActive(!desktopUIPanel.activeSelf);
+                    // 显示UI前先设置为桌面模式
+                    SetupForDesktopMode();
+                    mainUIPanel.SetActive(true);
+                }
+                else
+                {
+                    // 隐藏UI
+                    mainUIPanel.SetActive(false);
                 }
             }
             else // VR模式
             {
-                // VR模式：切换VR UI的显示/隐藏
-                if (vrUIPanel != null)
+                // VR模式：切换UI显示/隐藏，并确保Canvas为WorldSpace模式
+                if (!isCurrentlyActive)
                 {
-                    // 关闭桌面UI，打开/关闭VR UI
-                    if (desktopUIPanel != null)
-                        desktopUIPanel.SetActive(false);
+                    // 显示UI前先设置为VR模式
+                    SetupForVRMode();
+                    mainUIPanel.SetActive(true);
                     
-                    bool toShow = !vrUIPanel.activeSelf;
-                    vrUIPanel.SetActive(toShow);
-                    
-                    if (toShow)
+                    // 更新VR UI在世界中的位置和旋转
+                    if (vrCamera != null)
                     {
-                        // 更新VR UI在世界中的位置和旋转
-                        if (vrCamera != null)
-                        {
-                            fixedUIRotation = Quaternion.LookRotation(vrCamera.transform.forward, vrCamera.transform.up);
-                            worldOffsetFromHmd = vrCamera.transform.rotation * offset;
-                            vrUIPanel.transform.position = vrCamera.transform.position + worldOffsetFromHmd;
-                            vrUIPanel.transform.rotation = fixedUIRotation;
-                        }
+                        fixedUIRotation = Quaternion.LookRotation(vrCamera.transform.forward, vrCamera.transform.up);
+                        worldOffsetFromHmd = vrCamera.transform.rotation * offset;
+                        mainUIPanel.transform.position = vrCamera.transform.position + worldOffsetFromHmd;
+                        mainUIPanel.transform.rotation = fixedUIRotation;
                     }
                 }
+                else
+                {
+                    // 隐藏UI
+                    mainUIPanel.SetActive(false);                }
             }
         }
 
@@ -168,15 +209,97 @@ namespace MMDVR
                 lastButtonStates[deviceKey] = pressed;
             }
 
-            // 如果VR UI处于激活状态且在World Space模式下，持续更新位置和旋转
-            if (vrUIPanel != null && vrUIPanel.activeSelf && vrCamera != null)
+            // 如果UI处于激活状态且当前为VR模式，持续更新位置和旋转
+            if (mainUIPanel != null && mainUIPanel.activeSelf && isCurrentlyInVRMode && vrCamera != null)
             {
-                var canvas = vrUIPanel.GetComponent<Canvas>();
-                if (canvas != null && canvas.renderMode == RenderMode.WorldSpace)
+                if (mainCanvas != null && mainCanvas.renderMode == RenderMode.WorldSpace)
                 {
-                    vrUIPanel.transform.position = vrCamera.transform.position + worldOffsetFromHmd;
-                    vrUIPanel.transform.rotation = fixedUIRotation;
+                    mainUIPanel.transform.position = vrCamera.transform.position + worldOffsetFromHmd;
+                    mainUIPanel.transform.rotation = fixedUIRotation;
                 }
+            }
+            
+            // 检查VR设备状态变化，自动切换Input Module
+            bool currentVRActive = IsVRActive();
+            if (currentVRActive != lastVRActiveState)
+            {
+                UpdateInputModules(currentVRActive);
+                lastVRActiveState = currentVRActive;
+                
+                Debug.Log($"VRDesktopUIAdapter: VR device status changed to {(currentVRActive ? "Active" : "Inactive")}, switched input modules accordingly");
+            }
+
+            // 自动管理输入模块
+            ManageInputModules();
+        }
+
+        private void ManageInputModules()
+        {
+            EventSystem eventSystem = EventSystem.current;
+            if (eventSystem == null)
+            {
+                Debug.LogError("VRDesktopUIAdapter: No EventSystem found in the scene. Please add an EventSystem to the scene.");
+                return;
+            }
+
+            // 获取XRUIInputModule和StandaloneInputModule
+            xrInputModule = eventSystem.GetComponent<XRUIInputModule>();
+            standaloneInputModule = eventSystem.GetComponent<StandaloneInputModule>();
+
+            if (xrInputModule == null && standaloneInputModule == null)
+            {
+                Debug.LogError("VRDesktopUIAdapter: No suitable InputModule found on the EventSystem. Please add either XRUIInputModule or StandaloneInputModule.");
+                return;
+            }
+
+            // 根据当前模式启用/禁用输入模块
+            if (isCurrentlyInVRMode)
+            {
+                if (xrInputModule != null) xrInputModule.enabled = true;
+                if (standaloneInputModule != null) standaloneInputModule.enabled = false;
+            }
+            else
+            {
+                if (xrInputModule != null) xrInputModule.enabled = false;
+                if (standaloneInputModule != null) standaloneInputModule.enabled = true;
+            }
+        }
+
+        private void InitializeInputModules()
+        {
+            // 查找现有的Input Modules
+            xrInputModule = FindObjectOfType<XRUIInputModule>();
+            standaloneInputModule = FindObjectOfType<StandaloneInputModule>();
+            
+            // 如果没有StandaloneInputModule，创建一个作为备用
+            if (standaloneInputModule == null)
+            {
+                GameObject eventSystemObj = EventSystem.current?.gameObject;
+                if (eventSystemObj != null)
+                {
+                    standaloneInputModule = eventSystemObj.AddComponent<StandaloneInputModule>();
+                    Debug.Log("VRDesktopUIAdapter: Created StandaloneInputModule as fallback for desktop mode");
+                }
+            }
+        }
+
+        private void UpdateInputModules(bool useVRModule)
+        {
+            if (useVRModule)
+            {
+                // VR模式：启用XRUIInputModule，禁用StandaloneInputModule
+                if (xrInputModule != null)
+                    xrInputModule.enabled = true;
+                if (standaloneInputModule != null)
+                    standaloneInputModule.enabled = false;
+            }
+            else
+            {
+                // 桌面模式：禁用XRUIInputModule，启用StandaloneInputModule
+                if (xrInputModule != null)
+                    xrInputModule.enabled = false;
+                if (standaloneInputModule != null)
+                    standaloneInputModule.enabled = true;
             }
         }
 
