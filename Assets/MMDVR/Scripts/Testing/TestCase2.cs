@@ -56,67 +56,90 @@ namespace MMDVR.Scripts.Testing
             
             Debug.Log("=== TestCase2 资源加载完成 ===");
         }
-        
-        /// <summary>
+          /// <summary>
         /// 带进度的模型和动作加载
         /// </summary>
         IEnumerator LoadModelAndMotionWithProgress()
         {
             Debug.Log("📦 开始加载模型和动作...");
             
+            string modelPath = Path.Combine(projectRoot, model);
+            string motionPath = Path.Combine(projectRoot, motion);
+
+            // 检查文件存在性
+            if (!File.Exists(modelPath))
+            {
+                Debug.LogError($"模型文件不存在: {modelPath}");
+                yield break;
+            }
+
+            if (!File.Exists(motionPath))
+            {
+                Debug.LogError($"动作文件不存在: {motionPath}");
+                yield break;
+            }
+
+            Debug.Log($"✓ 文件检查通过");
+            yield return new WaitForSeconds(0.2f); // 让用户看到检查结果
+            
+            Debug.Log($"📋 开始加载模型: {Path.GetFileName(modelPath)}");
+            
+            // 通过SceneStatesManager添加演员（模型）
+            bool modelLoadSuccess = false;
+            string motionId = null;
+            
             try
             {
-                string modelPath = Path.Combine(projectRoot, model);
-                string motionPath = Path.Combine(projectRoot, motion);
-
-                // 检查文件存在性
-                if (!File.Exists(modelPath))
-                {
-                    Debug.LogError($"模型文件不存在: {modelPath}");
-                    yield break;
-                }
-
-                if (!File.Exists(motionPath))
-                {
-                    Debug.LogError($"动作文件不存在: {motionPath}");
-                    yield break;
-                }
-
-                Debug.Log($"✓ 文件检查通过");
-                yield return new WaitForSeconds(0.2f); // 让用户看到检查结果
-                
-                Debug.Log($"📋 开始加载模型: {Path.GetFileName(modelPath)}");
-                
-                // 通过SceneStatesManager添加演员（模型）
                 SceneStatesManager.Instance.AddActor(modelPath);
-                yield return new WaitForSeconds(0.5f); // 等待模型加载
-                
+                modelLoadSuccess = true;
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"❌ 加载模型时出错: {e.Message}");
+                yield break;
+            }
+            
+            yield return new WaitForSeconds(0.5f); // 等待模型加载
+            
+            if (modelLoadSuccess)
+            {
                 Debug.Log($"🎭 开始加载动作: {Path.GetFileName(motionPath)}");
                 
-                // 通过SceneStatesManager添加动作
-                string motionId = SceneStatesManager.Instance.AddMotion(motionPath);
+                try
+                {
+                    // 通过SceneStatesManager添加动作
+                    motionId = SceneStatesManager.Instance.AddMotion(motionPath);
+                }
+                catch (System.Exception e)
+                {
+                    Debug.LogError($"❌ 加载动作时出错: {e.Message}");
+                    yield break;
+                }
+                
                 yield return new WaitForSeconds(0.3f); // 等待动作加载
                 
                 // 获取刚添加的演员并分配动作
                 var actorList = SceneStatesManager.Instance.GetActorList();
                 if (actorList.Count > 0)
-                {
-                    string actorId = actorList[actorList.Count - 1].id;
+                {                    string actorId = actorList[actorList.Count - 1].id;
                     
                     Debug.Log($"🎪 分配动作给演员: {actorId}");
-                    SceneStatesManager.Instance.AssignMotionToActor(motionId, actorId);
+                    try
+                    {
+                        SceneStatesManager.Instance.AssignMotionToActor(motionId, actorId);
+                        Debug.Log("✅ 模型和动作加载完成");
+                    }
+                    catch (System.Exception e)
+                    {
+                        Debug.LogError($"❌ 分配动作时出错: {e.Message}");
+                    }
                     
                     yield return new WaitForSeconds(0.2f);
-                    Debug.Log("✅ 模型和动作加载完成");
                 }
                 else
                 {
                     Debug.LogError("❌ 没有找到演员来分配动作");
                 }
-            }
-            catch (System.Exception e)
-            {
-                Debug.LogError($"❌ 加载模型和动作时出错: {e.Message}");
             }
         }
         

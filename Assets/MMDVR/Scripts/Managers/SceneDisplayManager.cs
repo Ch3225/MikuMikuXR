@@ -96,24 +96,36 @@ namespace MMDVR.Scripts.Managers
             
             return actorId;
         }
-        
-        /// <summary>
+          /// <summary>
         /// 异步创建演员的协程，分帧处理避免卡顿
         /// </summary>
         private System.Collections.IEnumerator CreateActorCoroutine(ModelComponent modelComponent, string actorId)
         {
             Debug.Log($"🎭 开始创建演员: {actorId}");
             
+            GameObject mmdObj = null;
+            MmdGameObject mmdGameObject = null;
+            bool creationSuccess = false;
+            
+            // 创建MMD游戏对象
             try
             {
-                // 创建MMD游戏对象
-                GameObject mmdObj = MmdGameObject.CreateGameObject($"Actor_{actorId}");
+                mmdObj = MmdGameObject.CreateGameObject($"Actor_{actorId}");
                 mmdObj.transform.SetParent(actorContainer);
-                
-                yield return new WaitForEndOfFrame(); // 等待GameObject创建完成
+                creationSuccess = true;
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"❌ 创建MMD游戏对象时出错: {e.Message}");
+                yield break;
+            }
+            
+            yield return new WaitForEndOfFrame(); // 等待GameObject创建完成
 
-                // 获取MmdGameObject组件并配置
-                var mmdGameObject = mmdObj.GetComponent<MmdGameObject>();
+            // 获取MmdGameObject组件并配置
+            try
+            {
+                mmdGameObject = mmdObj.GetComponent<MmdGameObject>();
                 if (mmdGameObject != null)
                 {
                     Debug.Log($"⚙️ 配置MMD组件...");
@@ -129,20 +141,6 @@ namespace MMDVR.Scripts.Managers
                         EnableEdge = LibMMD.Unity3D.MmdConfigSwitch.AsConfig
                     };
                     mmdGameObject.UpdateConfig(config);
-                    
-                    yield return new WaitForEndOfFrame(); // 等待配置完成
-                    
-                    Debug.Log($"📁 加载MMD模型: {Path.GetFileName(modelComponent.filePath)}");
-                    
-                    // 加载模型（可能耗时，分帧处理）
-                    mmdGameObject.LoadModel(modelComponent.filePath);
-                    
-                    yield return new WaitForSeconds(0.1f); // 等待模型加载初始化
-                    
-                    Debug.Log($"✅ MMD模型加载完成: {mmdGameObject.ModelName}");
-                    
-                    // 检查mesh是否正确加载
-                    yield return StartCoroutine(ValidateModelMesh(mmdObj));
                 }
                 else
                 {
@@ -150,12 +148,43 @@ namespace MMDVR.Scripts.Managers
                     Destroy(mmdObj);
                     yield break;
                 }
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"❌ 配置MMD组件时出错: {e.Message}");
+                if (mmdObj != null) Destroy(mmdObj);
+                yield break;
+            }
+            
+            yield return new WaitForEndOfFrame(); // 等待配置完成
+            
+            // 加载模型
+            try
+            {
+                Debug.Log($"📁 加载MMD模型: {Path.GetFileName(modelComponent.filePath)}");
+                mmdGameObject.LoadModel(modelComponent.filePath);
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"❌ 加载MMD模型时出错: {e.Message}");
+                if (mmdObj != null) Destroy(mmdObj);
+                yield break;
+            }
+            
+            yield return new WaitForSeconds(0.1f); // 等待模型加载初始化
+            
+            Debug.Log($"✅ MMD模型加载完成: {mmdGameObject.ModelName}");
+            
+            // 检查mesh是否正确加载
+            yield return StartCoroutine(ValidateModelMesh(mmdObj));
 
-                yield return new WaitForEndOfFrame(); // 等待组件添加完成
+            yield return new WaitForEndOfFrame(); // 等待组件添加完成
 
+            // 添加演员组件
+            try
+            {
                 Debug.Log($"🎪 添加演员组件...");
                 
-                // 添加演员组件
                 var actorComponent = mmdObj.AddComponent<SceneActorComponent>();
                 actorComponent.actorId = actorId;
                 actorComponent.modelId = modelComponent.modelId;
@@ -173,25 +202,27 @@ namespace MMDVR.Scripts.Managers
                     isVisible = true
                 };
                 actorList.Add(actorData);
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"❌ 添加演员组件时出错: {e.Message}");
+                if (mmdObj != null) Destroy(mmdObj);
+                yield break;
+            }
 
-                yield return new WaitForEndOfFrame(); // 等待数据添加完成
+            yield return new WaitForEndOfFrame(); // 等待数据添加完成
 
-                Debug.Log($"🎉 演员创建完成: {actorId}");
-                
-                // 触发事件
+            Debug.Log($"🎉 演员创建完成: {actorId}");
+            
+            // 触发事件
+            try
+            {
                 SceneDisplayEvents.TriggerActorSpawned(actorId, modelComponent.modelId);
                 SceneDisplayEvents.TriggerActorListChanged();
             }
             catch (Exception e)
             {
-                Debug.LogError($"❌ 创建演员时出错: {e.Message}");
-                Debug.LogError($"异常类型: {e.GetType().Name}");
-                Debug.LogError($"异常堆栈: {e.StackTrace}");
-                
-                if (e.InnerException != null)
-                {
-                    Debug.LogError($"内部异常: {e.InnerException.Message}");
-                }
+                Debug.LogError($"❌ 触发事件时出错: {e.Message}");
             }
         }
         

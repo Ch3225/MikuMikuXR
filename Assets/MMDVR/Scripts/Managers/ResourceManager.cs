@@ -736,20 +736,6 @@ namespace MMDVR.Scripts.Managers
         /// </summary>
         public void StopAllGlobalCoroutines()
         {
-            StopAllCoroutines();
-        }
-
-        // ==================== 资源容器管理 ====================
-        
-        /// <summary>
-        /// 创建资源容器
-        /// </summary>
-        private Transform CreateResourceContainer(string containerName)
-        {
-            GameObject container = new GameObject(containerName);
-            container.transform.SetParent(transform);
-            Debug.Log($"ResourceManager: 创建了{containerName}资源容器");
-            return container.transform;
-        }
+            StopAllCoroutines();        }
     }
 }
