@@ -1,4 +1,4 @@
-using MMDVR.Managers; // For ResourceType
+using MMDVR.Scripts.Managers; // For ResourceType
 
 namespace MMDVR.Scripts.UIInteraction
 {

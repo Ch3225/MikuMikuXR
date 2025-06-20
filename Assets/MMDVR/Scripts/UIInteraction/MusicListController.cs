@@ -2,7 +2,8 @@ using UnityEngine;
 using System.Collections.Generic;
 using TMPro;
 using MMDVR.Scripts.UIInteraction;
-using MMDVR.Managers;
+using MMDVR.Scripts.Data; // 数据类型引用
+using MMDVR.Scripts.Managers; // Manager类引用
 using UnityEngine.UI;
 
 /// <summary>

@@ -2,7 +2,8 @@ using UnityEngine;
 using System.Collections.Generic;
 using TMPro;
 using MMDVR.Scripts.UIInteraction;
-using MMDVR.Managers; // 确保 ModelData/MotionData/MusicData 类型引用
+using MMDVR.Scripts.Data; // 数据类型引用
+using MMDVR.Scripts.Managers; // Manager类引用
 using UnityEngine.EventSystems;
 using UnityEngine.UI; // 新增：用于强制刷新布局
 

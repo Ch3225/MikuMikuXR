@@ -7,11 +7,12 @@ namespace MMDVR.Scripts.Events
     /// 播放相关事件定义
     /// </summary>
     public static class PlaybackEvents
-    {
-        // 播放状态事件
+    {        // 播放状态事件
         public static event Action<bool> OnPlaybackStateChanged;
         public static event Action<float> OnPlaybackTimeChanged;
         public static event Action<float> OnPlaybackDurationChanged;
+        public static event Action OnPlayPauseToggle;
+        public static event Action OnStopRequested;
         
         // 资源状态事件
         public static event Action<string> OnMusicActivated;
@@ -65,13 +66,21 @@ namespace MMDVR.Scripts.Events
         {
             OnMuteStateChanged?.Invoke(isMuted);
         }
-        
-        public static void TriggerSyncRequired()
+          public static void TriggerSyncRequired()
         {
             OnSyncRequired?.Invoke();
         }
         
-        /// <summary>
+        public static void TriggerPlayPauseToggle()
+        {
+            OnPlayPauseToggle?.Invoke();
+        }
+        
+        public static void TriggerStopRequested()
+        {
+            OnStopRequested?.Invoke();
+        }
+          /// <summary>
         /// 清除所有事件订阅（用于场景清理）
         /// </summary>
         public static void ClearAllEvents()
@@ -79,6 +88,8 @@ namespace MMDVR.Scripts.Events
             OnPlaybackStateChanged = null;
             OnPlaybackTimeChanged = null;
             OnPlaybackDurationChanged = null;
+            OnPlayPauseToggle = null;
+            OnStopRequested = null;
             OnMusicActivated = null;
             OnCameraActivated = null;
             OnMotionAssigned = null;

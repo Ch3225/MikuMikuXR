@@ -2,7 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using System.Collections.Generic;
 using System.Linq;
-using MMDVR.Managers;
+using MMDVR.Scripts.Managers;
 
 namespace MMDVR.Scripts.UIInteraction
 {

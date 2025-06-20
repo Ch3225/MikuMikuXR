@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using TMPro;
 using MMDVR.Scripts.UIInteraction;
 using UICameraData = MMDVR.Scripts.UIInteraction.CameraData;
-using MMDVR.Managers;
+using MMDVR.Scripts.Managers;
 using UnityEngine.UI;
 
 /// <summary>
@@ -332,14 +332,21 @@ public class CameraListController : MonoBehaviour
     {
         Debug.Log($"CameraListController: OnCameraActivated - {activatedCameraData?.DisplayName}");
         UpdateAllItemVisuals();
-    }
-
-    void UpdateAllItemVisuals()
+    }    void UpdateAllItemVisuals()
     {
-        UICameraData activeCamData = null;
+        MMDVR.Scripts.UIInteraction.CameraData activeCamData = null;
         if (SceneStatesManager.Instance != null)
         {
-            activeCamData = SceneStatesManager.Instance.GetActiveCameraData();
+            var dataActiveCamData = SceneStatesManager.Instance.GetActiveCameraData();
+            if (dataActiveCamData != null)
+            {                // 转换为UIInteraction的CameraData类型
+                activeCamData = new MMDVR.Scripts.UIInteraction.CameraData
+                {
+                    id = dataActiveCamData.id,
+                    displayName = dataActiveCamData.displayName,
+                    filePath = dataActiveCamData.filePath
+                };
+            }
         }
 
         for (int i = 0; i < uiListItemObjects.Count; i++)

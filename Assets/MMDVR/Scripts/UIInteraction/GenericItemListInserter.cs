@@ -1,7 +1,8 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
 using System.Collections.Generic;
-using MMDVR.Managers; // for ModelData, MotionData, MusicData
+using MMDVR.Scripts.Managers; // for ModelData, MotionData, MusicData
+using MMDVR.Scripts.Data; // 添加数据类型引用
 
 /// <summary>
 /// 通用列表项插入器 - 在拖拽排序时显示插入预览
@@ -188,7 +189,7 @@ public class GenericItemListInserter : MonoBehaviour, IDropHandler, IPointerEnte
                 // 创建一个虚拟的GameObject来触发HandleDropOnListArea
                 GameObject dummyGO = new GameObject("DummyReorderEvent");
                 var dummyDraggable = dummyGO.AddComponent<DraggableItem>();
-                dummyDraggable.Data = new MusicData { id = "dummy", title = "dummy", filePath = "" };
+                dummyDraggable.Data = new MusicData { id = "dummy", displayName = "dummy", filePath = "" };
                 
                 MusicListController.Instance.HandleDropOnListArea(dummyGO);
                 DestroyImmediate(dummyGO);
