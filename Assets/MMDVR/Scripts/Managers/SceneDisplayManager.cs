@@ -1,10 +1,13 @@
 using UnityEngine;
 using System.Collections.Generic;
+using System;
+using System.IO;
 using MMDVR.Scripts.Data;
 using MMDVR.Scripts.Components;
 using MMDVR.Scripts.Managers;
 using MMDVR.Scripts.Events;
 using MMDVR.Events;
+using LibMMD.Unity3D;
 
 namespace MMDVR.Scripts.Managers
 {    /// <summary>
@@ -87,34 +90,137 @@ namespace MMDVR.Scripts.Managers
                 return null;
             }
 
-            // 创建演员对象
-            string actorId = System.Guid.NewGuid().ToString("N")[..8];
-            GameObject actorObj = new GameObject($"Actor_{actorId}");
-            actorObj.transform.SetParent(actorContainer);
-
-            // 添加演员组件
-            var actorComponent = actorObj.AddComponent<SceneActorComponent>();
-            actorComponent.actorId = actorId;
-            actorComponent.associatedModelId = modelId;
-
-            // 添加到演员列表
-            var actorData = new ActorData
-            {
-                id = actorId,
-                displayName = $"Actor_{actorId}",
-                modelId = modelId,
-                motionId = "",
-                isVisible = true
-            };
-            actorList.Add(actorData);
-
-            Debug.Log($"SceneDisplayManager: 添加演员到场景 {actorId} (模型: {modelId})");
+            // 使用协程进行异步创建，避免卡顿
+            string actorId = modelId; // Actor ID 与 Model ID 保持一致
+            ResourceManager.Instance.StartGlobalCoroutine(CreateActorCoroutine(modelComponent, actorId));
             
-            // 触发事件
-            SceneDisplayEvents.TriggerActorSpawned(actorId, modelId);
-            SceneDisplayEvents.TriggerActorListChanged();
-
             return actorId;
+        }
+        
+        /// <summary>
+        /// 异步创建演员的协程，分帧处理避免卡顿
+        /// </summary>
+        private System.Collections.IEnumerator CreateActorCoroutine(ModelComponent modelComponent, string actorId)
+        {
+            Debug.Log($"🎭 开始创建演员: {actorId}");
+            
+            try
+            {
+                // 创建MMD游戏对象
+                GameObject mmdObj = MmdGameObject.CreateGameObject($"Actor_{actorId}");
+                mmdObj.transform.SetParent(actorContainer);
+                
+                yield return new WaitForEndOfFrame(); // 等待GameObject创建完成
+
+                // 获取MmdGameObject组件并配置
+                var mmdGameObject = mmdObj.GetComponent<MmdGameObject>();
+                if (mmdGameObject != null)
+                {
+                    Debug.Log($"⚙️ 配置MMD组件...");
+                    
+                    // 设置物理模式为无物理，避免物理相关错误
+                    mmdGameObject.PhysicsMode = MmdGameObject.PhysicsModeEnum.None;
+                    
+                    // 配置HDRP材质设置
+                    var config = new LibMMD.Unity3D.MmdUnityConfig
+                    {
+                        EnableDrawSelfShadow = LibMMD.Unity3D.MmdConfigSwitch.AsConfig,
+                        EnableCastShadow = LibMMD.Unity3D.MmdConfigSwitch.AsConfig,
+                        EnableEdge = LibMMD.Unity3D.MmdConfigSwitch.AsConfig
+                    };
+                    mmdGameObject.UpdateConfig(config);
+                    
+                    yield return new WaitForEndOfFrame(); // 等待配置完成
+                    
+                    Debug.Log($"📁 加载MMD模型: {Path.GetFileName(modelComponent.filePath)}");
+                    
+                    // 加载模型（可能耗时，分帧处理）
+                    mmdGameObject.LoadModel(modelComponent.filePath);
+                    
+                    yield return new WaitForSeconds(0.1f); // 等待模型加载初始化
+                    
+                    Debug.Log($"✅ MMD模型加载完成: {mmdGameObject.ModelName}");
+                    
+                    // 检查mesh是否正确加载
+                    yield return StartCoroutine(ValidateModelMesh(mmdObj));
+                }
+                else
+                {
+                    Debug.LogError("❌ 无法获取MmdGameObject组件");
+                    Destroy(mmdObj);
+                    yield break;
+                }
+
+                yield return new WaitForEndOfFrame(); // 等待组件添加完成
+
+                Debug.Log($"🎪 添加演员组件...");
+                
+                // 添加演员组件
+                var actorComponent = mmdObj.AddComponent<SceneActorComponent>();
+                actorComponent.actorId = actorId;
+                actorComponent.modelId = modelComponent.modelId;
+                actorComponent.SetModelComponent(modelComponent);
+                actorComponent.displayName = Path.GetFileNameWithoutExtension(modelComponent.filePath);
+
+                // 添加到演员列表
+                var actorData = new ActorData
+                {
+                    id = actorId,
+                    displayName = Path.GetFileNameWithoutExtension(modelComponent.filePath),
+                    filePath = modelComponent.filePath,
+                    modelId = modelComponent.modelId,
+                    motionId = "",
+                    isVisible = true
+                };
+                actorList.Add(actorData);
+
+                yield return new WaitForEndOfFrame(); // 等待数据添加完成
+
+                Debug.Log($"🎉 演员创建完成: {actorId}");
+                
+                // 触发事件
+                SceneDisplayEvents.TriggerActorSpawned(actorId, modelComponent.modelId);
+                SceneDisplayEvents.TriggerActorListChanged();
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"❌ 创建演员时出错: {e.Message}");
+                Debug.LogError($"异常类型: {e.GetType().Name}");
+                Debug.LogError($"异常堆栈: {e.StackTrace}");
+                
+                if (e.InnerException != null)
+                {
+                    Debug.LogError($"内部异常: {e.InnerException.Message}");
+                }
+            }
+        }
+        
+        /// <summary>
+        /// 验证模型网格是否正确加载
+        /// </summary>
+        private System.Collections.IEnumerator ValidateModelMesh(GameObject mmdObj)
+        {
+            Debug.Log($"🔍 验证模型网格...");
+            
+            yield return new WaitForSeconds(0.1f); // 等待网格生成
+            
+            var meshFilter = mmdObj.GetComponent<MeshFilter>();
+            var skinnedMeshRenderer = mmdObj.GetComponent<SkinnedMeshRenderer>();
+            
+            if (meshFilter && meshFilter.mesh != null)
+            {
+                Debug.Log($"✅ MeshFilter网格: {meshFilter.mesh.vertexCount} 顶点");
+            }
+            if (skinnedMeshRenderer && skinnedMeshRenderer.sharedMesh != null)
+            {
+                Debug.Log($"✅ SkinnedMeshRenderer网格: {skinnedMeshRenderer.sharedMesh.vertexCount} 顶点");
+            }
+            
+            if ((meshFilter == null || meshFilter.mesh == null) && 
+                (skinnedMeshRenderer == null || skinnedMeshRenderer.sharedMesh == null))
+            {
+                Debug.LogWarning($"⚠️ 模型网格可能未正确加载");
+            }
         }
 
         /// <summary>
@@ -162,18 +268,16 @@ namespace MMDVR.Scripts.Managers
             }
 
             // 更新演员动作关联
-            actorData.motionId = motionId;
-
-            // 更新场景中的演员组件
+            actorData.motionId = motionId;            // 更新场景中的演员组件
             Transform actorObj = actorContainer.Find($"Actor_{actorId}");
             if (actorObj != null)
             {
                 var actorComponent = actorObj.GetComponent<SceneActorComponent>();
                 if (actorComponent != null)
                 {
-                    actorComponent.associatedMotionId = motionId;
+                    actorComponent.AddMotion(motionId); // 使用新的添加动作方法
                 }
-            }            Debug.Log($"SceneDisplayManager: 关联动作 {motionId} 到演员 {actorId}");
+            }Debug.Log($"SceneDisplayManager: 关联动作 {motionId} 到演员 {actorId}");
             
             // 触发事件
             SceneDisplayEvents.TriggerModelMotionAssociationChanged(actorData.modelId, motionId, true);
@@ -400,44 +504,96 @@ namespace MMDVR.Scripts.Managers
         {
             // 直接调用现有的内部实现
             AssignMotionToActorInternal(actorId, motionId);
-        }
-
-        /// <summary>
+        }        /// <summary>
         /// 关联动作到演员的内部实现
         /// </summary>
         private void AssignMotionToActorInternal(string actorId, string motionId)
         {
-            // 查找对应的演员
-            var actor = actorList.Find(a => a.id == actorId);
-            if (actor == null)
+            // 通过遍历actorContainer查找SceneActorComponent.actorId匹配（与原系统保持一致）
+            Transform actorTransform = null;
+            SceneActorComponent currentActorComponent = null;
+            
+            for (int i = 0; i < actorContainer.childCount; i++)
+            {
+                Transform child = actorContainer.GetChild(i);
+                var ac = child.GetComponent<SceneActorComponent>();
+                if (ac != null && ac.actorId == actorId)
+                {
+                    actorTransform = child;
+                    currentActorComponent = ac;
+                    break;
+                }
+            }
+            
+            if (actorTransform == null)
             {
                 Debug.LogError($"SceneDisplayManager: 找不到演员 {actorId}");
                 return;
             }
 
-            // 更新演员的动作ID
-            actor.motionId = motionId;
-
-            // 查找场景中的演员组件并更新
-            Transform actorObj = actorContainer.Find($"Actor_{actorId}");
-            if (actorObj != null)
+            // 查找对应的演员数据（用于后续更新）
+            var actor = actorList.Find(a => a.id == actorId);
+            if (actor != null)
             {
-                var actorComponent = actorObj.GetComponent<SceneActorComponent>();
-                if (actorComponent != null)
+                actor.motionId = motionId; // 更新演员的动作ID
+            }
+
+            // 获取动作组件
+            var motionComponent = resourceManager.GetMotion(motionId);
+            if (motionComponent == null)
+            {
+                Debug.LogError($"SceneDisplayManager: 找不到动作资源 {motionId}");
+                return;
+            }
+
+            // 获取MmdGameObject并加载动作
+            var mmdGameObject = actorTransform.GetComponent<MmdGameObject>();
+            if (mmdGameObject != null && !string.IsNullOrEmpty(motionComponent.filePath))
+            {
+                try
                 {
-                    // 获取动作组件
-                    var motionComponent = resourceManager.GetMotion(motionId);
-                    if (motionComponent != null)
+                    if (File.Exists(motionComponent.filePath))
                     {
-                        actorComponent.SetMotionComponent(motionComponent);
+                        mmdGameObject.LoadMotion(motionComponent.filePath);
+                        
+                        // 配置MMD设置（参考原系统）
+                        mmdGameObject.UpdateConfig(new LibMMD.Unity3D.MmdUnityConfig
+                        {
+                            EnableDrawSelfShadow = LibMMD.Unity3D.MmdConfigSwitch.ForceFalse,
+                            EnableCastShadow = LibMMD.Unity3D.MmdConfigSwitch.ForceFalse,
+                            EnableEdge = LibMMD.Unity3D.MmdConfigSwitch.AsConfig
+                        });
+                        mmdGameObject.PhysicsMode = MmdGameObject.PhysicsModeEnum.Bullet;
+                          // 更新SceneActorComponent
+                        if (currentActorComponent != null)
+                        {
+                            currentActorComponent.AddMotion(motionComponent.motionId);
+                        }
+                        
+                        Debug.Log($"SceneDisplayManager: 成功为演员 {actorId} 加载动作 {motionComponent.filePath}");
+                    }
+                    else
+                    {
+                        Debug.LogError($"VMD文件不存在: {motionComponent.filePath}");
                     }
                 }
+                catch (Exception e)
+                {
+                    Debug.LogError($"SceneDisplayManager: 为演员 {actorId} 加载动作失败: {e.Message}");
+                }
+            }
+            else
+            {
+                Debug.LogError($"SceneDisplayManager: 演员 {actorId} 没有MmdGameObject组件");
             }
 
             Debug.Log($"SceneDisplayManager: 关联动作 {motionId} 到演员 {actorId}");
             
             // 触发事件
-            SceneDisplayEvents.TriggerModelMotionAssociationChanged(actor.modelId, motionId, true);
+            if (actor != null)
+            {
+                SceneDisplayEvents.TriggerModelMotionAssociationChanged(actor.modelId, motionId, true);
+            }
         }
 
         /// <summary>

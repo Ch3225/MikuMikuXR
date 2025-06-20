@@ -1,6 +1,7 @@
 using UnityEngine;
 using MMDVR.Events;
 using LibMMD.Unity3D;
+using TMPro;
 
 namespace MMDVR.Scripts.Managers
 {
@@ -18,12 +19,18 @@ namespace MMDVR.Scripts.Managers
     /// </summary>
     public class SystemStateManager : MonoBehaviour
     {
-        public static SystemStateManager Instance { get; private set; }
+        public static SystemStateManager Instance { get; private set; }        [Header("运行模式")]
+        [Tooltip("当前运行模式")] public CameraMode currentCameraMode = CameraMode.Desktop;
 
-        [Header("运行模式")]
-        [Tooltip("当前运行模式")] public CameraMode currentCameraMode = CameraMode.Desktop;        [Header("功能摄像机引用")]
-        [Tooltip("主摄像机（统一使用）")] public Camera mainCamera;
+        [Header("摄像机引用")]
+        [Tooltip("桌面模式摄像机")] public Camera desktopCamera;
         [Tooltip("VR Origin GameObject")] public GameObject vrOrigin;
+
+        // ==================== VR模式切换功能 ====================
+          [Header("VR模式切换")]
+        // 不需要额外的desktopCamerasGroup，直接控制摄像机的激活状态
+        
+        private bool isVRMode = false;
 
         private static bool mmdSystemInitialized = false;
 
@@ -41,15 +48,11 @@ namespace MMDVR.Scripts.Managers
 
             // 订阅系统事件
             SystemEvents.OnVRModeDetected += OnVRModeDetected;
-        }
-
-        private void Start()
+        }        private void Start()
         {
             // 启动VR检测
             SystemEvents.StartVRDetection(this);
-        }
-
-        /// <summary>
+        }        /// <summary>
         /// 获取当前活动摄像机
         /// </summary>
         public Camera GetActiveCamera()
@@ -61,8 +64,8 @@ namespace MMDVR.Scripts.Managers
                 if (vrCamera != null) return vrCamera;
             }
             
-            // 桌面模式或VR找不到时使用主摄像机
-            return mainCamera;
+            // 桌面模式使用桌面摄像机
+            return desktopCamera;
         }
 
         /// <summary>
@@ -96,9 +99,38 @@ namespace MMDVR.Scripts.Managers
 
             // 触发系统状态变更事件
             SystemEvents.TriggerXRSystemStateChanged(mode == CameraMode.VR);
-        }
-
-        /// <summary>
+        }        /// <summary>
+        /// 切换VR/桌面模式
+        /// </summary>
+        public void ToggleVRMode()
+        {
+            isVRMode = !isVRMode;
+            
+            // 控制摄像机激活状态
+            SwitchCameraMode(isVRMode);
+            
+            Debug.Log($"SystemStateManager: 切换到{(isVRMode ? "VR" : "桌面")}模式");
+            
+            // 触发VR状态变化事件
+            SystemEvents.TriggerXRSystemStateChanged(isVRMode);
+        }        /// <summary>
+        /// 设置VR模式（不切换，直接设置）
+        /// </summary>
+        /// <param name="vrMode">是否启用VR模式</param>
+        public void SetVRMode(bool vrMode)
+        {
+            if (isVRMode == vrMode) return; // 如果状态相同，不做任何操作
+            
+            isVRMode = vrMode;
+            
+            // 控制摄像机激活状态
+            SwitchCameraMode(isVRMode);
+            
+            Debug.Log($"SystemStateManager: 设置为{(isVRMode ? "VR" : "桌面")}模式");
+            
+            // 触发VR状态变化事件
+            SystemEvents.TriggerXRSystemStateChanged(isVRMode);
+        }        /// <summary>
         /// 获取当前是否为VR模式
         /// </summary>
         public bool IsVRMode => currentCameraMode == CameraMode.VR;
@@ -158,7 +190,26 @@ namespace MMDVR.Scripts.Managers
                     {
                         // 忽略错误
                     }
-                }
+                }            }
+        }
+
+        /// <summary>
+        /// 切换摄像机模式
+        /// </summary>
+        /// <param name="useVRMode">是否使用VR模式</param>
+        private void SwitchCameraMode(bool useVRMode)
+        {
+            if (useVRMode)
+            {
+                // VR模式：激活VR Origin，禁用桌面摄像机
+                if (vrOrigin != null) vrOrigin.SetActive(true);
+                if (desktopCamera != null) desktopCamera.gameObject.SetActive(false);
+            }
+            else
+            {
+                // 桌面模式：禁用VR Origin，激活桌面摄像机
+                if (vrOrigin != null) vrOrigin.SetActive(false);
+                if (desktopCamera != null) desktopCamera.gameObject.SetActive(true);
             }
         }
     }

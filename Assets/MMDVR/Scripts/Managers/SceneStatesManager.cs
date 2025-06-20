@@ -162,15 +162,39 @@ namespace MMDVR.Scripts.Managers
         }
           /// <summary>
         /// 添加演员 - 已废弃，请使用ResourceManager.Instance.LoadModel() + SceneDisplayManager.Instance.AddActor()
-        /// </summary>
-        [System.Obsolete("使用ResourceManager.Instance.LoadModel() + SceneDisplayManager.Instance.AddActor()")]
+        /// </summary>        [System.Obsolete("使用ResourceManager.Instance.LoadModel() + SceneDisplayManager.Instance.AddActor()")]
         public void AddActor(string filePath)
         {
+            Debug.Log($"SceneStatesManager.AddActor: 开始加载演员 {filePath}");
+            
+            // 检查ResourceManager是否存在
+            if (ResourceManager.Instance == null)
+            {
+                Debug.LogError("SceneStatesManager.AddActor: ResourceManager.Instance为null");
+                return;
+            }
+            
             // 先加载模型资源，再添加到场景显示
-            var modelId = ResourceManager.Instance?.LoadModel(filePath);
+            Debug.Log("SceneStatesManager.AddActor: 调用ResourceManager.LoadModel");
+            var modelId = ResourceManager.Instance.LoadModel(filePath);
+            
             if (!string.IsNullOrEmpty(modelId))
             {
-                SceneDisplayManager.Instance?.AddActor(modelId);
+                Debug.Log($"SceneStatesManager.AddActor: 模型加载成功，ID={modelId}，现在添加到场景");
+                
+                // 检查SceneDisplayManager是否存在
+                if (SceneDisplayManager.Instance == null)
+                {
+                    Debug.LogError("SceneStatesManager.AddActor: SceneDisplayManager.Instance为null");
+                    return;
+                }
+                
+                var actorId = SceneDisplayManager.Instance.AddActor(modelId);
+                Debug.Log($"SceneStatesManager.AddActor: 演员添加完成，ActorID={actorId}");
+            }
+            else
+            {
+                Debug.LogError($"SceneStatesManager.AddActor: 模型加载失败 {filePath}");
             }
         }
         
@@ -199,14 +223,13 @@ namespace MMDVR.Scripts.Managers
         public void RemoveMotion(string motionId)
         {
             ResourceManager.Instance?.RemoveMotion(motionId);
-        }
-          /// <summary>
+        }        /// <summary>
         /// 分配动作到演员 - 已废弃，请使用SceneDisplayManager.Instance.AssignMotionToActor()
         /// </summary>
         [System.Obsolete("使用SceneDisplayManager.Instance.AssignMotionToActor()")]
         public void AssignMotionToActor(string motionId, string actorId)
         {
-            SceneDisplayManager.Instance?.AssignMotionToActor(motionId, actorId);
+            SceneDisplayManager.Instance?.AssignMotionToActor(actorId, motionId);
         }
           /// <summary>
         /// 添加VMD摄像机 - 已废弃，请使用ResourceManager.Instance.AddVMDCamera()

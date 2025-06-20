@@ -3247,16 +3247,16 @@ MonoBehaviour:
   m_GameObject: {fileID: 3457713848480573309}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 138f7ad9b8192e9488ae8c8f90494012, type: 3}
+  m_Script: {fileID: 11500000, guid: f9138d8db019e874e9709833fa6cfbb3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  playButton: {fileID: 7618853080771737913}
-  playButtonText: {fileID: 471974821165513812}
-  playSlider: {fileID: 7737185179745895381}
-  timerText: {fileID: 5191489053711434644}
-  muteButton: {fileID: 2719928601537003086}
-  volumeSlider: {fileID: 7369537661062658118}
-  volumePercentText: {fileID: 210920581113265786}
+  playButton: {fileID: 0}
+  playButtonText: {fileID: 0}
+  playSlider: {fileID: 0}
+  timerText: {fileID: 0}
+  muteButton: {fileID: 0}
+  volumeSlider: {fileID: 0}
+  volumePercentText: {fileID: 0}
 --- !u!1 &3552596317606273128
 GameObject:
   m_ObjectHideFlags: 0
@@ -6567,7 +6567,6 @@ RectTransform:
   m_Children:
   - {fileID: 133596996257298860}
   - {fileID: 8803418945321282510}
-  - {fileID: 9186132861406388817}
   m_Father: {fileID: 4054781118266589646}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -9698,7 +9697,6 @@ GameObject:
   - component: {fileID: 3974013573060579424}
   - component: {fileID: 5647854338538674074}
   - component: {fileID: 7266760305215054676}
-  - component: {fileID: 7154706544822994821}
   m_Layer: 5
   m_Name: Button_Panel
   m_TagString: Untagged
@@ -9807,33 +9805,7 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 5647854338538674074}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 7154706544822994821}
-        m_TargetAssemblyTypeName: MMDVR.UI.Controls.ToggleUISectionButton, Assembly-CSharp
-        m_MethodName: OnToggleUIClicked
-        m_Mode: 1
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
---- !u!114 &7154706544822994821
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8172414280418070208}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 94f9895657fc0a8429149b7f7ad69883, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  targetUI: {fileID: 204267350228430908}
-  button: {fileID: 7266760305215054676}
+      m_Calls: []
 --- !u!1 &8358586034068879543
 GameObject:
   m_ObjectHideFlags: 0
@@ -10900,54 +10872,6 @@ MonoBehaviour:
   m_OnValueChanged:
     m_PersistentCalls:
       m_Calls: []
---- !u!1 &9167103464550400659
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 9186132861406388817}
-  - component: {fileID: 8136909363065707616}
-  m_Layer: 5
-  m_Name: GlobalCorotineRunner
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 0
---- !u!224 &9186132861406388817
-RectTransform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 9167103464550400659}
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1100067851790000391}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 1}
-  m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 551.00006, y: -429.99994}
-  m_SizeDelta: {x: 0, y: 0}
-  m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &8136909363065707616
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 9167103464550400659}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e6d740b327a81b34689970c2d4c954f9, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!1001 &1779366279860372473
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -11076,11 +11000,46 @@ PrefabInstance:
       propertyPath: simpleFileBrowserPanel
       value: 
       objectReference: {fileID: 5665702150919743531}
-    m_RemovedComponents: []
+    m_RemovedComponents:
+    - {fileID: 8695666785420864059, guid: 7b07925f9b22e0d44b2e43a16670956c, type: 3}
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 5776205330143192344, guid: 7b07925f9b22e0d44b2e43a16670956c,
+        type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 3078910383121479289}
   m_SourcePrefab: {fileID: 100100000, guid: 7b07925f9b22e0d44b2e43a16670956c, type: 3}
+--- !u!1 &5231106961403406049 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 5776205330143192344, guid: 7b07925f9b22e0d44b2e43a16670956c,
+    type: 3}
+  m_PrefabInstance: {fileID: 1779366279860372473}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &3078910383121479289
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5231106961403406049}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a01440e4d1095764687aad61075a6eb8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  sideMenuPanel: {fileID: 2019142674126081610}
+  mainControlPanel: {fileID: 1274616595272094468}
+  simpleFileBrowserPanel: {fileID: 5665702150919743531}
+  fileExtensions:
+  - .pmx
+  - .pmd
+  - .vmd
+  - .mp3
+  - .wav
+  - .ogg
+  maxFileCount: 20
+  prefsKey: LoadFolder_LastPath
 --- !u!224 &8247838404276182319 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 7694295923548364502, guid: 7b07925f9b22e0d44b2e43a16670956c,
@@ -11236,18 +11195,6 @@ RectTransform:
     type: 3}
   m_PrefabInstance: {fileID: 2352542652486322274}
   m_PrefabAsset: {fileID: 0}
---- !u!114 &7369537661062658118 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 5107137369881423908, guid: 9aa04089628ca6b43ba3c18b58e8afef,
-    type: 3}
-  m_PrefabInstance: {fileID: 2352542652486322274}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 67db9e8f0e2ae9c40bc1e2b64352a6b4, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!1001 &3278676107595641841
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -11397,18 +11344,6 @@ RectTransform:
     type: 3}
   m_PrefabInstance: {fileID: 3278676107595641841}
   m_PrefabAsset: {fileID: 0}
---- !u!114 &7737185179745895381 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 5107137369881423908, guid: 9aa04089628ca6b43ba3c18b58e8afef,
-    type: 3}
-  m_PrefabInstance: {fileID: 3278676107595641841}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 67db9e8f0e2ae9c40bc1e2b64352a6b4, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!1001 &4234757300806717694
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -11549,7 +11484,8 @@ PrefabInstance:
       propertyPath: simpleFileBrowserPanel
       value: 
       objectReference: {fileID: 5665702150919743531}
-    m_RemovedComponents: []
+    m_RemovedComponents:
+    - {fileID: 8695666785420864059, guid: 7b07925f9b22e0d44b2e43a16670956c, type: 3}
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents: []
@@ -12984,10 +12920,15 @@ PrefabInstance:
       propertyPath: simpleFileBrowserPanel
       value: 
       objectReference: {fileID: 5665702150919743531}
-    m_RemovedComponents: []
+    m_RemovedComponents:
+    - {fileID: 8695666785420864059, guid: 7b07925f9b22e0d44b2e43a16670956c, type: 3}
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 5776205330143192344, guid: 7b07925f9b22e0d44b2e43a16670956c,
+        type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 5065881066190844352}
   m_SourcePrefab: {fileID: 100100000, guid: 7b07925f9b22e0d44b2e43a16670956c, type: 3}
 --- !u!224 &81848135090359882 stripped
 RectTransform:
@@ -12995,3 +12936,33 @@ RectTransform:
     type: 3}
   m_PrefabInstance: {fileID: 7774735856383873180}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &4308921426953893252 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 5776205330143192344, guid: 7b07925f9b22e0d44b2e43a16670956c,
+    type: 3}
+  m_PrefabInstance: {fileID: 7774735856383873180}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &5065881066190844352
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4308921426953893252}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a01440e4d1095764687aad61075a6eb8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  sideMenuPanel: {fileID: 2019142674126081610}
+  mainControlPanel: {fileID: 1274616595272094468}
+  simpleFileBrowserPanel: {fileID: 5665702150919743531}
+  fileExtensions:
+  - .pmx
+  - .pmd
+  - .vmd
+  - .mp3
+  - .wav
+  - .ogg
+  maxFileCount: 20
+  prefsKey: LoadFolder_LastPath

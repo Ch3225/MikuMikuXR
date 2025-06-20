@@ -137,32 +137,72 @@ namespace LibMMD.Unity3D
 			if (_textureLoader != null) {
 				_textureLoader.Dispose ();
 			}
-		}
-					private static Shader GetShader(MmdMaterial mmdMaterial, MmdUnityConfig config, bool isTransparent)
+		}		private static Shader GetShader(MmdMaterial mmdMaterial, MmdUnityConfig config, bool isTransparent)
 		{
-			// 首先尝试使用HDRP MMDUnlitShader
-			var ret = Shader.Find("Shader Graphs/MMDUnlitShader");
+			// 打印所有可用的着色器进行调试
+			Debug.Log("=== 查找MMD着色器 ===");
+			
+			// 直接使用MMDLitShader作为首选
+			var ret = Shader.Find("MMDLitShader");
 			if (ret != null)
 			{
-				Debug.Log("Using HDRP MMDUnlitShader");
+				Debug.Log("使用 MMDLitShader");
 				return ret;
+			}
+			else
+			{
+				Debug.LogWarning("找不到 MMDLitShader");
+			}
+			
+			// 备用：尝试Shader Graphs路径
+			ret = Shader.Find("Shader Graphs/MMDLitShader");
+			if (ret != null)
+			{
+				Debug.Log("使用 Shader Graphs/MMDLitShader");
+				return ret;
+			}
+			else
+			{
+				Debug.LogWarning("找不到 Shader Graphs/MMDLitShader");
+			}
+			
+			// 备用：尝试MMDUnlitShader（旧名称）
+			ret = Shader.Find("MMDUnlitShader");
+			if (ret != null)
+			{
+				Debug.Log("使用 MMDUnlitShader（旧名称）");
+				return ret;
+			}
+			else
+			{
+				Debug.LogWarning("找不到 MMDUnlitShader");
 			}
 			
 			// 如果找不到HDRP Shader，使用标准MMD Shader
-			Debug.LogWarning("Can't find shader Shader Graphs/MMDUnlitShader, falling back to standard MMD shader");
+			Debug.LogWarning("找不到HDRP MMD着色器，回退到标准MMD着色器");
 			var shaderName = BuildShaderName(mmdMaterial, config, isTransparent);
+			Debug.Log($"尝试标准MMD着色器: {shaderName}");
 			ret = Shader.Find(shaderName);
 			
 			if (ret == null)
 			{
-				Debug.LogWarning($"Can't find shader {shaderName}, using default MMD/PMDMaterial");
+				Debug.LogWarning($"找不到着色器 {shaderName}，使用默认 MMD/PMDMaterial");
 				ret = Shader.Find("MMD/PMDMaterial");
 			}
 			
 			if (ret == null)
 			{
-				Debug.LogError("No suitable MMD shader found, using Standard shader as fallback");
+				Debug.LogError("找不到合适的MMD着色器，使用Standard作为备用");
 				ret = Shader.Find("Standard");
+			}
+			
+			if (ret != null)
+			{
+				Debug.Log($"最终使用着色器: {ret.name}");
+			}
+			else
+			{
+				Debug.LogError("所有着色器查找都失败了！");
 			}
 			
 			return ret;

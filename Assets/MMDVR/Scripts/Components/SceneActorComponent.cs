@@ -1,9 +1,11 @@
 using UnityEngine;
+using LibMMD.Unity3D;
+using System.Collections.Generic;
 
 namespace MMDVR.Scripts.Components
 {
     /// <summary>
-    /// 场景演员组件数据 - 用于场景中的演员实例
+    /// 场景演员组件数据 - 简化版本，支持多动作
     /// </summary>
     [System.Serializable]
     public class SceneActorData
@@ -11,51 +13,43 @@ namespace MMDVR.Scripts.Components
         public string id;
         public string displayName;
         public string modelId;
-        public string currentMotionId;
+        public List<string> motionIds = new List<string>(); // 支持多个动作
         public bool isVisible = true;
-        public bool isActive = true;
-        public Vector3 position = Vector3.zero;
-        public Quaternion rotation = Quaternion.identity;
-        public Vector3 scale = Vector3.one;
+        // 移除位置、姿态、大小字段 - 直接使用Transform
     }
 
     /// <summary>
     /// 场景演员组件 - 管理场景中的演员实例
+    /// 重新设计：支持多动作，简化字段，移除冗余连接
     /// </summary>
     public class SceneActorComponent : MonoBehaviour
     {
         [Header("演员标识")]
         public string actorId;
-        public string displayName;        [Header("关联资源")]
+        public string displayName;
+        
+        [Header("关联资源")]
         public string modelId;
-        public string currentMotionId;
-        public string associatedModelId; // 兼容性属性
-        public string associatedMotionId; // 兼容性属性
-
-        [Header("演员状态")]
-        public bool isVisible = true;
-        public bool isActive = true;
-
-        private void Start()
-        {
-            // 同步兼容性属性
-            associatedModelId = modelId;
-            associatedMotionId = currentMotionId;
-        }
-
-        [Header("演员数据")]
+        public List<string> motionIds = new List<string>(); // 支持多个动作ID
+        
+        [Header("组件引用")]
+        public ModelComponent modelRef; // 模型组件引用
+        // 移除mmdGameObject字段 - 直接通过GetComponent获取        [Header("演员数据")]
         public SceneActorData actorData;
 
-        [Header("组件引用")]
-        public ModelComponent modelComponent;
-        public MotionComponent currentMotionComponent;
-        public GameObject modelObject;
+        // 运行时缓存的MmdGameObject引用
+        private MmdGameObject _mmdGameObject;
+        public MmdGameObject MmdGameObject 
+        { 
+            get 
+            { 
+                if (_mmdGameObject == null)
+                    _mmdGameObject = GetComponent<MmdGameObject>();
+                return _mmdGameObject;
+            }        }
 
         private void Awake()
         {
-            if (string.IsNullOrEmpty(actorId))
-                actorId = System.Guid.NewGuid().ToString("N")[..8];
-            
             if (string.IsNullOrEmpty(displayName))
                 displayName = gameObject.name;
 
@@ -67,26 +61,19 @@ namespace MMDVR.Scripts.Components
                     id = actorId,
                     displayName = displayName,
                     modelId = modelId,
-                    currentMotionId = currentMotionId,
-                    isVisible = isVisible,
-                    isActive = isActive,
-                    position = transform.position,
-                    rotation = transform.rotation,
-                    scale = transform.localScale
+                    motionIds = new List<string>(motionIds), // 复制当前动作列表
+                    isVisible = true
                 };
             }
-        }
-
-        /// <summary>
+        }        /// <summary>
         /// 设置模型组件
         /// </summary>
         public void SetModelComponent(ModelComponent model)
         {
-            modelComponent = model;
+            modelRef = model;
             if (model != null)
             {
                 modelId = model.modelId;
-                modelObject = model.modelObject;
                 actorData.modelId = modelId;
                 
                 // 将模型对象设为子对象
@@ -98,86 +85,79 @@ namespace MMDVR.Scripts.Components
         }
 
         /// <summary>
-        /// 设置动作组件
+        /// 添加动作ID到列表
         /// </summary>
-        public void SetMotionComponent(MotionComponent motion)
+        public void AddMotion(string motionId)
         {
-            currentMotionComponent = motion;
-            if (motion != null)
+            if (!string.IsNullOrEmpty(motionId) && !motionIds.Contains(motionId))
             {
-                currentMotionId = motion.motionId;
-                actorData.currentMotionId = currentMotionId;
-                
-                // 关联动作到此演员
-                motion.AssignToActor(actorId, modelId);
+                motionIds.Add(motionId);
+                actorData.motionIds.Add(motionId);
             }
         }
 
         /// <summary>
-        /// 设置可见性
+        /// 移除动作ID
+        /// </summary>
+        public void RemoveMotion(string motionId)
+        {
+            motionIds.Remove(motionId);
+            actorData.motionIds.Remove(motionId);
+        }
+
+        /// <summary>
+        /// 清空所有动作
+        /// </summary>
+        public void ClearMotions()
+        {
+            motionIds.Clear();
+            actorData.motionIds.Clear();
+        }        /// <summary>
+        /// 获取当前所有动作ID列表
+        /// </summary>
+        public List<string> GetMotionIds()
+        {
+            return new List<string>(motionIds);
+        }
+
+        /// <summary>
+        /// 设置可见性 - 暂未实现完整功能
         /// </summary>
         public void SetVisibility(bool visible)
         {
-            isVisible = visible;
             actorData.isVisible = visible;
             
-            if (modelComponent != null)
+            // TODO: 实现模型可见性控制
+            if (modelRef != null)
             {
-                modelComponent.SetVisibility(visible);
+                // modelRef.SetVisibility(visible);
             }
-            else if (modelObject != null)
+            else if (MmdGameObject != null)
             {
-                modelObject.SetActive(visible);
+                MmdGameObject.gameObject.SetActive(visible);
             }
         }
 
         /// <summary>
-        /// 设置激活状态
+        /// 设置激活状态 - 使用GameObject的activeInHierarchy
         /// </summary>
         public void SetActive(bool active)
         {
-            isActive = active;
-            actorData.isActive = active;
             gameObject.SetActive(active);
         }
 
         /// <summary>
-        /// 更新位置变换
-        /// </summary>
-        public void UpdateTransform()
-        {
-            actorData.position = transform.position;
-            actorData.rotation = transform.rotation;
-            actorData.scale = transform.localScale;
-        }
-
-        /// <summary>
-        /// 应用位置变换
-        /// </summary>
-        public void ApplyTransform()
-        {
-            transform.position = actorData.position;
-            transform.rotation = actorData.rotation;
-            transform.localScale = actorData.scale;
-        }
-
-        /// <summary>
-        /// 获取演员数据副本
+        /// 获取演员数据副本 - 简化版本，移除位置信息
         /// </summary>
         public SceneActorData GetActorData()
         {
-            UpdateTransform();
             return new SceneActorData
             {
                 id = actorData.id,
                 displayName = actorData.displayName,
                 modelId = actorData.modelId,
-                currentMotionId = actorData.currentMotionId,
-                isVisible = actorData.isVisible,
-                isActive = actorData.isActive,
-                position = actorData.position,
-                rotation = actorData.rotation,
-                scale = actorData.scale
+                motionIds = new List<string>(actorData.motionIds),
+                isVisible = actorData.isVisible
             };
         }
     }
