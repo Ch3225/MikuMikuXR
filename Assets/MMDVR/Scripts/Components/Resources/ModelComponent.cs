@@ -4,47 +4,60 @@ using MMDVR.Scripts.Model; // For IResourceInfo and ResourceType
 namespace MMDVR.Scripts.Components
 {
     /// <summary>
-    /// 模型组件 - 存储模型相关信息和状态
+    /// 模型组件 - 存储模型相关信息，状态与ActorComponent同步
     /// </summary>
     public class ModelComponent : MonoBehaviour, IResourceInfo
-    {        [Header("模型标识")]
+    {
+        [Header("模型标识")]
         public string id; // 统一使用id字段
         public string displayName;
-        public string filePath;[Header("模型状态")]
+        public string filePath;
+
+        [Header("模型状态")]
         public bool isLoaded = false;
         
-        private bool _isVisible = true;
-        /// <summary>
-        /// 模型是否可见 - 这是行为状态，可以被监听
+        // 移除了本地状态管理，改为与ActorComponent同步
+        private ActorComponent _associatedActor;
+          /// <summary>
+        /// 关联的ActorComponent
         /// </summary>
-        public bool isVisible 
-        { 
-            get => _isVisible;
+        public ActorComponent AssociatedActor        { 
+            get => _associatedActor;
             set 
             {
-                if (_isVisible != value)
+                if (_associatedActor != value)
                 {
-                    _isVisible = value;
-                    ApplyVisibility(value);
-                    OnVisibilityChanged?.Invoke(this, value);
+                    _associatedActor = value;
+                    // 建立关联
+                    if (value != null)
+                    {
+                        value.SetModelComponent(this);
+                    }
                 }
+            }
+        }/// <summary>
+        /// 模型是否可见 - 通过GameObject的activeInHierarchy状态
+        /// </summary>
+        public bool IsVisible 
+        { 
+            get => gameObject.activeInHierarchy;
+            set 
+            {
+                gameObject.SetActive(value);
             }
         }
 
-        private bool _isEnabled = true;
         /// <summary>
-        /// 模型是否启用 - 这是行为状态，可以被监听
+        /// 模型是否启用 - 从关联的ActorComponent获取
         /// </summary>
-        public bool isEnabled 
+        public bool IsEnabled 
         { 
-            get => _isEnabled;
+            get => _associatedActor != null ? _associatedActor.IsEnabled : true;
             set 
             {
-                if (_isEnabled != value)
+                if (_associatedActor != null)
                 {
-                    _isEnabled = value;
-                    gameObject.SetActive(value);
-                    OnEnabledStateChanged?.Invoke(this, value);
+                    _associatedActor.IsEnabled = value;
                 }
             }
         }
@@ -57,10 +70,7 @@ namespace MMDVR.Scripts.Components
         /// <summary>
         /// 模型启用状态变化事件
         /// </summary>
-        public System.Action<ModelComponent, bool> OnEnabledStateChanged;
-
-        [Header("模型数据")]
-        public GameObject modelObject;
+        public System.Action<ModelComponent, bool> OnEnabledStateChanged;        [Header("模型数据")]
         public Renderer[] renderers;        // 向后兼容属性
         public string ID => id;
         public string DisplayName => displayName;
@@ -89,46 +99,40 @@ namespace MMDVR.Scripts.Components
                         renderer.enabled = visible;
                 }
             }
-            else if (modelObject != null)
+            else
             {
-                modelObject.SetActive(visible);
+                // 如果没有缓存渲染器，尝试在当前GameObject中查找
+                var localRenderers = GetComponentsInChildren<Renderer>();
+                foreach (var renderer in localRenderers)
+                {
+                    if (renderer != null)
+                        renderer.enabled = visible;
+                }
             }
-        }
-
-        /// <summary>
+        }/// <summary>
         /// 设置模型可见性（公共方法，会触发事件）
         /// </summary>
         public void SetVisibility(bool visible)
         {
-            isVisible = visible; // 使用属性，会触发事件
-        }
-
-        /// <summary>
+            IsVisible = visible; // 使用属性，会同步到ActorComponent
+        }        /// <summary>
         /// 缓存渲染器组件
         /// </summary>
         public void CacheRenderers()
         {
-            if (modelObject != null)
-            {
-                renderers = modelObject.GetComponentsInChildren<Renderer>();
-            }
-            else
-            {
-                renderers = GetComponentsInChildren<Renderer>();
-            }
+            renderers = GetComponentsInChildren<Renderer>();
         }
 
         /// <summary>
-        /// 设置模型对象
+        /// 设置模型对象（用于建立关联和缓存渲染器）
         /// </summary>
-        public void SetModelObject(GameObject model)
+        public void SetupModelReferences(GameObject model)
         {
-            modelObject = model;
             if (model != null)
             {
-                model.transform.SetParent(transform);
                 CacheRenderers();
                 isLoaded = true;
+                Debug.Log($"ModelComponent[{id}]: 建立模型引用并缓存渲染器");
             }
         }
     }

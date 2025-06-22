@@ -6,6 +6,22 @@ using UnityEngine;
 namespace MMDVR.Scripts.Managers
 {
     /// <summary>
+    /// 用于在Inspector中显示关联关系的数据结构
+    /// </summary>
+    [System.Serializable]
+    public class ModelMotionAssociation
+    {
+        public string modelId;
+        public List<string> motionIds = new List<string>();
+        
+        public ModelMotionAssociation(string model, IEnumerable<string> motions)
+        {
+            modelId = model;
+            motionIds = new List<string>(motions);
+        }
+    }
+
+    /// <summary>
     /// 关联管理器 - 管理模型与动作的关联关系
     /// 职责: 存储、管理、触发 <模型ID, Set<动作ID>> 关联
     /// </summary>
@@ -13,8 +29,11 @@ namespace MMDVR.Scripts.Managers
     {
         public static AssociationManager Instance { get; private set; }
 
-        [Header("模型-动作关联")]
-        [SerializeField] private Dictionary<string, HashSet<string>> modelMotionAssociations = new Dictionary<string, HashSet<string>>();
+        [Header("模型-动作关联 (运行时数据)")]
+        [SerializeField] private List<ModelMotionAssociation> inspectorAssociations = new List<ModelMotionAssociation>();
+        
+        // 实际存储的关联数据
+        private Dictionary<string, HashSet<string>> modelMotionAssociations = new Dictionary<string, HashSet<string>>();
 
         // 关联变化事件
         public static event Action<string, string> OnModelMotionAssociated; // modelId, motionId
@@ -31,6 +50,20 @@ namespace MMDVR.Scripts.Managers
             DontDestroyOnLoad(gameObject);
         }
 
+        // ==================== Inspector显示更新 ====================
+        
+        /// <summary>
+        /// 更新Inspector中的关联显示
+        /// </summary>
+        private void UpdateInspectorDisplay()
+        {
+            inspectorAssociations.Clear();
+            foreach (var kvp in modelMotionAssociations)
+            {
+                inspectorAssociations.Add(new ModelMotionAssociation(kvp.Key, kvp.Value));
+            }
+        }
+
         // ==================== 模型-动作关联管理 ====================
 
         /// <summary>
@@ -44,11 +77,10 @@ namespace MMDVR.Scripts.Managers
             if (!modelMotionAssociations.ContainsKey(modelId))
             {
                 modelMotionAssociations[modelId] = new HashSet<string>();
-            }
-
-            if (modelMotionAssociations[modelId].Add(motionId))
+            }            if (modelMotionAssociations[modelId].Add(motionId))
             {
                 OnModelMotionAssociated?.Invoke(modelId, motionId);
+                UpdateInspectorDisplay();
                 Debug.Log($"关联模型 {modelId} 与动作 {motionId}");
             }
         }
@@ -63,8 +95,8 @@ namespace MMDVR.Scripts.Managers
 
             if (modelMotionAssociations.ContainsKey(modelId) && 
                 modelMotionAssociations[modelId].Remove(motionId))
-            {
-                OnModelMotionDisassociated?.Invoke(modelId, motionId);
+            {                OnModelMotionDisassociated?.Invoke(modelId, motionId);
+                UpdateInspectorDisplay();
                 Debug.Log($"取消关联模型 {modelId} 与动作 {motionId}");
 
                 // 如果没有动作了，移除模型条目
@@ -98,9 +130,8 @@ namespace MMDVR.Scripts.Managers
             foreach (var motionId in motionIds)
             {
                 OnModelMotionDisassociated?.Invoke(modelId, motionId);
-            }
-
-            modelMotionAssociations.Remove(modelId);
+            }            modelMotionAssociations.Remove(modelId);
+            UpdateInspectorDisplay();
             Debug.Log($"清除模型 {modelId} 的所有关联");
         }
 
@@ -125,16 +156,17 @@ namespace MMDVR.Scripts.Managers
             {
                 DisassociateModelFromMotion(modelId, motionId);
             }
-        }
-
-        /// <summary>
+        }        /// <summary>
         /// 清除所有关联
         /// </summary>
         public void ClearAllAssociations()
         {
             modelMotionAssociations.Clear();
+            UpdateInspectorDisplay();
             Debug.Log("清除所有模型-动作关联");
-        }        /// <summary>
+        }
+
+        /// <summary>
         /// 检查模型是否与动作关联
         /// </summary>
         public bool IsModelAssociatedWithMotion(string modelId, string motionId)
@@ -142,6 +174,7 @@ namespace MMDVR.Scripts.Managers
             return !string.IsNullOrEmpty(modelId) && 
                    !string.IsNullOrEmpty(motionId) &&
                    modelMotionAssociations.ContainsKey(modelId) &&
-                   modelMotionAssociations[modelId].Contains(motionId);        }
+                   modelMotionAssociations[modelId].Contains(motionId);
+        }
     }
 }

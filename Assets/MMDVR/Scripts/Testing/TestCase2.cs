@@ -16,17 +16,9 @@ namespace MMDVR.Scripts.Testing
         {
             projectRoot = Directory.GetParent(Application.dataPath).FullName;
             
-            // 使用ResourceManager的全局协程功能启动加载流程
-            if (ResourceManager.Instance != null)
-            {
-                ResourceManager.Instance.StartGlobalCoroutine(LoadResources());
-            }
-            else
-            {
-                // 如果ResourceManager还没有准备好，使用传统方式
-                StartCoroutine(LoadResources());
-            }
-        }        IEnumerator LoadResources()
+            // 只通过UserActionManager启动加载流程
+            StartCoroutine(LoadResources());
+        }IEnumerator LoadResources()
         {            Debug.Log("=== TestCase2 资源加载开始 ===");
             
             // 等待UserActionManager加载完毕
@@ -34,15 +26,14 @@ namespace MMDVR.Scripts.Testing
             {
                 Debug.Log("等待UserActionManager初始化...");
                 yield return new WaitForSeconds(0.5f);
-            }
-            Debug.Log("UserActionManager已就绪");
+            }            Debug.Log("UserActionManager已就绪");
 
             // 分步骤加载，每步之间有视觉反馈
-            yield return ResourceManager.Instance.StartGlobalCoroutine(LoadModelAndMotionWithProgress());
+            yield return LoadModelAndMotionWithProgress();
             
-            yield return ResourceManager.Instance.StartGlobalCoroutine(LoadCamerasWithProgress());
+            yield return LoadCamerasWithProgress();
             
-            yield return ResourceManager.Instance.StartGlobalCoroutine(LoadMusicWithProgress());            // 最后刷新UI
+            yield return LoadMusicWithProgress();// 最后刷新UI
             yield return new WaitForEndOfFrame();
             // 新UI架构通过事件系统自动更新，无需手动刷新
             Debug.Log("资源加载完成，UI将通过事件系统自动更新");
@@ -74,7 +65,7 @@ namespace MMDVR.Scripts.Testing
             Debug.Log($"✓ 文件检查通过");
             yield return new WaitForSeconds(0.2f);
 
-            // 使用UserActionManager一站式加载模型和动作
+            // 使用UserActionManager加载模型和动作（不自动关联）
             bool completed = false;
             string finalModelId = null;
             string finalMotionId = null;
@@ -92,6 +83,16 @@ namespace MMDVR.Scripts.Testing
             if (!string.IsNullOrEmpty(finalModelId) && !string.IsNullOrEmpty(finalMotionId))
             {
                 Debug.Log($"✅ 模型和动作加载完成: {finalModelId}, {finalMotionId}");
+                
+                // 显式地关联Motion到Model/Actor
+                Debug.Log("🔗 开始关联动作到模型...");
+                bool associationCompleted = false;
+                UserActionManager.Instance.AssignMotionToModel(finalModelId, finalMotionId, () =>
+                {
+                    associationCompleted = true;
+                });
+                yield return new WaitUntil(() => associationCompleted);
+                Debug.Log($"✅ 动作关联完成: {finalModelId} <-> {finalMotionId}");
             }
             else
             {

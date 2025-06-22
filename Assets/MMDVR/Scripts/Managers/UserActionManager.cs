@@ -178,14 +178,16 @@ namespace MMDVR.Scripts.Managers
         /// </summary>
         public void UnloadMotion(string motionId, System.Action onComplete = null)
         {
-            StartCoroutine(UnloadMotionCoroutine(motionId, onComplete));
-        }        private IEnumerator UnloadMotionCoroutine(string motionId, System.Action onComplete)
+            StartCoroutine(UnloadMotionCoroutine(motionId, onComplete));        }        private IEnumerator UnloadMotionCoroutine(string motionId, System.Action onComplete)
         {
             Debug.Log($"UserAction: 开始卸载动作 {motionId}");
-              // 步骤1: 清除所有与该动作相关的关联
+            
+            // 步骤1: 清除关联层 - 清除所有与该动作相关的关联
+            // 注意：这会触发OnModelMotionDisassociated事件，SceneDisplayManager会自动清理表现层
             AssociationManager.Instance.ClearMotionAssociations(motionId);
             yield return new WaitForEndOfFrame();
-              // 步骤2: 卸载动作资源
+              
+            // 步骤2: 清除数据层 - 卸载动作资源
             ResourceManager.Instance.RemoveMotion(motionId);
             yield return new WaitForEndOfFrame();
             
@@ -394,9 +396,8 @@ namespace MMDVR.Scripts.Managers
         }
 
         // ==================== 组合用户行为 ====================
-        
-        /// <summary>
-        /// 用户行为：加载模型、动作并建立关联（一站式操作）
+          /// <summary>
+        /// 用户行为：加载模型和动作（不自动关联）
         /// </summary>
         public void LoadModelAndMotion(string modelPath, string motionPath, System.Action<string, string> onComplete = null)
         {
@@ -440,16 +441,8 @@ namespace MMDVR.Scripts.Managers
                 yield break;
             }
             
-            // 步骤3: 建立关联
-            bool assigned = false;
-            AssignMotionToModel(modelId, motionId, () => 
-            {
-                assigned = true;
-            });
-            
-            yield return new WaitUntil(() => assigned);
-            
             Debug.Log($"UserAction: 模型和动作加载完成 {modelId}, {motionId}");
+            Debug.Log("注意: 模型和动作已加载但未关联，请使用 AssignMotionToModel 进行关联");
             onComplete?.Invoke(modelId, motionId);
         }
 
@@ -504,6 +497,5 @@ namespace MMDVR.Scripts.Managers
         public List<string> GetModelMotions(string modelId)
         {
             return AssociationManager.Instance?.GetModelAssociatedMotions(modelId) ?? new List<string>();
-        }
-    }
+        }    }
 }

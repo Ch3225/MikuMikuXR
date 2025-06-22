@@ -12,87 +12,100 @@ namespace MMDVR.Scripts.Testing
         private string motion = "TMP/MMDTest/Motions/アイマリンプロジェクト-内田彩&内田真礼&佐倉綾音 - Deep Blue Town へおいでよ/DeepBlueTown_he_Oideyo_dance.vmd";
         private string cameraVmd = "TMP/MMDTest/Motions/アイマリンプロジェクト-内田彩&内田真礼&佐倉綾音 - Deep Blue Town へおいでよ/Camera3 by do-mode.vmd";
         private string music = "TMP/MMDTest/Motions/アイマリンプロジェクト-内田彩&内田真礼&佐倉綾音 - Deep Blue Town へおいでよ/Deep Blue Town へおいでよ.wav";
-        private string projectRoot;
-
-        void Start()
+        private string projectRoot;        void Start()
         {
             projectRoot = Directory.GetParent(Application.dataPath).FullName;
-            // 加载模型
-            EventManager.OnModelLoadRequest?.Invoke(Path.Combine(projectRoot, model));
-            StartCoroutine(LoadAfterModel());
-        }        IEnumerator LoadAfterModel()
+            // 只通过UserActionManager进行操作
+            StartCoroutine(LoadResources());
+        }        IEnumerator LoadResources()
         {
-            // 等待SceneStatesManager加载完毕
-            while (SceneStatesManager.Instance == null)
-                yield return null;
-
-            // 加载演员（模型实例）
-            Debug.Log("TestCase3: 开始加载演员和动作...");
+            Debug.Log("=== TestCase3 资源加载开始 ===");
             
+            // 等待UserActionManager初始化
+            while (UserActionManager.Instance == null)
+            {
+                Debug.Log("等待UserActionManager初始化...");
+                yield return new WaitForSeconds(0.5f);
+            }
+            Debug.Log("UserActionManager已就绪");
+
             string modelPath = Path.Combine(projectRoot, model);
             string motionPath = Path.Combine(projectRoot, motion);
-            
-            if (File.Exists(modelPath))
+              // 加载模型和动作
+            if (File.Exists(modelPath) && File.Exists(motionPath))
             {
-                SceneStatesManager.Instance.AddActor(modelPath);
-                Debug.Log($"模型已添加: {modelPath}");
-                yield return new WaitForSeconds(1f);            }
-            else
-            {
-                Debug.LogWarning($"模型文件不存在: {modelPath}");
-                // 使用测试方法创建占位符
-                ResourceManager.Instance.AddActorForTesting("test_actor");
-            }
-            
-            string motionId = null;
-            if (File.Exists(motionPath))
-            {
-                motionId = SceneStatesManager.Instance.AddMotion(motionPath);
-                Debug.Log($"动作已添加: {motionPath}");
-            }
-            else
-            {                Debug.LogWarning($"动作文件不存在: {motionPath}");
-                motionId = "test_motion";
-                ResourceManager.Instance.AddMotionForTesting(motionId);
-            }
-
-            // 分配动作给演员
-            if (motionId != null)
-            {
-                var actorList = SceneStatesManager.Instance.GetActorList();
-                if (actorList.Count > 0)
+                Debug.Log("开始加载模型和动作...");
+                bool completed = false;
+                string modelId = null;
+                string motionId = null;
+                
+                UserActionManager.Instance.LoadModelAndMotion(modelPath, motionPath, (mId, moId) =>
                 {
-                    SceneStatesManager.Instance.AssignMotionToActor(motionId, actorList[actorList.Count - 1].id);
-                    Debug.Log("动作已分配给演员");
+                    modelId = mId;
+                    motionId = moId;
+                    completed = true;
+                });
+                
+                yield return new WaitUntil(() => completed);
+                Debug.Log($"✅ 模型和动作加载完成: {modelId}, {motionId}");
+                
+                // 显式地关联Motion到Model
+                if (!string.IsNullOrEmpty(modelId) && !string.IsNullOrEmpty(motionId))
+                {
+                    Debug.Log("🔗 开始关联动作到模型...");
+                    bool associationCompleted = false;
+                    UserActionManager.Instance.AssignMotionToModel(modelId, motionId, () =>
+                    {
+                        associationCompleted = true;
+                    });
+                    yield return new WaitUntil(() => associationCompleted);
+                    Debug.Log($"✅ 动作关联完成: {modelId} <-> {motionId}");
                 }
             }
+            else
+            {
+                Debug.LogWarning($"模型或动作文件不存在: {modelPath}, {motionPath}");
+            }
 
-            yield return new WaitForSeconds(1f);
+            yield return new WaitForSeconds(0.5f);
             
             // 加载相机
             string cameraPath = Path.Combine(projectRoot, cameraVmd);
             if (File.Exists(cameraPath))
             {
-                SceneStatesManager.Instance.AddVMDCamera(cameraPath);
-                Debug.Log($"摄像机已添加: {cameraPath}");
+                bool cameraLoaded = false;
+                UserActionManager.Instance.LoadVMDCamera(cameraPath, (cameraId) => 
+                {
+                    cameraLoaded = true;
+                });
+                yield return new WaitUntil(() => cameraLoaded);
+                Debug.Log($"✅ 摄像机加载完成: {cameraPath}");
             }
             else
             {
                 Debug.LogWarning($"摄像机文件不存在: {cameraPath}");
             }
+
+            yield return new WaitForSeconds(0.5f);
             
             // 加载音乐
             string musicPath = Path.Combine(projectRoot, music);
             if (File.Exists(musicPath))
             {
-                SceneStatesManager.Instance.AddMusic(musicPath);
-                Debug.Log($"音乐已添加: {musicPath}");
+                bool musicLoaded = false;
+                UserActionManager.Instance.LoadMusic(musicPath, (musicId) => 
+                {
+                    musicLoaded = true;
+                });
+                yield return new WaitUntil(() => musicLoaded);
+                Debug.Log($"✅ 音乐加载完成: {musicPath}");
             }
             else
             {
                 Debug.LogWarning($"音乐文件不存在: {musicPath}");
-            }            // 新UI架构通过事件系统自动更新，无需手动刷新
-            Debug.Log("TestCase3: 加载完成");
+            }
+
+            Debug.Log("=== TestCase3 资源加载完成 ===");
         }
     }
 }

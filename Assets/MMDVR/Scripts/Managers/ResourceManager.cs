@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections;
 using System.Collections.Generic;
 using MMDVR.Scripts.Model;
 using MMDVR.Scripts.Components;
@@ -170,11 +171,11 @@ namespace MMDVR.Scripts.Managers
             
             // 触发资源事件
             ResourceEvents.TriggerResourceLoaded("model", modelComponent.id);
+            ResourceEvents.TriggerModelListChanged(); // 触发模型列表更新
             
             return modelComponent.id;
         }
-        
-        /// <summary>
+          /// <summary>
         /// 卸载模型资源
         /// </summary>
         public void UnloadModel(string modelId)
@@ -184,6 +185,7 @@ namespace MMDVR.Scripts.Managers
             {
                 Debug.Log($"ResourceManager: 卸载模型资源: {modelId}");
                 ResourceEvents.TriggerResourceUnloaded("model", modelId);
+                ResourceEvents.TriggerModelListChanged(); // 触发模型列表更新
                 Destroy(modelObj.gameObject);
             }
         }
@@ -230,24 +232,32 @@ namespace MMDVR.Scripts.Managers
             ResourceEvents.TriggerMusicListChanged();
 
             return musicComponent.musicId;
-        }
-
-        /// <summary>
+        }        /// <summary>
         /// 移除音乐资源
         /// </summary>
         public void RemoveMusic(string musicId)
         {
             Transform musicObj = musicContainer.Find($"Music_{musicId}");
             if (musicObj != null)
-            {                // 从数据列表中移除
+            {
+                // 从数据列表中移除
                 musicList.RemoveAll(m => m.id == musicId);
                 
                 Debug.Log($"ResourceManager: 移除音乐资源: {musicId}");
-                ResourceEvents.TriggerResourceUnloaded("music", musicId);
-                ResourceEvents.TriggerMusicListChanged();
                 
+                // 先销毁GameObject，然后延迟触发事件
                 Destroy(musicObj.gameObject);
+                StartCoroutine(DelayedTriggerMusicRemoved(musicId));
             }
+        }
+        
+        private IEnumerator DelayedTriggerMusicRemoved(string musicId)
+        {
+            // 等待下一帧，确保GameObject已经被销毁
+            yield return null;
+            
+            ResourceEvents.TriggerResourceUnloaded("music", musicId);
+            ResourceEvents.TriggerMusicListChanged();
         }
 
         /// <summary>
@@ -378,8 +388,7 @@ namespace MMDVR.Scripts.Managers
 
             return cameraComponent.cameraId;
         }
-        
-        /// <summary>
+          /// <summary>
         /// 移除摄像机资源
         /// </summary>
         public void RemoveCamera(string cameraId)
@@ -397,9 +406,10 @@ namespace MMDVR.Scripts.Managers
                 cameraList.RemoveAll(c => c.id == cameraId);
 
                 Debug.Log($"ResourceManager: 移除摄像机资源: {cameraId}");
-                ResourceEvents.TriggerResourceUnloaded("camera", cameraId);
-                ResourceEvents.TriggerCameraListChanged();
-                  Destroy(cameraObj.gameObject);
+                
+                // 先销毁GameObject，然后延迟触发事件
+                Destroy(cameraObj.gameObject);
+                StartCoroutine(DelayedTriggerCameraRemoved(cameraId));
             }
             else
             {
@@ -407,14 +417,23 @@ namespace MMDVR.Scripts.Managers
             }
         }
         
+        private IEnumerator DelayedTriggerCameraRemoved(string cameraId)
+        {
+            // 等待下一帧，确保GameObject已经被销毁
+            yield return null;
+            
+            ResourceEvents.TriggerResourceUnloaded("camera", cameraId);
+            ResourceEvents.TriggerCameraListChanged();
+        }
+        
         /// <summary>
         /// 获取摄像机组件
         /// </summary>
         public MMDCameraComponent GetCamera(string cameraId)
-        {
-            // 内置Free Camera没有MMDCameraComponent
+        {            // 内置Free Camera没有MMDCameraComponent
             if (cameraId == "BUILTIN_FREE_CAMERA") return null;
-              // 在MMDCameras容器中查找VMD摄像机
+            
+            // 在MMDCameras容器中查找VMD摄像机
             Transform mmdCamerasContainer = cameraContainer.Find("MMDCameras");
             Transform cameraObj = mmdCamerasContainer?.Find($"VMDCamera_{cameraId}");
             return cameraObj?.GetComponent<MMDCameraComponent>();
@@ -830,15 +849,33 @@ namespace MMDVR.Scripts.Managers
             return null;
         }
 
-        // ==================== 向后兼容方法 (转发到适当的管理器) ====================
-        
-        /// <summary>
+        // ==================== 向后兼容方法 (转发到适当的管理器) ====================        /// <summary>
+        /// 根据ID获取摄像机数据
+        /// </summary>
+        public CameraData GetCameraData(string cameraId)
+        {
+            var cameraList = GetCameraDataList();
+            return cameraList.Find(c => c.ID == cameraId);
+        }/// <summary>
         /// 设置活动摄像机（兼容旧接口，应由摄像机管理器处理）
         /// </summary>
         public void SetActiveCamera(string cameraId)
         {
-            Debug.LogWarning("SetActiveCamera应该由专门的摄像机管理器处理，暂时仅记录日志");
-            Debug.Log($"请求激活摄像机: {cameraId}");
+            Debug.Log($"ResourceManager: 设置活动摄像机: {cameraId}");
+            
+            // 通知SceneDisplayManager设置活动摄像机
+            if (SceneDisplayManager.Instance != null)
+            {
+                SceneDisplayManager.Instance.ActivateCamera(cameraId);
+            }
+            
+            // 触发EventManager的CameraActivated事件
+            var cameraData = GetCameraData(cameraId);
+            if (cameraData != null && EventManager.OnCameraActivated != null)
+            {
+                EventManager.OnCameraActivated.Invoke(cameraData);
+                Debug.Log($"ResourceManager: 触发CameraActivated事件 - {cameraData.DisplayName}");
+            }
         }
 
         /// <summary>

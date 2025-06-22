@@ -14,134 +14,138 @@ namespace MMDVR.Scripts.Testing
         private string cameraVmd = "TMP/MMDTest/Motions/Dive to Blue/Dive to Blue Camera2 Low.vmd";
         private string motion1 = "TMP/MMDTest/Motions/Dive to Blue/DivetoBlue_dance_iMarine_R40_カノン_ボーンフレームと表情フレーム.vmd";
         private string motion2 = "TMP/MMDTest/Motions/Dive to Blue/DivetoBlue_dance_Umiko_R40_アリア_ボーンフレームと表情フレーム.vmd";
-        private string music = "TMP/MMDTest/Motions/Dive to Blue/内田彩 - Dive to Blue 调整.wav";
-
-        void Start()
+        private string music = "TMP/MMDTest/Motions/Dive to Blue/内田彩 - Dive to Blue 调整.wav";        void Start()
         {
             projectRoot = System.IO.Directory.GetParent(Application.dataPath).FullName;
-            // 用项目根目录拼接TMP下的路径
-            EventManager.OnModelLoadRequest?.Invoke(System.IO.Path.Combine(projectRoot, lenModel));
-            EventManager.OnModelLoadRequest?.Invoke(System.IO.Path.Combine(projectRoot, rinModel));
-            // 协程等待模型加载完毕后再加载动作、相机、音乐
-            StartCoroutine(LoadAfterModel());
-        }        IEnumerator LoadAfterModel()
-        {            // 等待SceneStatesManager初始化（替代ActorManager）
-            while (SceneStatesManager.Instance == null)
-                yield return null;
-
-            // 加载演员（模型实例）
-            Debug.Log("开始加载演员...");
+            // 只通过UserActionManager进行操作
+            StartCoroutine(LoadResources());
+        }        IEnumerator LoadResources()
+        {
+            Debug.Log("=== TestCase1 资源加载开始 ===");
             
+            // 等待UserActionManager初始化
+            while (UserActionManager.Instance == null)
+            {
+                Debug.Log("等待UserActionManager初始化...");
+                yield return new WaitForSeconds(0.5f);
+            }
+            Debug.Log("UserActionManager已就绪");
+
+            // 加载模型和动作
             string lenPath = System.IO.Path.Combine(projectRoot, lenModel);
             string rinPath = System.IO.Path.Combine(projectRoot, rinModel);
-            
-            if (System.IO.File.Exists(lenPath))
-            {
-                SceneStatesManager.Instance.AddActor(lenPath);
-                Debug.Log($"Len演员已添加: {lenPath}");
-                yield return new WaitForSeconds(1f);
-            }
-            else            {
-                Debug.LogWarning($"Len模型文件不存在: {lenPath}");
-                // 使用测试方法创建占位符
-                ResourceManager.Instance.AddActorForTesting("len_test");
-            }
-            
-            if (System.IO.File.Exists(rinPath))
-            {
-                SceneStatesManager.Instance.AddActor(rinPath);
-                Debug.Log($"Rin演员已添加: {rinPath}");
-                yield return new WaitForSeconds(1f);
-            }
-            else
-            {
-                Debug.LogWarning($"Rin模型文件不存在: {rinPath}");
-                // 使用测试方法创建占位符                ResourceManager.Instance.AddActorForTesting("rin_test");
-            }
-
-            // 加载动作
-            Debug.Log("开始加载动作...");
-            
             string motion1Path = System.IO.Path.Combine(projectRoot, motion1);
             string motion2Path = System.IO.Path.Combine(projectRoot, motion2);
             
+            string lenModelId = null;
+            string rinModelId = null;
             string motionId1 = null;
             string motionId2 = null;
-            
-            if (System.IO.File.Exists(motion1Path))
+              // 加载Len模型和动作
+            if (System.IO.File.Exists(lenPath) && System.IO.File.Exists(motion1Path))
             {
-                motionId1 = SceneStatesManager.Instance.AddMotion(motion1Path);
-                Debug.Log($"动作1已添加: {motion1Path}");
-            }
-            else
-            {
-                Debug.LogWarning($"动作1文件不存在: {motion1Path}");
-                motionId1 = "motion1_test";                ResourceManager.Instance.AddMotionForTesting(motionId1);
-            }
-            
-            if (System.IO.File.Exists(motion2Path))
-            {
-                motionId2 = SceneStatesManager.Instance.AddMotion(motion2Path);
-                Debug.Log($"动作2已添加: {motion2Path}");
-            }
-            else
-            {
-                Debug.LogWarning($"动作2文件不存在: {motion2Path}");                motionId2 = "motion2_test";
-                ResourceManager.Instance.AddMotionForTesting(motionId2);
-            }
-
-            yield return new WaitForSeconds(1f);
-
-            // 分配动作给演员
-            Debug.Log("开始分配动作...");
-            var actorList = SceneStatesManager.Instance.GetActorList();
-            
-            if (actorList.Count >= 2 && motionId1 != null && motionId2 != null)
-            {
-                // 将第一个动作分配给第一个演员
-                SceneStatesManager.Instance.AssignMotionToActor(motionId1, actorList[0].id);
-                Debug.Log($"动作1已分配给演员: {actorList[0].displayName}");
+                Debug.Log("开始加载Len模型和动作...");
+                bool completed = false;
+                UserActionManager.Instance.LoadModelAndMotion(lenPath, motion1Path, (modelId, motionId) =>
+                {
+                    lenModelId = modelId;
+                    motionId1 = motionId;
+                    completed = true;
+                });
+                yield return new WaitUntil(() => completed);
+                Debug.Log($"✅ Len模型和动作加载完成: {lenModelId}, {motionId1}");
                 
-                yield return new WaitForSeconds(0.5f);
-                
-                // 将第二个动作分配给第二个演员
-                SceneStatesManager.Instance.AssignMotionToActor(motionId2, actorList[1].id);
-                Debug.Log($"动作2已分配给演员: {actorList[1].displayName}");
+                // 显式关联Motion到Model
+                if (!string.IsNullOrEmpty(lenModelId) && !string.IsNullOrEmpty(motionId1))
+                {
+                    Debug.Log("🔗 关联Len的动作...");
+                    bool associationCompleted = false;
+                    UserActionManager.Instance.AssignMotionToModel(lenModelId, motionId1, () =>
+                    {
+                        associationCompleted = true;
+                    });
+                    yield return new WaitUntil(() => associationCompleted);
+                    Debug.Log($"✅ Len动作关联完成: {lenModelId} <-> {motionId1}");
+                }
             }
             else
             {
-                Debug.LogWarning($"演员或动作数量不足。Actor: {actorList.Count}, Motion1: {motionId1 != null}, Motion2: {motionId2 != null}");
+                Debug.LogWarning($"Len模型或动作文件不存在: {lenPath}, {motion1Path}");
             }
 
-            yield return new WaitForSeconds(1f);
+            yield return new WaitForSeconds(0.5f);            // 加载Rin模型和动作
+            if (System.IO.File.Exists(rinPath) && System.IO.File.Exists(motion2Path))
+            {
+                Debug.Log("开始加载Rin模型和动作...");
+                bool completed = false;
+                UserActionManager.Instance.LoadModelAndMotion(rinPath, motion2Path, (modelId, motionId) =>
+                {
+                    rinModelId = modelId;
+                    motionId2 = motionId;
+                    completed = true;
+                });
+                yield return new WaitUntil(() => completed);
+                Debug.Log($"✅ Rin模型和动作加载完成: {rinModelId}, {motionId2}");
+                
+                // 显式关联Motion到Model
+                if (!string.IsNullOrEmpty(rinModelId) && !string.IsNullOrEmpty(motionId2))
+                {
+                    Debug.Log("🔗 关联Rin的动作...");
+                    bool associationCompleted = false;
+                    UserActionManager.Instance.AssignMotionToModel(rinModelId, motionId2, () =>
+                    {
+                        associationCompleted = true;
+                    });
+                    yield return new WaitUntil(() => associationCompleted);
+                    Debug.Log($"✅ Rin动作关联完成: {rinModelId} <-> {motionId2}");
+                }
+            }
+            else
+            {
+                Debug.LogWarning($"Rin模型或动作文件不存在: {rinPath}, {motion2Path}");
+            }
+
+            yield return new WaitForSeconds(0.5f);
 
             // 加载相机VMD
             Debug.Log("开始加载摄像机...");
             string cameraPath = System.IO.Path.Combine(projectRoot, cameraVmd);
             if (System.IO.File.Exists(cameraPath))
             {
-                SceneStatesManager.Instance.AddVMDCamera(cameraPath);
-                Debug.Log($"摄像机已添加: {cameraPath}");
+                bool cameraLoaded = false;
+                UserActionManager.Instance.LoadVMDCamera(cameraPath, (cameraId) => 
+                {
+                    cameraLoaded = true;
+                });
+                yield return new WaitUntil(() => cameraLoaded);
+                Debug.Log($"✅ 摄像机加载完成: {cameraPath}");
             }
             else
             {
                 Debug.LogWarning($"摄像机文件不存在: {cameraPath}");
             }
 
+            yield return new WaitForSeconds(0.5f);
+
             // 加载音乐
             Debug.Log("开始加载音乐...");
             string musicPath = System.IO.Path.Combine(projectRoot, music);
             if (System.IO.File.Exists(musicPath))
             {
-                SceneStatesManager.Instance.AddMusic(musicPath);
-                Debug.Log($"音乐已添加: {musicPath}");
+                bool musicLoaded = false;
+                UserActionManager.Instance.LoadMusic(musicPath, (musicId) => 
+                {
+                    musicLoaded = true;
+                });
+                yield return new WaitUntil(() => musicLoaded);
+                Debug.Log($"✅ 音乐加载完成: {musicPath}");
             }
             else
             {
                 Debug.LogWarning($"音乐文件不存在: {musicPath}");
             }
 
-            Debug.Log("=== TestCase1 加载完成 ===");
+            Debug.Log("=== TestCase1 资源加载完成 ===");
         }
     }
 }

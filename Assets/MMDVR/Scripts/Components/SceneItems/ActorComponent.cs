@@ -13,20 +13,14 @@ namespace MMDVR.Scripts.Components
     /// 负责管理场景中的演员实例，包括属性监听、数据管理和事件处理
     /// </summary>
     public class ActorComponent : MonoBehaviour, INotifyPropertyChanged
-    {
-        [Header("演员标识")]
+    {        [Header("演员标识")]
         [SerializeField] private string _actorId;
         [SerializeField] private string _displayName;
         
-        [Header("关联资源")]
+        [Header("关联资源ID")]
         [SerializeField] private string _modelId;
         [SerializeField] private List<string> _motionIds = new List<string>();
         [SerializeField] private string _associatedMusicId;
-        [SerializeField] private bool _isEnabled = true;
-        [SerializeField] private bool _isVisible = true;
-
-        [Header("组件引用")]
-        public ModelComponent modelRef; // 模型组件引用
 
         [Header("演员数据")]
         public ActorData actorData;
@@ -151,42 +145,21 @@ namespace MMDVR.Scripts.Components
                     SetProperty(ref _associatedMusicId, value, nameof(AssociatedMusicId));
                 }
             }
-        }
-
-        /// <summary>
-        /// 是否启用 - 影响GameObject的激活状态
+        }        /// <summary>
+        /// 是否启用 - 通过GameObject的激活状态判断
         /// </summary>
         public bool IsEnabled 
         { 
-            get => _isEnabled; 
+            get => gameObject.activeInHierarchy; 
             set 
             {
-                if (_isEnabled != value)
+                if (gameObject.activeInHierarchy != value)
                 {
-                    SetProperty(ref _isEnabled, value, nameof(IsEnabled));
                     OnActorEnabledChanged?.Invoke(_actorId, value);
                     gameObject.SetActive(value);
                 }
             }
-        }
-
-        /// <summary>
-        /// 是否可见 - 影响渲染
-        /// </summary>
-        public bool IsVisible 
-        { 
-            get => _isVisible; 
-            set 
-            {
-                if (_isVisible != value)
-                {
-                    SetProperty(ref _isVisible, value, nameof(IsVisible));
-                    OnActorVisibilityChanged?.Invoke(_actorId, value);
-                    SetVisibilityInternal(value);
-                    if (actorData != null) actorData.isVisible = value;
-                }
-            }
-        }        // 兼容性属性（小写）- 可读写
+        }// 兼容性属性（小写）- 可读写
         public string actorId 
         { 
             get => ActorId; 
@@ -228,24 +201,20 @@ namespace MMDVR.Scripts.Components
 
             // 初始化演员数据
             if (actorData == null)
-            {
-                actorData = new ActorData
+            {                actorData = new ActorData
                 {
                     id = _actorId,
                     displayName = _displayName,
                     modelId = _modelId,
                     motionIds = new List<string>(_motionIds),
-                    isVisible = _isVisible
+                    isVisible = gameObject.activeInHierarchy
                 };
             }
-        }
-
-        /// <summary>
+        }        /// <summary>
         /// 设置模型组件
         /// </summary>
         public void SetModelComponent(ModelComponent model)
         {
-            modelRef = model;
             if (model != null)
             {
                 ModelId = model.id;
@@ -294,17 +263,17 @@ namespace MMDVR.Scripts.Components
         public List<string> GetMotionIds()
         {
             return new List<string>(_motionIds);
-        }
-
-        /// <summary>
+        }        /// <summary>
         /// 设置可见性（内部方法）
         /// </summary>
         private void SetVisibilityInternal(bool visible)
         {
-            if (modelRef != null)
+            // 查找关联的模型组件
+            var modelComponent = GetComponentInChildren<ModelComponent>();
+            if (modelComponent != null)
             {
-                // 如果有模型引用，控制模型的可见性
-                modelRef.gameObject.SetActive(visible);
+                // 如果有模型组件，控制模型的可见性
+                modelComponent.gameObject.SetActive(visible);
             }
             else if (MmdGameObject != null)
             {
@@ -324,14 +293,13 @@ namespace MMDVR.Scripts.Components
         public void SetActive(bool active)
         {
             IsEnabled = active;
-        }
-
-        /// <summary>
+        }        /// <summary>
         /// 切换可见性
         /// </summary>
         public void ToggleVisibility()
         {
-            IsVisible = !IsVisible;
+            bool currentVisibility = gameObject.activeInHierarchy;
+            SetVisibilityInternal(!currentVisibility);
         }
 
         /// <summary>
@@ -365,16 +333,13 @@ namespace MMDVR.Scripts.Components
                     }
                 }
             }
-        }
-
-        /// <summary>
+        }        /// <summary>
         /// 初始化组件
         /// </summary>
         void Start()
         {
-            // 初始化时应用当前状态
-            gameObject.SetActive(_isEnabled);
-            SetVisibilityInternal(_isVisible);
+            // 初始化时应用当前状态 - 使用GameObject当前状态
+            SetVisibilityInternal(gameObject.activeInHierarchy);
             
             // 加载当前动作（如果有）
             if (!string.IsNullOrEmpty(CurrentMotionId))

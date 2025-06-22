@@ -148,8 +148,6 @@ GameObject:
   - component: {fileID: 6201925382643556554}
   - component: {fileID: 9171278514608680015}
   - component: {fileID: 8427607636000565978}
-  - component: {fileID: 1317755880611627951}
-  - component: {fileID: 2663290445961773383}
   m_Layer: 5
   m_Name: GenericListItemCard
   m_TagString: Untagged
@@ -257,36 +255,5 @@ MonoBehaviour:
   m_Interactable: 1
   m_TargetGraphic: {fileID: 9171278514608680015}
   m_OnClick:
-    m_PersistentCalls:
-      m_Calls: []
---- !u!114 &1317755880611627951
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2516275662251888192}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e80496d1a0cdf554799c646e3d499de8, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  explicitDragLayer: {fileID: 0}
---- !u!114 &2663290445961773383
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2516275662251888192}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d144e09324a7bf043ae52c50de401fe9, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  actionType: 0
-  acceptedResourceTypes: 
-  highlightColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
-  onItemDropped:
     m_PersistentCalls:
       m_Calls: []
