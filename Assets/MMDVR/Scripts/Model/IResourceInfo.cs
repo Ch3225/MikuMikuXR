@@ -1,4 +1,4 @@
-namespace MMDVR.Scripts.UIInteraction
+namespace MMDVR.Scripts.Model
 {
     public interface IResourceInfo
     {

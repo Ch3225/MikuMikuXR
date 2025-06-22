@@ -1,5 +1,5 @@
 using UnityEngine;
-using MMDVR.Scripts.UIInteraction;
+using MMDVR.Scripts.Model; // For IResourceInfo and ResourceType
 
 namespace MMDVR.Scripts.Components
 {

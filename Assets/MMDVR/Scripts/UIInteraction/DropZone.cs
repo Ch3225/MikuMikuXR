@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.Events; // Required for UnityEvent
-using MMDVR.Scripts.UIInteraction; // Added for ResourceType
+using MMDVR.Scripts.Model; // For ResourceType and IResourceInfo
 using System.Collections.Generic; // Added for List<>
 using System.Linq; // Added for LINQ's Select method
 

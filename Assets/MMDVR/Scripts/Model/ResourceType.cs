@@ -1,5 +1,6 @@
-namespace MMDVR.Scripts.UIInteraction
-{    public enum ResourceType
+namespace MMDVR.Scripts.Model
+{
+    public enum ResourceType
     {
         Generic,
         Music,

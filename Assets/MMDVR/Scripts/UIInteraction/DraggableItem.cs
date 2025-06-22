@@ -1,6 +1,6 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
-using MMDVR.Scripts.UIInteraction; // Assuming IResourceInfo is here
+using MMDVR.Scripts.Model; // For IResourceInfo
 
 public class DraggableItem : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
 {

@@ -1,8 +1,7 @@
 using UnityEngine;
 using System.Collections.Generic;
 using TMPro;
-using MMDVR.Scripts.UIInteraction;
-using UICameraData = MMDVR.Scripts.UIInteraction.CameraData;
+using MMDVR.Scripts.Model; // For CameraData and IResourceInfo
 using MMDVR.Scripts.Managers;
 using UnityEngine.UI;
 
@@ -49,7 +48,7 @@ public class CameraListController : MonoBehaviour
             Debug.LogError("CameraListController: Could not find DropzoneUnload GameObject in scene!");
         }
         
-        // 备用：查找所有Action Type为Uninstall的DropZone并绑定
+        // 备用：查找所有Action Type为Uninstall的DropZone并绑�?
         DropZone[] allDropZones = FindObjectsOfType<DropZone>();
         foreach (DropZone dz in allDropZones)
         {
@@ -78,7 +77,7 @@ public class CameraListController : MonoBehaviour
 
         // 统一刷新机制：只通过事件刷新
         EventManager.OnCameraListChanged += RefreshResourceListUI;
-        // 启动时主动刷新一次
+        // 启动时主动刷新一�?
         RefreshResourceListUI();
     }
 
@@ -101,7 +100,7 @@ public class CameraListController : MonoBehaviour
     {
         internalResourceList.Clear();
 
-        // 从SceneStatesManager获取摄像机数据
+        // 从SceneStatesManager获取摄像机数�?
         if (SceneStatesManager.Instance != null)
         {
             var cameraDataList = SceneStatesManager.Instance.GetCameraDataList();
@@ -120,7 +119,7 @@ public class CameraListController : MonoBehaviour
     {
         Debug.Log($"CameraListController: RefreshResourceListUI called. Current UI items count: {uiListItemObjects.Count}");
         
-        // 立即销毁现有UI项
+        // 立即销毁现有UI�?
         foreach (GameObject obj in uiListItemObjects)
         {
             if (obj != null)
@@ -144,7 +143,7 @@ public class CameraListController : MonoBehaviour
             }
         }
 
-        // 重新获取最新数据
+        // 重新获取最新数�?
         if (SceneStatesManager.Instance != null)
         {
             internalResourceList.Clear();
@@ -156,7 +155,7 @@ public class CameraListController : MonoBehaviour
             Debug.Log($"CameraListController: Refreshed data. Camera count: {cameraDataList.Count}");
         }
 
-        // 为每个资源创建UI项
+        // 为每个资源创建UI�?
         for (int i = 0; i < internalResourceList.Count; i++)
         {
             IResourceInfo resourceData = internalResourceList[i];
@@ -197,7 +196,7 @@ public class CameraListController : MonoBehaviour
     public void HandleDropOnListArea(GameObject droppedGameObject)
     {
         DraggableItem droppedItemComponent = droppedGameObject.GetComponent<DraggableItem>();
-        if (droppedItemComponent == null || droppedItemComponent.Data == null || !(droppedItemComponent.Data is UICameraData)) 
+        if (droppedItemComponent == null || droppedItemComponent.Data == null || !(droppedItemComponent.Data is CameraData)) 
             return;
 
         // 重新构建内部列表基于UI顺序
@@ -213,10 +212,10 @@ public class CameraListController : MonoBehaviour
         }
         internalResourceList = newOrderedInternalList;
 
-        // 激活新的顶部项目
+        // 激活新的顶部项�?
         if (internalResourceList.Count > 0)
         {
-            UICameraData newTopCamera = internalResourceList[0] as UICameraData;            if (ResourceManager.Instance != null && newTopCamera != null)
+            CameraData newTopCamera = internalResourceList[0] as CameraData;            if (ResourceManager.Instance != null && newTopCamera != null)
             {
                 ResourceManager.Instance.SetActiveCamera(newTopCamera.ID);
             }
@@ -232,7 +231,7 @@ public class CameraListController : MonoBehaviour
             Debug.LogWarning("DraggableItem or Data is null");
             return;
         }
-        UICameraData droppedCamData = draggableItem.Data as UICameraData;
+        CameraData droppedCamData = draggableItem.Data as CameraData;
         if (droppedCamData == null)
         {
             Debug.LogWarning("Dropped item is not a valid CameraData.");
@@ -251,7 +250,7 @@ public class CameraListController : MonoBehaviour
         if (UserActionManager.Instance != null)
         {
             UserActionManager.Instance.UnloadCamera(droppedCamData.ID, () => {
-                Debug.Log($"CameraListController: 摄像机卸载完成 {droppedCamData.DisplayName}");
+                Debug.Log($"CameraListController: 摄像机卸载完�?{droppedCamData.DisplayName}");
             });
         }
         else
@@ -272,7 +271,7 @@ public class CameraListController : MonoBehaviour
         if (draggableItem == null || draggableItem.Data == null) 
             return;
 
-        UICameraData droppedCamData = draggableItem.Data as UICameraData;
+        CameraData droppedCamData = draggableItem.Data as CameraData;
         if (droppedCamData == null)
             return;
 
@@ -280,7 +279,7 @@ public class CameraListController : MonoBehaviour
         if (UserActionManager.Instance != null)
         {
             UserActionManager.Instance.ActivateCamera(droppedCamData.ID, () => {
-                Debug.Log($"CameraListController: 摄像机激活完成 {droppedCamData.DisplayName}");
+                Debug.Log($"CameraListController: 摄像机激活完�?{droppedCamData.DisplayName}");
             });
         }
         else
@@ -289,7 +288,7 @@ public class CameraListController : MonoBehaviour
         }
     }
 
-    // 通过索引获取资源信息，用于向后兼容
+    // 通过索引获取资源信息，用于向后兼�?
     public IResourceInfo GetResourceInfoAt(int index)
     {
         if (index >= 0 && index < internalResourceList.Count)
@@ -303,8 +302,8 @@ public class CameraListController : MonoBehaviour
     // 激活资源（点击或其他方式）
     void ActivateResource(IResourceInfo resourceData)
     {
-        if (!(resourceData is UICameraData)) return;
-        UICameraData camDataToActivate = resourceData as UICameraData;
+        if (!(resourceData is CameraData)) return;
+        CameraData camDataToActivate = resourceData as CameraData;
 
         Debug.Log($"Activating Camera by click: {camDataToActivate.DisplayName}");
           if (ResourceManager.Instance != null)
@@ -317,53 +316,44 @@ public class CameraListController : MonoBehaviour
         }
     }
 
-    // 摄像机激活事件处理
-    void OnCameraActivated(UICameraData activatedCameraData)
+    // 摄像机激活事件处�?
+    void OnCameraActivated(CameraData activatedCameraData)
     {
         Debug.Log($"CameraListController: OnCameraActivated - {activatedCameraData?.DisplayName}");
         UpdateAllItemVisuals();
     }    void UpdateAllItemVisuals()
     {
-        MMDVR.Scripts.UIInteraction.CameraData activeCamData = null;
+        CameraData activeCamData = null;
         if (SceneStatesManager.Instance != null)
         {
-            var dataActiveCamData = SceneDisplayManager.Instance.GetActiveCameraData();
-            if (dataActiveCamData != null)
-            {                // 转换为UIInteraction的CameraData类型
-                activeCamData = new MMDVR.Scripts.UIInteraction.CameraData
-                {
-                    id = dataActiveCamData.id,
-                    displayName = dataActiveCamData.displayName,
-                    filePath = dataActiveCamData.filePath
-                };
-            }
+            activeCamData = SceneDisplayManager.Instance.GetActiveCameraData();
         }
 
         for (int i = 0; i < uiListItemObjects.Count; i++)
         {
             GameObject uiItemGO = uiListItemObjects[i];
             DraggableItem draggable = uiItemGO.GetComponent<DraggableItem>();
-            if (draggable != null && draggable.Data != null && draggable.Data is UICameraData)
+            if (draggable != null && draggable.Data != null && draggable.Data is CameraData)
             {
-                UICameraData currentItemCamData = draggable.Data as UICameraData;
+                CameraData currentItemCamData = draggable.Data as CameraData;
                 bool isActive = (activeCamData != null && activeCamData.ID == currentItemCamData.ID);
                 UpdateItemVisual(uiItemGO, currentItemCamData, isActive);
             }
         }
     }
 
-    void UpdateItemVisual(GameObject itemGO, UICameraData camData, bool isActive)
+    void UpdateItemVisual(GameObject itemGO, CameraData camData, bool isActive)
     {
         UnityEngine.UI.Image bgImage = itemGO.GetComponent<UnityEngine.UI.Image>();
         if (bgImage != null)
         {
             if (isActive)
             {
-                bgImage.color = Color.yellow; // 激活项为黄色
+                bgImage.color = Color.yellow; // 激活项为黄�?
             }
             else
             {
-                bgImage.color = Color.white; // 非激活项为白色
+                bgImage.color = Color.white; // 非激活项为白�?
             }
         }
 

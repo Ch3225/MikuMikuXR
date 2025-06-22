@@ -202,7 +202,7 @@ public class GenericItemListInserter : MonoBehaviour, IDropHandler, IPointerEnte
                 // 创建一个虚拟的GameObject来触发HandleDropOnListArea
                 GameObject dummyGO = new GameObject("DummyReorderEvent");
                 var dummyDraggable = dummyGO.AddComponent<DraggableItem>();
-                dummyDraggable.Data = new MMDVR.Scripts.UIInteraction.CameraData { id = "dummy", displayName = "dummy", filePath = "", isFreeCamera = false };
+                dummyDraggable.Data = new CameraData { id = "dummy", displayName = "dummy", filePath = "", isFreeCamera = false };
                 
                 CameraListController.Instance.HandleDropOnListArea(dummyGO);
                 DestroyImmediate(dummyGO);

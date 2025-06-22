@@ -136,9 +136,8 @@ namespace MMDVR.Scripts.Managers
             get => ResourceEvents.OnMusicListChanged;
             set => ResourceEvents.OnMusicListChanged = value;
         }
-        
-        // 相机激活事件 - 兼容不同的事件签名
-        public static Action<MMDVR.Scripts.UIInteraction.CameraData> OnCameraActivated;
+          // 相机激活事件 - 兼容不同的事件签名
+        public static Action<MMDVR.Scripts.Model.CameraData> OnCameraActivated;
         
         // 音乐激活事件 - 兼容不同的事件签名  
         public static Action<MMDVR.Scripts.Components.MusicComponent> OnMusicActivated;
