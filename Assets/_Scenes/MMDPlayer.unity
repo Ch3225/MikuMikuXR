@@ -2385,6 +2385,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   actorContainer: {fileID: 1178030211}
+  musicAudioSource: {fileID: 377077355}
   currentActiveCameraId: BUILTIN_FREE_CAMERA
   currentActiveMusicId: 
 --- !u!1 &751959329
@@ -6581,7 +6582,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ab99d37a40f2ec741bc2f0bac18b35b9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  isPlaying: 0
   playTime: 0
   totalDuration: 0
   syncMode: 0
