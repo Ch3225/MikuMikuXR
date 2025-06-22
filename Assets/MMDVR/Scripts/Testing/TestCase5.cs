@@ -80,18 +80,16 @@ namespace MMDVR.Scripts.Testing
             {
                 Debug.LogError($"[TestCase5] 加载模型和动作时出错: {e.Message}");
             }
-        }
-
-        void ResetFirstActorToTPose()
+        }        void ResetFirstActorToTPose()
         {
             var actorList = SceneStatesManager.Instance.GetActorList();
             if (actorList.Count > 0)
             {
                 string actorId = actorList[0].id;
-                var actorObj = SceneStatesManager.Instance.GetActorObjectById(actorId);
-                if (actorObj != null)
+                var actorComponent = ResourceManager.Instance.GetModel(actorId);
+                if (actorComponent != null)
                 {
-                    var mmdGameObject = actorObj.GetComponent<MmdGameObject>();
+                    var mmdGameObject = actorComponent.gameObject.GetComponent<MmdGameObject>();
                     if (mmdGameObject != null)
                     {                        Debug.Log($"[TestCase5] 找到Actor '{actorId}' 的MmdGameObject，正在调用ResetToTPose()...");
                         mmdGameObject.ResetToTPose();
@@ -118,15 +116,14 @@ namespace MMDVR.Scripts.Testing
             var actorList = SceneStatesManager.Instance.GetActorList();
             var motionList = SceneStatesManager.Instance.GetMotionDataList();
 
-            if (actorList.Count > 0 && motionList.Count > 0)
-            {
+            if (actorList.Count > 0 && motionList.Count > 0)            {
                 string actorId = actorList[0].id;
                 string motionPath = motionList[0].FilePath; // 使用第一个已加载的动作
 
-                var actorObj = SceneStatesManager.Instance.GetActorObjectById(actorId);
-                if (actorObj != null)
+                var actorComponent = ResourceManager.Instance.GetModel(actorId);
+                if (actorComponent != null)
                 {
-                    var mmdGameObject = actorObj.GetComponent<MmdGameObject>();
+                    var mmdGameObject = actorComponent.gameObject.GetComponent<MmdGameObject>();
                     if (mmdGameObject != null)
                     {
                         Debug.Log($"[TestCase5] 找到Actor '{actorId}' 的MmdGameObject，正在重新加载动作: {motionPath}");

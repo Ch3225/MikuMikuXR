@@ -41,12 +41,11 @@ namespace MMDVR.Scripts.Testing
             {
                 SceneStatesManager.Instance.AddActor(lenPath);
                 Debug.Log($"Len演员已添加: {lenPath}");
-                yield return new WaitForSeconds(1f);
-            }
+                yield return new WaitForSeconds(1f);            }
             else
             {
                 Debug.LogWarning($"Len模型文件不存在: {lenPath}");
-                SceneStatesManager.Instance.AddActorForTesting("len_test", "TDA Len (Test)");
+                ResourceManager.Instance.AddActorForTesting("len_test");
             }
 
             if (System.IO.File.Exists(rinPath))
@@ -55,10 +54,9 @@ namespace MMDVR.Scripts.Testing
                 Debug.Log($"Rin演员已添加: {rinPath}");
                 yield return new WaitForSeconds(1f);
             }
-            else
-            {
+            else            {
                 Debug.LogWarning($"Rin模型文件不存在: {rinPath}");
-                SceneStatesManager.Instance.AddActorForTesting("rin_test", "TDA Rin (Test)");
+                ResourceManager.Instance.AddActorForTesting("rin_test");
             }
 
             // 加载动作（但不分配给演员）
@@ -73,11 +71,10 @@ namespace MMDVR.Scripts.Testing
                 motionId1 = SceneStatesManager.Instance.AddMotion(motion1Path);
                 Debug.Log($"动作1已添加: {motion1Path}");
             }
-            else
-            {
+            else            {
                 Debug.LogWarning($"动作1文件不存在: {motion1Path}");
                 motionId1 = "motion1_test";
-                SceneStatesManager.Instance.AddMotionForTesting(motionId1, "Dive to Blue (Len)");
+                ResourceManager.Instance.AddMotionForTesting(motionId1);
             }
 
             if (System.IO.File.Exists(motion2Path))
@@ -86,10 +83,9 @@ namespace MMDVR.Scripts.Testing
                 Debug.Log($"动作2已添加: {motion2Path}");
             }
             else
-            {
-                Debug.LogWarning($"动作2文件不存在: {motion2Path}");
+            {                Debug.LogWarning($"动作2文件不存在: {motion2Path}");
                 motionId2 = "motion2_test";
-                SceneStatesManager.Instance.AddMotionForTesting(motionId2, "Dive to Blue (Rin)");
+                ResourceManager.Instance.AddMotionForTesting(motionId2);
             }
 
             yield return new WaitForSeconds(1f);

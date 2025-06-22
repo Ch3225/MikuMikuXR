@@ -36,13 +36,12 @@ namespace MMDVR.Scripts.Testing
             {
                 SceneStatesManager.Instance.AddActor(modelPath);
                 Debug.Log($"模型已添加: {modelPath}");
-                yield return new WaitForSeconds(1f);
-            }
+                yield return new WaitForSeconds(1f);            }
             else
             {
                 Debug.LogWarning($"模型文件不存在: {modelPath}");
                 // 使用测试方法创建占位符
-                SceneStatesManager.Instance.AddActorForTesting("test_actor", "Test Model");
+                ResourceManager.Instance.AddActorForTesting("test_actor");
             }
             
             string motionId = null;
@@ -52,10 +51,9 @@ namespace MMDVR.Scripts.Testing
                 Debug.Log($"动作已添加: {motionPath}");
             }
             else
-            {
-                Debug.LogWarning($"动作文件不存在: {motionPath}");
+            {                Debug.LogWarning($"动作文件不存在: {motionPath}");
                 motionId = "test_motion";
-                SceneStatesManager.Instance.AddMotionForTesting(motionId, "Test Motion");
+                ResourceManager.Instance.AddMotionForTesting(motionId);
             }
 
             // 分配动作给演员
@@ -93,13 +91,7 @@ namespace MMDVR.Scripts.Testing
             else
             {
                 Debug.LogWarning($"音乐文件不存在: {musicPath}");
-            }
-
-            // 统一刷新所有下拉框
-            var uiMgr = FindObjectOfType<DesktopUIManager>();
-            if (uiMgr != null)
-                uiMgr.RefreshAllDropdowns();
-                
+            }            // 新UI架构通过事件系统自动更新，无需手动刷新
             Debug.Log("TestCase3: 加载完成");
         }
     }

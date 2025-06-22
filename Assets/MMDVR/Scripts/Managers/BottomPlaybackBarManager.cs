@@ -28,24 +28,21 @@ namespace MMDVR.Scripts.Managers
                 var eventTrigger = playSlider.GetComponent<UnityEngine.EventSystems.EventTrigger>();
                 if (eventTrigger == null)
                     eventTrigger = playSlider.gameObject.AddComponent<UnityEngine.EventSystems.EventTrigger>();
-                var entryDown = new UnityEngine.EventSystems.EventTrigger.Entry { eventID = UnityEngine.EventSystems.EventTriggerType.PointerDown };
-                entryDown.callback.AddListener((data) => {
-                    wasPlayingBeforeDrag = SceneStatesManager.Instance.isPlaying;
-                    SceneStatesManager.Instance.Pause();
+                var entryDown = new UnityEngine.EventSystems.EventTrigger.Entry { eventID = UnityEngine.EventSystems.EventTriggerType.PointerDown };                entryDown.callback.AddListener((data) => {
+                    wasPlayingBeforeDrag = PlaybackManager.Instance.isPlaying;
+                    PlaybackManager.Instance.Pause();
                     isSliderDragging = true;
                     float value = playSlider.value;
-                    SceneStatesManager.Instance.SeekTo(value);
+                    PlaybackManager.Instance.SeekTo(value);
                     UpdateTimerText(value);
                 });
                 eventTrigger.triggers.Add(entryDown);
-                var entryUp = new UnityEngine.EventSystems.EventTrigger.Entry { eventID = UnityEngine.EventSystems.EventTriggerType.PointerUp };
-                entryUp.callback.AddListener((data) => {
+                var entryUp = new UnityEngine.EventSystems.EventTrigger.Entry { eventID = UnityEngine.EventSystems.EventTriggerType.PointerUp };                entryUp.callback.AddListener((data) => {
                     isSliderDragging = false;
                     float value = playSlider.value;
-                    SceneStatesManager.Instance.SeekTo(value);
-                    UpdateTimerText(value);
-                    if (wasPlayingBeforeDrag) {
-                        SceneStatesManager.Instance.Play();
+                    PlaybackManager.Instance.SeekTo(value);
+                    UpdateTimerText(value);                    if (wasPlayingBeforeDrag) {
+                        PlaybackManager.Instance.Play();
                     }
                 });
                 eventTrigger.triggers.Add(entryUp);
@@ -58,10 +55,10 @@ namespace MMDVR.Scripts.Managers
                 volumeSlider.value = 1f;
         }        void Update()
         {
-            if (SceneStatesManager.Instance != null)
+            if (PlaybackManager.Instance != null)
             {
-                float currentTime = SceneStatesManager.Instance.playTime;
-                float totalDuration = SceneStatesManager.Instance.totalDuration;
+                float currentTime = PlaybackManager.Instance.playTime;
+                float totalDuration = PlaybackManager.Instance.totalDuration;
                 
                 if (playSlider != null && totalDuration > 0)
                 {
@@ -84,29 +81,25 @@ namespace MMDVR.Scripts.Managers
                 int percent = Mathf.RoundToInt(volumeSlider.value * 100f);
                 volumePercentText.text = "" + percent;
             }
-        }
-
-        private void OnPlayButtonClicked()
+        }        private void OnPlayButtonClicked()
         {
-            var stateMgr = SceneStatesManager.Instance;
-            if (stateMgr == null) return;
-            if (stateMgr.isPlaying)
-                stateMgr.Pause();
+            var playbackMgr = PlaybackManager.Instance;
+            if (playbackMgr == null) return;
+            if (playbackMgr.isPlaying)
+                playbackMgr.Pause();
             else
-                stateMgr.Play();
+                playbackMgr.Play();
             if (playButtonText != null)
-                playButtonText.text = stateMgr.isPlaying ? "Pause" : "Play";
-        }
-        private void OnPlaySliderChanged(float value)
-        {
-            if (isSliderDragging || !SceneStatesManager.Instance.isPlaying)
+                playButtonText.text = playbackMgr.isPlaying ? "Pause" : "Play";
+        }        private void OnPlaySliderChanged(float value)
+        {            if (isSliderDragging || !PlaybackManager.Instance.isPlaying)
             {
-                SceneStatesManager.Instance.SeekTo(value);
+                PlaybackManager.Instance.SeekTo(value);
                 UpdateTimerText(value);
             }
         }        private void UpdateTimerText(float time)
         {
-            float total = SceneStatesManager.Instance?.GetMusicDuration() ?? 0f;
+            float total = PlaybackManager.Instance?.GetMusicDuration() ?? 0f;
             if (timerText != null)
                 timerText.text = $"{FormatTime(time)}/{FormatTime(total)}";
         }
@@ -119,9 +112,8 @@ namespace MMDVR.Scripts.Managers
         {
             // TODO: 实现静音功能，需要在SceneStatesManager中添加静音状态管理
             Debug.Log("静音功能需要在SceneStatesManager中实现");
-        }        private void OnVolumeChanged(float value)
-        {
-            SceneStatesManager.Instance?.SetMusicVolume(value);
+        }        private void OnVolumeChanged(float value)        {
+            PlaybackManager.Instance?.SetMusicVolume(value);
         }
     }
 }

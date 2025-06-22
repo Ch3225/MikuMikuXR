@@ -1,9 +1,11 @@
 using UnityEngine;
 using System.Collections.Generic;
+using System.Linq;
 using TMPro;
 using MMDVR.Scripts.UIInteraction;
-using MMDVR.Scripts.Data; // 数据类型引用
+using MMDVR.Scripts.Model;
 using MMDVR.Scripts.Managers; // Manager类引用
+using MMDVR.Scripts.Components; // Component类引用
 using UnityEngine.EventSystems;
 using UnityEngine.UI; // 新增：用于强制刷新布局
 
@@ -86,25 +88,17 @@ public class ModelListController : MonoBehaviour
         if (disconnectDropZone != null)
         {
             disconnectDropZone.onItemDropped.AddListener(HandleDropOnDisconnectZone);
-        }
-
-        // 监听事件（修正为直接用 += 绑定静态事件）
+        }        // 监听基础事件（保持原有逻辑）
         EventManager.OnActorListChanged += RefreshList;
         EventManager.OnMotionListChanged += UpdateAllItemVisuals;
-        // 如有 ModelStateChanged、ModelMotionAssociationChanged 事件，也应在 EventManager 中声明为 public static Action
-        // EventManager.OnModelStateChanged += UpdateAllItemVisuals;
-        // EventManager.OnModelMotionAssociationChanged += UpdateAllItemVisuals;
 
         RefreshList();
-    }
-
-    void OnDestroy()
+    }    void OnDestroy()
     {
+        // 取消订阅基础事件
         EventManager.OnActorListChanged -= RefreshList;
         EventManager.OnMotionListChanged -= UpdateAllItemVisuals;
-        // EventManager.OnModelStateChanged -= UpdateAllItemVisuals;
-        // EventManager.OnModelMotionAssociationChanged -= UpdateAllItemVisuals;
-    }    public void RefreshList()
+    }public void RefreshList()
     {
         Debug.Log($"ModelListController: RefreshList called. Current UI items count: {uiListItemObjects.Count}");
         
@@ -142,17 +136,15 @@ public class ModelListController : MonoBehaviour
             {
                 DestroyImmediate(child.gameObject);
             }
-        }
-
-        // 重新获取最新数据
-        if (SceneStatesManager.Instance != null)
+        }        // 重新获取最新数据
+        if (ResourceManager.Instance != null)
         {
             internalResourceList.Clear();
-            var modelDataList = SceneStatesManager.Instance.GetModelList();
-            Debug.Log($"ModelListController: Refreshed data. Model count: {modelDataList.Count}");
-            foreach (var modelData in modelDataList)
+            var modelList = ResourceManager.Instance.GetModelDataList(); // 使用现有方法
+            Debug.Log($"ModelListController: Refreshed data. Model count: {modelList.Count}");
+            foreach (var model in modelList)
             {
-                internalResourceList.Add(modelData);
+                internalResourceList.Add(model);
             }
         }
 
@@ -180,13 +172,13 @@ public class ModelListController : MonoBehaviour
                 dropZone.onItemDropped.RemoveAllListeners();
                 dropZone.onItemDropped.AddListener((draggedGO) => {
                     var draggedItem = draggedGO.GetComponent<DraggableItem>();
-                    var motionData = draggedItem?.Data as MotionData;
-                    if (motionData != null && currentModelData != null)
+                    var motionData = draggedItem?.Data as MotionData;                    if (motionData != null && currentModelData != null)
                     {
                         Debug.Log($"拖拽动作 {motionData.DisplayName} 到模型 {currentModelData.DisplayName}");
-                        if (SceneStatesManager.Instance != null)
+                        // 使用新的AssociationManager进行关联
+                        if (AssociationManager.Instance != null)
                         {
-                            SceneStatesManager.Instance.AssignMotionToActor(motionData.ID, currentModelData.ID);
+                            AssociationManager.Instance.AssociateModelWithMotion(currentModelData.ID, motionData.ID);
                             // 创建连线
                             if (ConnectionManager.Instance != null)
                             {
@@ -270,7 +262,7 @@ public class ModelListController : MonoBehaviour
                 
                 if (SceneStatesManager.Instance != null)
                 {
-                    SceneStatesManager.Instance.AssociateModelWithMotion(modelData.ID, motionData.ID);
+                    SceneDisplayManager.Instance.AssociateModelWithMotion(modelData.ID, motionData.ID);
                     Debug.Log($"关联动作 {motionData.DisplayName} 到模型 {modelData.DisplayName}");
                 }
             }
@@ -293,17 +285,17 @@ public class ModelListController : MonoBehaviour
             return;
         }
         Debug.Log($"ModelListController: Dropped model data: {droppedModelData.DisplayName}, FilePath: {droppedModelData.FilePath}");
-        int beforeCount = internalResourceList.Count;
-        Debug.Log($"Before deletion: Internal list count = {beforeCount}, UI objects count = {uiListItemObjects.Count}");
-        if (SceneStatesManager.Instance != null)
+        
+        // 使用UserActionManager进行用户操作
+        if (UserActionManager.Instance != null)
         {
-            SceneStatesManager.Instance.RemoveModelResource(droppedModelData.ID);
-            Debug.Log($"ModelListController: Requested uninstall for Model: {droppedModelData.DisplayName}");
-            Debug.Log("Model deletion request completed. UI should refresh via event system.");
+            UserActionManager.Instance.UnloadAndHideModel(droppedModelData.ID, () => {
+                Debug.Log($"ModelListController: 模型卸载完成 {droppedModelData.DisplayName}");
+            });
         }
         else
         {
-            Debug.LogError("SceneStatesManager.Instance is null!");
+            Debug.LogError("UserActionManager.Instance is null!");
         }
     }    public void HandleDropOnToggleZone(GameObject droppedGameObject)
     {
@@ -315,14 +307,18 @@ public class ModelListController : MonoBehaviour
         if (droppedModelData == null)
             return;
 
-        if (SceneStatesManager.Instance != null)
+        // 使用UserActionManager进行用户操作
+        if (UserActionManager.Instance != null)
         {
-            SceneStatesManager.Instance.ToggleModel(droppedModelData.ID);
-            Debug.Log($"Toggled Model: {droppedModelData.DisplayName}");
+            UserActionManager.Instance.ToggleModelVisibility(droppedModelData.ID, () => {
+                Debug.Log($"ModelListController: 模型可见性切换完成 {droppedModelData.DisplayName}");
+            });
         }
-    }
-
-    public void HandleDropOnDisconnectZone(GameObject droppedGameObject)
+        else
+        {
+            Debug.LogError("UserActionManager.Instance is null!");
+        }
+    }    public void HandleDropOnDisconnectZone(GameObject droppedGameObject)
     {
         if (droppedGameObject == null || droppedGameObject.Equals(null)) return;
         DraggableItem draggableItem = droppedGameObject.GetComponent<DraggableItem>();
@@ -333,49 +329,30 @@ public class ModelListController : MonoBehaviour
         if (droppedModelData == null)
             return;
 
-        if (SceneStatesManager.Instance != null)
+        // 使用UserActionManager进行用户操作
+        if (UserActionManager.Instance != null)
         {
-            // 1. 只断开该模型的所有动作关联
-            var associatedMotions = SceneStatesManager.Instance.GetModelAssociatedMotions(droppedModelData.ID);
-            foreach (var motionId in associatedMotions)
-            {
-                SceneStatesManager.Instance.DisassociateModelFromMotion(droppedModelData.ID, motionId);
-            }
-            // 2. 让该模型的所有actor重新加载动作
-            var actorObj = SceneStatesManager.Instance.GetActorObjectById(droppedModelData.ID);
-            if (actorObj != null)
-            {                var mmdGameObject = actorObj.GetComponent<LibMMD.Unity3D.MmdGameObject>();
-                if (mmdGameObject != null)
+            UserActionManager.Instance.DisconnectModelAssociations(droppedModelData.ID, () => {
+                Debug.Log($"ModelListController: 模型关联断开完成 {droppedModelData.DisplayName}");
+                
+                // 刷新UI和连线
+                RefreshList();
+                if (ConnectionManager.Instance != null)
                 {
-                    // 断开所有动作后，重置为T姿势
-                    Debug.Log($"[ModelListController] Found MmdGameObject on {actorObj.name}. Calling ResetToTPose() for model {droppedModelData.ID}");
-                    mmdGameObject.ResetToTPose();
+                    ConnectionManager.Instance.RebuildConnectionsForModel(droppedModelData.ID);
+                    ConnectionManager.Instance.RefreshConnectionEndPoints();
                 }
-                else
+                
+                // 清除UI选择，防止意外高亮
+                if (EventSystem.current != null)
                 {
-                    Debug.LogError($"[ModelListController] MmdGameObject component NOT FOUND on actor {actorObj.name} for model ID {droppedModelData.ID}");
+                    EventSystem.current.SetSelectedGameObject(null);
                 }
-            }
-            else
-            {
-                Debug.LogError($"[ModelListController] GetActorObjectById returned NULL for model ID {droppedModelData.ID}");
-            }
-            Debug.Log($"仅断开模型 {droppedModelData.DisplayName} 的所有动作关联，并刷新其动作");
-        }        // 先清理相关连线再刷新UI
-        if (ConnectionManager.Instance != null)
-        {
-            ConnectionManager.Instance.RebuildConnectionsForModel(droppedModelData.ID);
+            });
         }
-        RefreshList();
-        // 刷新连线端点引用
-        if (ConnectionManager.Instance != null)
+        else
         {
-            ConnectionManager.Instance.RefreshConnectionEndPoints();
-        }
-        
-        // 清除UI选择，防止意外高亮
-        if (EventSystem.current != null)
-        {            EventSystem.current.SetSelectedGameObject(null);
+            Debug.LogError("UserActionManager.Instance is null!");
         }
     }
 
@@ -408,13 +385,14 @@ public class ModelListController : MonoBehaviour
         Dictionary<string, List<string>> modelMotionAssociations = new Dictionary<string, List<string>>();
         
         if (SceneStatesManager.Instance != null)
-        {
-            // 获取禁用的模型ID列表和模型-动作关联
+        {            // 获取禁用的模型ID列表 - 检查ModelComponent的状态
             for (int i = 0; i < internalResourceList.Count; i++)
             {
                 if (internalResourceList[i] is ModelData modelData)
                 {
-                    if (SceneStatesManager.Instance.IsModelDisabled(modelData.ID))
+                    // 通过检查ModelComponent的isEnabled状态来判断模型是否禁用
+                    var modelComponent = GetModelComponentById(modelData.ID);
+                    if (modelComponent != null && !modelComponent.isEnabled)
                     {
                         disabledModelIds.Add(modelData.ID);
                     }
@@ -455,7 +433,16 @@ public class ModelListController : MonoBehaviour
         if (associationIndicator != null)
         {
             // 显示关联的动作数量等信息
-            associationIndicator.gameObject.SetActive(!isDisabled);
-        }
+            associationIndicator.gameObject.SetActive(!isDisabled);        }
+    }
+
+    /// <summary>
+    /// 根据ID获取ModelComponent
+    /// </summary>
+    private ModelComponent GetModelComponentById(string modelId)
+    {
+        if (ResourceManager.Instance?.modelContainer == null) return null;
+        var modelComponents = ResourceManager.Instance.modelContainer.GetComponentsInChildren<ModelComponent>();
+        return modelComponents.FirstOrDefault(m => m.id == modelId);
     }
 }

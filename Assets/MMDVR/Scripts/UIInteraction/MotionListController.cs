@@ -2,10 +2,11 @@ using UnityEngine;
 using System.Collections.Generic;
 using TMPro;
 using MMDVR.Scripts.UIInteraction;
-using MMDVR.Scripts.Data; // 数据类型引用
+using MMDVR.Scripts.Model; // 数据类型引用
 using MMDVR.Scripts.Managers; // Manager类引用
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using MMDVR.Scripts.Model;
 
 /// <summary>
 /// 动作列表控制器 - 管理动作资源的列表展示和拖拽功能
@@ -68,21 +69,15 @@ public class MotionListController : MonoBehaviour
         if (disconnectDropZone != null)
         {
             disconnectDropZone.onItemDropped.AddListener(HandleDropOnDisconnectZone);
-        }
-
-        // 监听事件（修正为直接用 += 绑定静态事件）
+        }        // 监听基础事件（保持原有逻辑）
         EventManager.OnMotionListChanged += RefreshList;
-        // 如有 ModelMotionAssociationChanged 事件，也应在 EventManager 中声明为 public static Action
-        // EventManager.OnModelMotionAssociationChanged += UpdateAllItemVisuals;
 
         RefreshList();
-    }
-
-    void OnDestroy()
+    }    void OnDestroy()
     {
+        // 取消订阅基础事件
         EventManager.OnMotionListChanged -= RefreshList;
-        // EventManager.OnModelMotionAssociationChanged -= UpdateAllItemVisuals;
-    }    public void RefreshList()
+    }public void RefreshList()
     {
         Debug.Log($"MotionListController: RefreshList called. Current UI items count: {uiListItemObjects.Count}");
         
@@ -120,17 +115,15 @@ public class MotionListController : MonoBehaviour
             {
                 DestroyImmediate(child.gameObject);
             }
-        }
-
-        // 重新获取最新数据
-        if (SceneStatesManager.Instance != null)
+        }        // 重新获取最新数据
+        if (ResourceManager.Instance != null)
         {
             internalResourceList.Clear();
-            var motionDataList = SceneStatesManager.Instance.GetMotionDataList();
-            Debug.Log($"MotionListController: Refreshed data. Motion count: {motionDataList.Count}");
-            foreach (var motionData in motionDataList)
+            var motionList = ResourceManager.Instance.GetMotionDataList(); // 使用现有方法
+            Debug.Log($"MotionListController: Refreshed data. Motion count: {motionList.Count}");
+            foreach (var motion in motionList)
             {
-                internalResourceList.Add(motionData);
+                internalResourceList.Add(motion);
             }
         }
 
@@ -153,13 +146,13 @@ public class MotionListController : MonoBehaviour
                 dropZone.onItemDropped.RemoveAllListeners();
                 dropZone.onItemDropped.AddListener((draggedGO) => {
                     var draggedItem = draggedGO.GetComponent<DraggableItem>();
-                    var modelData = draggedItem?.Data as ModelData;
-                    if (modelData != null && currentMotionData != null)
+                    var modelData = draggedItem?.Data as ModelData;                    if (modelData != null && currentMotionData != null)
                     {
                         Debug.Log($"拖拽模型 {modelData.DisplayName} 到动作 {currentMotionData.DisplayName}");
-                        if (SceneStatesManager.Instance != null)
+                        // 使用新的AssociationManager进行关联
+                        if (AssociationManager.Instance != null)
                         {
-                            SceneStatesManager.Instance.AssignMotionToActor(currentMotionData.ID, modelData.ID);
+                            AssociationManager.Instance.AssociateModelWithMotion(modelData.ID, currentMotionData.ID);
                             // 创建连线
                             if (ConnectionManager.Instance != null)
                             {
@@ -240,17 +233,14 @@ public class MotionListController : MonoBehaviour
             {
                 var modelData = droppedItemComponent.Data as ModelData;
                 var motionData = internalResourceList[0] as MotionData;
-                
-                if (SceneStatesManager.Instance != null)
+                  if (AssociationManager.Instance != null)
                 {
-                    SceneStatesManager.Instance.AssociateModelWithMotion(modelData.ID, motionData.ID);
+                    AssociationManager.Instance.AssociateModelWithMotion(modelData.ID, motionData.ID);
                     Debug.Log($"关联模型 {modelData.DisplayName} 到动作 {motionData.DisplayName}");
                 }
             }
         }
-    }
-
-    public void HandleDropOnUninstallZone(GameObject droppedGameObject)
+    }    public void HandleDropOnUninstallZone(GameObject droppedGameObject)
     {
         // 先缓存数据，避免销毁后访问
         DraggableItem draggableItem = droppedGameObject != null ? droppedGameObject.GetComponent<DraggableItem>() : null;
@@ -268,21 +258,19 @@ public class MotionListController : MonoBehaviour
             return;
         }
         Debug.Log($"MotionListController: Dropped motion data: {droppedMotionData.DisplayName}, FilePath: {droppedMotionData.FilePath}");
-        int beforeCount = internalResourceList.Count;
-        Debug.Log($"Before deletion: Internal list count = {beforeCount}, UI objects count = {uiListItemObjects.Count}");
-        if (SceneStatesManager.Instance != null)
+        
+        // 使用UserActionManager进行用户操作
+        if (UserActionManager.Instance != null)
         {
-            SceneStatesManager.Instance.RemoveMotionResource(droppedMotionData.ID);
-            Debug.Log($"MotionListController: Requested uninstall for Motion: {droppedMotionData.DisplayName}");
-            Debug.Log("Motion deletion request completed. UI should refresh via event system.");
+            UserActionManager.Instance.UnloadMotion(droppedMotionData.ID, () => {
+                Debug.Log($"MotionListController: 动作卸载完成 {droppedMotionData.DisplayName}");
+            });
         }
         else
         {
-            Debug.LogError("SceneStatesManager.Instance is null!");
+            Debug.LogError("UserActionManager.Instance is null!");
         }
-    }
-
-    public void HandleDropOnDisconnectZone(GameObject droppedGameObject)
+    }    public void HandleDropOnDisconnectZone(GameObject droppedGameObject)
     {
         if (droppedGameObject == null || droppedGameObject.Equals(null)) return;
         DraggableItem draggableItem = droppedGameObject.GetComponent<DraggableItem>();
@@ -293,103 +281,30 @@ public class MotionListController : MonoBehaviour
         if (droppedMotionData == null)
             return;
 
-        if (SceneStatesManager.Instance != null)
-        {            // 1. 找到所有挂载该动作的模型
-            var affectedModels = SceneStatesManager.Instance.GetAssociatedModels(droppedMotionData.ID);
-            Debug.Log($"断开动作 {droppedMotionData.ID}，找到受影响模型数量: {affectedModels.Count}");
-            
-            // 调试：打印当前所有关联关系
-            var allModels = SceneStatesManager.Instance.GetModelList();
-            Debug.Log($"当前系统中共有 {allModels.Count} 个模型");
-            foreach (var model in allModels)
-            {
-                var motions = SceneStatesManager.Instance.GetModelAssociatedMotions(model.ID);
-                Debug.Log($"模型 {model.ID}({model.DisplayName}) 关联的动作数量: {motions.Count}");
-                foreach (var motionId in motions)
-                {
-                    if (motionId == droppedMotionData.ID)
-                    {
-                        Debug.Log($"  找到关联: 模型{model.ID} <-> 动作{motionId}");
-                    }
-                }
-            }
-            
-            foreach (var modelId in affectedModels)
-            {
-                Debug.Log($"处理受影响模型: {modelId}");
-                // 只断开该动作与模型的关联
-                SceneStatesManager.Instance.DisassociateModelFromMotion(modelId, droppedMotionData.ID);                // 让该模型的actor重新加载动作
-                var actorObj = SceneStatesManager.Instance.GetActorObjectById(modelId);
-                Debug.Log($"查找模型 {modelId} 的actor对象: {(actorObj != null ? "找到" : "未找到")}");
+        // 使用UserActionManager进行用户操作
+        if (UserActionManager.Instance != null)
+        {
+            UserActionManager.Instance.DisconnectMotionAssociations(droppedMotionData.ID, () => {
+                Debug.Log($"MotionListController: 动作关联断开完成 {droppedMotionData.DisplayName}");
                 
-                // 如果直接查找失败，尝试遍历所有actor查找
-                if (actorObj == null)
+                // 刷新UI和连线
+                RefreshList();
+                if (ConnectionManager.Instance != null)
                 {
-                    var actorList = SceneStatesManager.Instance.GetActorList();
-                    Debug.Log($"尝试从 {actorList.Count} 个actor中查找匹配的actor");
-                    foreach (var actor in actorList)
-                    {
-                        Debug.Log($"  Actor: id={actor.id}, displayName={actor.displayName}");
-                        if (actor.id == modelId)
-                        {
-                            actorObj = SceneStatesManager.Instance.GetActorObjectById(actor.id);
-                            Debug.Log($"  找到匹配的actor: {actorObj?.name}");
-                            break;
-                        }
-                    }
+                    ConnectionManager.Instance.RebuildConnectionsForMotion(droppedMotionData.ID);
+                    ConnectionManager.Instance.RefreshConnectionEndPoints();
                 }
                 
-                if (actorObj != null)
+                // 清除UI选择，防止意外高亮
+                if (EventSystem.current != null)
                 {
-                    var mmdGameObject = actorObj.GetComponent<LibMMD.Unity3D.MmdGameObject>();
-                    Debug.Log($"模型 {modelId} 的MmdGameObject: {(mmdGameObject != null ? "找到" : "未找到")}");
-                    if (mmdGameObject != null)
-                    {
-                        // 如果还有剩余动作，加载第一个；否则通过加载空路径重置为T姿势
-                        var motions = SceneStatesManager.Instance.GetModelAssociatedMotions(modelId);
-                        Debug.Log($"模型 {modelId} 剩余动作数量: {motions.Count}");
-                        if (motions.Count > 0)
-                        {
-                            var motionComponent = SceneStatesManager.Instance.GetMotionComponentById(motions[0]);
-                            if (motionComponent != null && !string.IsNullOrEmpty(motionComponent.filePath))
-                            {
-                                Debug.Log($"模型 {modelId} 加载动作: {motionComponent.filePath}");
-                                mmdGameObject.LoadMotion(motionComponent.filePath);
-                            }
-                        }
-                        else
-                        {
-                            // 没有动作时，重置为T姿势
-                            Debug.Log($"[MotionListController] Model {modelId} has no more motions. Calling ResetToTPose().");
-                            mmdGameObject.ResetToTPose();
-                        }
-                    }
-                    else
-                    {
-                        Debug.LogError($"[MotionListController] MmdGameObject component NOT FOUND on actor for model ID {modelId}");
-                    }
+                    EventSystem.current.SetSelectedGameObject(null);
                 }
-                else
-                {
-                    Debug.LogError($"[MotionListController] GetActorObjectById returned NULL for model ID {modelId}");
-                }
-            }            Debug.Log($"仅断开所有模型对动作 {droppedMotionData.DisplayName} 的关联，并刷新受影响模型的动作");
-        }        // 先清理相关连线再刷新UI
-        if (ConnectionManager.Instance != null)
-        {
-            ConnectionManager.Instance.RebuildConnectionsForMotion(droppedMotionData.ID);
+            });
         }
-        RefreshList();
-        // 刷新连线端点引用
-        if (ConnectionManager.Instance != null)
+        else
         {
-            ConnectionManager.Instance.RefreshConnectionEndPoints();
-        }
-        
-        // 清除UI选择，防止意外高亮
-        if (EventSystem.current != null)
-        {
-            EventSystem.current.SetSelectedGameObject(null);
+            Debug.LogError("UserActionManager.Instance is null!");
         }
     }
 
@@ -436,14 +351,13 @@ public class MotionListController : MonoBehaviour
             }
         }
     }    bool IsMotionAssociated(string motionId)
-    {
-        // 检查是否有任何模型关联了这个动作
-        if (SceneStatesManager.Instance != null)
+    {        // 检查是否有任何模型关联了这个动作
+        if (ResourceManager.Instance != null && AssociationManager.Instance != null)
         {
-            var modelList = SceneStatesManager.Instance.GetModelList();
+            var modelList = ResourceManager.Instance.GetModelDataList();
             foreach (var model in modelList)
             {
-                var associations = SceneStatesManager.Instance.GetModelAssociatedMotions(model.ID);
+                var associations = AssociationManager.Instance.GetModelAssociatedMotions(model.ID);
                 if (associations != null && associations.Contains(motionId))
                 {
                     return true;

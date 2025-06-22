@@ -445,13 +445,12 @@ namespace MMDVR.Scripts.UIInteraction
             // 1. 清理无效连线（端点已销毁的连线）
             CleanupInvalidConnections();
             
-            // 2. 根据实际关联状态重建连线
-            if (SceneStatesManager.Instance != null)
+            // 2. 根据实际关联状态重建连线            if (SceneStatesManager.Instance != null && AssociationManager.Instance != null)
             {
                 var modelList = SceneStatesManager.Instance.GetModelList();
                 foreach (var model in modelList)
                 {
-                    var associatedMotions = SceneStatesManager.Instance.GetModelAssociatedMotions(model.ID);
+                    var associatedMotions = AssociationManager.Instance.GetModelAssociatedMotions(model.ID);
                     foreach (var motionId in associatedMotions)
                     {
                         string connectionKey = GetConnectionKey(model.ID, motionId);
@@ -467,14 +466,13 @@ namespace MMDVR.Scripts.UIInteraction
                 }
                 
                 // 3. 删除不应该存在的连线
-                var connectionsToRemove = new List<string>();
-                foreach (var kvp in activeConnections)
+                var connectionsToRemove = new List<string>();                foreach (var kvp in activeConnections)
                 {
                     if (kvp.Value != null && kvp.Value.IsValid())
                     {
                         string modelId = kvp.Value.modelId;
                         string motionId = kvp.Value.motionId;
-                        var associatedMotions = SceneStatesManager.Instance.GetModelAssociatedMotions(modelId);
+                        var associatedMotions = AssociationManager.Instance.GetModelAssociatedMotions(modelId);
                         
                         // 如果实际关联中不包含这个动作，标记删除
                         if (!associatedMotions.Contains(motionId))
@@ -500,8 +498,7 @@ namespace MMDVR.Scripts.UIInteraction
             
             Debug.Log($"连线重建完成，当前活动连线数量: {activeConnections.Count}");
         }
-        
-        /// <summary>
+          /// <summary>
         /// 只重建/清理与指定动作相关的连线
         /// </summary>
         public void RebuildConnectionsForMotion(string motionId)
@@ -514,7 +511,7 @@ namespace MMDVR.Scripts.UIInteraction
                 if (kvp.Value != null && kvp.Value.IsValid() && kvp.Value.motionId == motionId)
                 {
                     // 检查该模型是否还与该动作关联
-                    var associatedMotions = SceneStatesManager.Instance.GetModelAssociatedMotions(kvp.Value.modelId);
+                    var associatedMotions = AssociationManager.Instance.GetModelAssociatedMotions(kvp.Value.modelId);
                     if (!associatedMotions.Contains(motionId))
                     {
                         keysToRemove.Add(kvp.Key);
@@ -529,9 +526,8 @@ namespace MMDVR.Scripts.UIInteraction
             }
             // 2. 为所有与该动作有关联的模型重建连线
             var modelList = SceneStatesManager.Instance.GetModelList();
-            foreach (var model in modelList)
-            {
-                var associatedMotions = SceneStatesManager.Instance.GetModelAssociatedMotions(model.ID);
+            foreach (var model in modelList)            {
+                var associatedMotions = AssociationManager.Instance.GetModelAssociatedMotions(model.ID);
                 if (associatedMotions.Contains(motionId))
                 {
                     string connectionKey = GetConnectionKey(model.ID, motionId);
@@ -555,9 +551,8 @@ namespace MMDVR.Scripts.UIInteraction
             foreach (var kvp in activeConnections)
             {
                 if (kvp.Value != null && kvp.Value.IsValid() && kvp.Value.modelId == modelId)
-                {
-                    // 检查该模型是否还与该动作关联
-                    var associatedMotions = SceneStatesManager.Instance.GetModelAssociatedMotions(modelId);
+                {                    // 检查该模型是否还与该动作关联
+                    var associatedMotions = AssociationManager.Instance.GetModelAssociatedMotions(modelId);
                     if (!associatedMotions.Contains(kvp.Value.motionId))
                     {
                         keysToRemove.Add(kvp.Key);
@@ -568,10 +563,9 @@ namespace MMDVR.Scripts.UIInteraction
             {
                 if (activeConnections[key] != null)
                     Destroy(activeConnections[key].gameObject);
-                activeConnections.Remove(key);
-            }
+                activeConnections.Remove(key);            }
             // 2. 为该模型所有实际有关联的动作重建连线
-            var associatedMotionsNow = SceneStatesManager.Instance.GetModelAssociatedMotions(modelId);
+            var associatedMotionsNow = AssociationManager.Instance.GetModelAssociatedMotions(modelId);
             foreach (var motionId in associatedMotionsNow)
             {
                 string connectionKey = GetConnectionKey(modelId, motionId);

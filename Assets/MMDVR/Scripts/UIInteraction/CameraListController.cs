@@ -216,10 +216,9 @@ public class CameraListController : MonoBehaviour
         // 激活新的顶部项目
         if (internalResourceList.Count > 0)
         {
-            UICameraData newTopCamera = internalResourceList[0] as UICameraData;
-            if (SceneStatesManager.Instance != null && newTopCamera != null)
+            UICameraData newTopCamera = internalResourceList[0] as UICameraData;            if (ResourceManager.Instance != null && newTopCamera != null)
             {
-                SceneStatesManager.Instance.SetActiveCamera(newTopCamera.ID);
+                ResourceManager.Instance.SetActiveCamera(newTopCamera.ID);
             }
         }
 
@@ -248,29 +247,16 @@ public class CameraListController : MonoBehaviour
             return; 
         }
         
-        // 记录删除前的状态
-        int beforeCount = internalResourceList.Count;
-        Debug.Log($"Before deletion: Internal list count = {beforeCount}, UI objects count = {uiListItemObjects.Count}");
-        
-        // 如果是当前激活摄像机，先切换到Free Camera
-        if (SceneStatesManager.Instance != null && SceneStatesManager.Instance.currentActiveCameraId == droppedCamData.ID)
+        // 使用UserActionManager进行用户操作
+        if (UserActionManager.Instance != null)
         {
-            SceneStatesManager.Instance.ActivateCamera("BUILTIN_FREE_CAMERA");
-        }
-        
-        // 通过SceneStatesManager删除摄像机资源
-        if (SceneStatesManager.Instance != null)
-        {
-            SceneStatesManager.Instance.RemoveCameraResource(droppedCamData.ID);
-            Debug.Log($"Requested uninstall for VMD Camera: {droppedCamData.DisplayName}");
-            
-            // 删除后立即强制刷新UI以确保同步
-            // 注意：这里不调用RefreshResourceListUI，因为事件系统会自动触发
-            Debug.Log("Camera deletion request completed. UI should refresh via event system.");
+            UserActionManager.Instance.UnloadCamera(droppedCamData.ID, () => {
+                Debug.Log($"CameraListController: 摄像机卸载完成 {droppedCamData.DisplayName}");
+            });
         }
         else
         {
-            Debug.LogError("SceneStatesManager.Instance is null!");
+            Debug.LogError("UserActionManager.Instance is null!");
         }
     }
 
@@ -290,11 +276,16 @@ public class CameraListController : MonoBehaviour
         if (droppedCamData == null)
             return;
 
-        // 拖拽到Enable区域 = 激活该摄像机
-        if (SceneStatesManager.Instance != null)
+        // 使用UserActionManager进行用户操作
+        if (UserActionManager.Instance != null)
         {
-            SceneStatesManager.Instance.SetActiveCamera(droppedCamData.ID);
-            Debug.Log($"Activated Camera via Enable zone: {droppedCamData.DisplayName}");
+            UserActionManager.Instance.ActivateCamera(droppedCamData.ID, () => {
+                Debug.Log($"CameraListController: 摄像机激活完成 {droppedCamData.DisplayName}");
+            });
+        }
+        else
+        {
+            Debug.LogError("UserActionManager.Instance is null!");
         }
     }
 
@@ -316,14 +307,13 @@ public class CameraListController : MonoBehaviour
         UICameraData camDataToActivate = resourceData as UICameraData;
 
         Debug.Log($"Activating Camera by click: {camDataToActivate.DisplayName}");
-        
-        if (SceneStatesManager.Instance != null)
+          if (ResourceManager.Instance != null)
         {
-            SceneStatesManager.Instance.SetActiveCamera(camDataToActivate.ID);
+            ResourceManager.Instance.SetActiveCamera(camDataToActivate.ID);
         }
         else
         {
-            Debug.LogError("SceneStatesManager.Instance is null!");
+            Debug.LogError("ResourceManager.Instance is null!");
         }
     }
 
@@ -337,7 +327,7 @@ public class CameraListController : MonoBehaviour
         MMDVR.Scripts.UIInteraction.CameraData activeCamData = null;
         if (SceneStatesManager.Instance != null)
         {
-            var dataActiveCamData = SceneStatesManager.Instance.GetActiveCameraData();
+            var dataActiveCamData = SceneDisplayManager.Instance.GetActiveCameraData();
             if (dataActiveCamData != null)
             {                // 转换为UIInteraction的CameraData类型
                 activeCamData = new MMDVR.Scripts.UIInteraction.CameraData

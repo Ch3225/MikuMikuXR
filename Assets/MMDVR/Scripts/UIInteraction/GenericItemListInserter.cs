@@ -2,7 +2,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using System.Collections.Generic;
 using MMDVR.Scripts.Managers; // for ModelData, MotionData, MusicData
-using MMDVR.Scripts.Data; // 添加数据类型引用
+using MMDVR.Scripts.Model; // 修复因重命名 Data 目录导致的命名空间错误
 
 /// <summary>
 /// 通用列表项插入器 - 在拖拽排序时显示插入预览

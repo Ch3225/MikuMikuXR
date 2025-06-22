@@ -1,7 +1,8 @@
 using UnityEngine;
 using System.Collections.Generic;
-using MMDVR.Scripts.Data;
+using MMDVR.Scripts.Model;
 using MMDVR.Scripts.Components;
+using MMDVR.Scripts.Components.SceneItems;
 using MMDVR.Scripts.Events;
 using MMDVR.Events;
 
@@ -19,11 +20,16 @@ namespace MMDVR.Scripts.Managers
         [Tooltip("模型资源容器")] public Transform modelContainer;
         [Tooltip("音乐资源容器")] public Transform musicContainer;
         [Tooltip("动作资源容器")] public Transform motionContainer;
-        [Tooltip("摄像机资源容器")] public Transform cameraContainer;
-
-        [Header("资源数据")]
+        [Tooltip("摄像机资源容器")] public Transform cameraContainer;        [Header("资源数据")]
         [Tooltip("音乐数据列表")] public List<MusicData> musicList = new List<MusicData>();
         [Tooltip("摄像机数据列表")] public List<CameraData> cameraList = new List<CameraData>();
+
+        [Header("资源关联")]
+        [Tooltip("模型-动作关联映射")] 
+        private Dictionary<string, List<string>> modelMotionAssociations = new Dictionary<string, List<string>>();
+          [Header("资源状态")]
+        [Tooltip("禁用的模型列表")]
+        private HashSet<string> disabledModelIds = new HashSet<string>();
 
         private void Awake()
         {
@@ -34,12 +40,12 @@ namespace MMDVR.Scripts.Managers
             }
             Instance = this;
             DontDestroyOnLoad(gameObject);
-        }
-
-        private void Start()
+        }        private void Start()
         {
             InitializeContainers();
-        }        /// <summary>
+        }
+        
+        /// <summary>
         /// 初始化资源容器
         /// </summary>
         private void InitializeContainers()
@@ -76,7 +82,7 @@ namespace MMDVR.Scripts.Managers
             freeCameraResource.transform.SetParent(freeCamerasObj.transform);
             
             // 添加Free Camera组件
-            var freeCamComponent = freeCameraResource.AddComponent<FreeCameraComponent>();
+            var freeCamComponent = freeCameraResource.AddComponent<CameraComponent>();
             freeCamComponent.id = "BUILTIN_FREE_CAMERA";
             freeCamComponent.displayName = "Free Camera";
             freeCamComponent.position = Vector3.zero;
@@ -84,16 +90,13 @@ namespace MMDVR.Scripts.Managers
             freeCamComponent.fieldOfView = 60f;
             
             Debug.Log("ResourceManager: 创建了摄像机子容器和内置Free Camera");
-        }
-
-        /// <summary>
+        }        /// <summary>
         /// 创建资源容器
         /// </summary>
         private Transform CreateResourceContainer(string containerName)
         {
             GameObject container = new GameObject(containerName);
             container.transform.SetParent(transform);
-            Debug.Log($"ResourceManager: 创建了{containerName}容器");
             return container.transform;
         }
 
@@ -123,15 +126,12 @@ namespace MMDVR.Scripts.Managers
             
             // 调用回调
             onComplete?.Invoke(modelId);
-        }
-
-        // ==================== 模型资源管理 ====================        /// <summary>
-        /// 加载模型资源
+        }        // ==================== 模型资源管理 ====================
+          /// <summary>
+        /// 加载模型资源 - 只负责创建资源对象，不负责实际模型加载
         /// </summary>
         public string LoadModel(string modelPath)
         {
-            Debug.Log($"ResourceManager.LoadModel: 开始加载模型 {modelPath}");
-            
             if (string.IsNullOrEmpty(modelPath))
             {
                 Debug.LogError("ResourceManager: 模型路径为空");
@@ -140,45 +140,40 @@ namespace MMDVR.Scripts.Managers
 
             if (modelContainer == null)
             {
-                Debug.LogError("ResourceManager: modelContainer为null，尝试创建");
                 modelContainer = CreateResourceContainer("Models");
             }
-
-            Debug.Log($"ResourceManager: modelContainer有 {modelContainer.childCount} 个子对象");
 
             // 检查是否已有该模型
             for (int i = 0; i < modelContainer.childCount; i++)
             {
                 var child = modelContainer.GetChild(i);
-                var mc = child.GetComponent<ModelComponent>();
-                if (mc != null && mc.filePath == modelPath)
+                var mc = child.GetComponent<ModelComponent>();                if (mc != null && mc.filePath == modelPath)
                 {
-                    Debug.Log($"ResourceManager: 模型已存在 {modelPath}，返回ID={mc.modelId}");
-                    return mc.modelId;
+                    return mc.id;
                 }
-            }
-
-            // 创建新模型对象
+            }            // 创建新模型对象
             string modelId = System.Guid.NewGuid().ToString();
             GameObject modelObj = new GameObject($"Model_{modelId}");
             modelObj.transform.SetParent(modelContainer);
 
-            Debug.Log($"ResourceManager: 创建模型对象 Model_{modelId}，父容器={modelContainer.name}");
-
             // 添加模型组件
             var modelComponent = modelObj.AddComponent<ModelComponent>();
-            modelComponent.filePath = modelPath;
-            modelComponent.modelId = modelId;
-
-            Debug.Log($"ResourceManager: 模型资源加载完成: {modelPath}，ID={modelId}");
-            Debug.Log($"ResourceManager: modelContainer现在有 {modelContainer.childCount} 个子对象");
+            if (modelComponent == null)
+            {
+                Debug.LogError("ResourceManager: 无法添加ModelComponent!");
+                return null;
+            }            modelComponent.filePath = modelPath;
+            modelComponent.id = modelId;
+            modelComponent.displayName = System.IO.Path.GetFileNameWithoutExtension(modelPath);
+            
+            Debug.Log($"ResourceManager: 创建模型资源对象 {modelComponent.displayName} (ID: {modelId}) - 仅元数据，不包含实际模型");
             
             // 触发资源事件
-            ResourceEvents.TriggerResourceLoaded("model", modelComponent.modelId);
+            ResourceEvents.TriggerResourceLoaded("model", modelComponent.id);
             
-            return modelComponent.modelId;
+            return modelComponent.id;
         }
-
+        
         /// <summary>
         /// 卸载模型资源
         /// </summary>
@@ -309,13 +304,16 @@ namespace MMDVR.Scripts.Managers
         }
 
         /// <summary>
-        /// 获取动作组件
-        /// </summary>
+        /// 获取动作组件        /// </summary>
         public MotionComponent GetMotion(string motionId)
         {
             Transform motionObj = motionContainer.Find($"Motion_{motionId}");
             return motionObj?.GetComponent<MotionComponent>();
-        }        // ==================== 摄像机资源管理 ====================        /// <summary>
+        }
+        
+        // ==================== 摄像机资源管理 ====================
+        
+        /// <summary>
         /// 添加VMD摄像机资源
         /// </summary>
         public string AddVMDCamera(string filePath)
@@ -371,8 +369,7 @@ namespace MMDVR.Scripts.Managers
                 displayName = cameraComponent.displayName,
                 filePath = filePath,
                 isMMDCamera = true,
-                isFreeCamera = false
-            };
+                isFreeCamera = false            };
             cameraList.Add(cameraData);
 
             Debug.Log($"ResourceManager: 添加VMD摄像机资源: {filePath} (ID: {cameraId})");
@@ -380,7 +377,9 @@ namespace MMDVR.Scripts.Managers
             ResourceEvents.TriggerCameraListChanged();
 
             return cameraComponent.cameraId;
-        }        /// <summary>
+        }
+        
+        /// <summary>
         /// 移除摄像机资源
         /// </summary>
         public void RemoveCamera(string cameraId)
@@ -400,28 +399,30 @@ namespace MMDVR.Scripts.Managers
                 Debug.Log($"ResourceManager: 移除摄像机资源: {cameraId}");
                 ResourceEvents.TriggerResourceUnloaded("camera", cameraId);
                 ResourceEvents.TriggerCameraListChanged();
-                
-                Destroy(cameraObj.gameObject);
+                  Destroy(cameraObj.gameObject);
             }
             else
             {
                 Debug.LogError($"ResourceManager: 未找到要删除的摄像机: VMDCamera_{cameraId}");
             }
-        }        /// <summary>
+        }
+        
+        /// <summary>
         /// 获取摄像机组件
         /// </summary>
         public MMDCameraComponent GetCamera(string cameraId)
         {
             // 内置Free Camera没有MMDCameraComponent
             if (cameraId == "BUILTIN_FREE_CAMERA") return null;
-            
-            // 在MMDCameras容器中查找VMD摄像机
+              // 在MMDCameras容器中查找VMD摄像机
             Transform mmdCamerasContainer = cameraContainer.Find("MMDCameras");
             Transform cameraObj = mmdCamerasContainer?.Find($"VMDCamera_{cameraId}");
             return cameraObj?.GetComponent<MMDCameraComponent>();
         }
 
-        // ==================== 通用资源管理 ====================        /// <summary>
+        // ==================== 通用资源管理 ====================
+        
+        /// <summary>
         /// 清理所有资源
         /// </summary>
         public void ClearAllResources()
@@ -604,23 +605,12 @@ namespace MMDVR.Scripts.Managers
                 motionDataList.Add(motionData);
             }
             return motionDataList;
-        }
-
-        /// <summary>
+        }        /// <summary>
         /// 移除模型资源
         /// </summary>
         public void RemoveModel(string modelId)
         {
             UnloadModel(modelId);
-        }
-
-        /// <summary>
-        /// 更新自由摄像机变换
-        /// </summary>
-        public void UpdateFreeCameraTransform(Vector3 position, Quaternion rotation, float fov = 60f)
-        {
-            // 这个方法应该由摄像机管理器处理，这里保留为兼容性方法
-            Debug.Log($"ResourceManager: 更新自由摄像机变换 位置:{position} 旋转:{rotation} FOV:{fov}");
         }
 
         // ==================== 协程使用说明和示例 ====================
@@ -728,14 +718,276 @@ namespace MMDVR.Scripts.Managers
             if (routine != null)
                 StopCoroutine(routine);
         }
-        
-        /// <summary>
-        /// 全局停止所有协程
-        /// </summary>        /// <summary>
+          /// <summary>
         /// 全局停止所有协程
         /// </summary>
         public void StopAllGlobalCoroutines()
         {
-            StopAllCoroutines();        }
+            StopAllCoroutines();
+        }
+
+        /// <summary>
+        /// 移除摄像机资源（兼容旧接口）
+        /// </summary>
+        public void RemoveCameraResource(string cameraId)
+        {
+            RemoveCamera(cameraId);
+        }
+
+        /// <summary>
+        /// 添加演员（兼容旧接口，转发到SceneDisplayManager）
+        /// </summary>
+        public void AddActor(string filePath)
+        {
+            // 1. 先通过ResourceManager加载模型资源
+            string modelId = LoadModel(filePath);
+            if (!string.IsNullOrEmpty(modelId))
+            {
+                // 2. 再通过SceneDisplayManager添加演员展示
+                if (SceneDisplayManager.Instance != null)
+                {
+                    SceneDisplayManager.Instance.AddActor(modelId);
+                }
+                else
+                {
+                    Debug.LogError("ResourceManager: SceneDisplayManager.Instance未找到，无法添加演员展示");
+                }
+            }
+        }
+
+        /// <summary>
+        /// 获取演员列表（兼容旧接口，转发到SceneDisplayManager）
+        /// </summary>
+        public List<ActorData> GetActorList()
+        {
+            if (SceneDisplayManager.Instance != null)
+            {
+                return SceneDisplayManager.Instance.GetActorList();
+            }
+            return new List<ActorData>();
+        }
+
+        /// <summary>
+        /// 分配动作给演员（兼容旧接口，转发到SceneDisplayManager）
+        /// </summary>
+        public void AssignMotionToActor(string motionId, string actorId)
+        {
+            if (SceneDisplayManager.Instance != null)
+            {
+                SceneDisplayManager.Instance.AssignMotionToActor(actorId, motionId);
+            }
+            else
+            {
+                Debug.LogError("ResourceManager: SceneDisplayManager.Instance未找到，无法分配动作");
+            }
+        }        /// <summary>
+        /// 获取模型数据列表（兼容旧接口）
+        /// </summary>
+        public List<ModelData> GetModelDataList()
+        {
+            var modelDataList = new List<ModelData>();
+            var modelComponents = GetModelList();
+            foreach (var model in modelComponents)
+            {
+                var modelData = new ModelData
+                {
+                    id = model.id,
+                    displayName = System.IO.Path.GetFileNameWithoutExtension(model.filePath),
+                    filePath = model.filePath
+                };
+                modelDataList.Add(modelData);
+            }
+            return modelDataList;
+        }
+
+        /// <summary>
+        /// 移除模型资源（兼容旧接口）
+        /// </summary>
+        public void RemoveModelResource(string modelId)
+        {
+            RemoveModel(modelId);
+        }        /// <summary>
+        /// 获取并激活第一个可用音乐（兼容旧接口）
+        /// </summary>
+        public string GetAndActivateFirstAvailableMusic()
+        {
+            var musicList = GetMusicList();
+            if (musicList.Count > 0)
+            {
+                string firstMusicId = musicList[0].id;
+                // TODO: 音乐激活功能应该由PlaybackManager处理
+                Debug.LogWarning("音乐激活功能需要由PlaybackManager处理");
+                return firstMusicId;
+            }
+            return null;
+        }        /// <summary>
+        /// 获取当前活动音乐的AudioSource（兼容旧接口）
+        /// </summary>
+        public AudioSource GetActiveMusicAudioSource()
+        {
+            // TODO: 当前活动音乐信息应该由PlaybackManager管理
+            Debug.LogWarning("当前活动音乐信息应该由PlaybackManager管理");
+            return null;
+        }
+
+        // ==================== 向后兼容方法 (转发到适当的管理器) ====================
+        
+        /// <summary>
+        /// 设置活动摄像机（兼容旧接口，应由摄像机管理器处理）
+        /// </summary>
+        public void SetActiveCamera(string cameraId)
+        {
+            Debug.LogWarning("SetActiveCamera应该由专门的摄像机管理器处理，暂时仅记录日志");
+            Debug.Log($"请求激活摄像机: {cameraId}");
+        }
+
+        /// <summary>
+        /// 播放状态属性（兼容旧接口，转发到PlaybackManager）
+        /// </summary>
+        public bool isPlaying
+        {
+            get
+            {
+                if (PlaybackManager.Instance != null)
+                    return PlaybackManager.Instance.isPlaying;
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 播放时间属性（兼容旧接口，转发到PlaybackManager）
+        /// </summary>
+        public float playTime
+        {
+            get
+            {
+                if (PlaybackManager.Instance != null)
+                    return PlaybackManager.Instance.playTime;
+                return 0f;
+            }
+        }
+
+        /// <summary>
+        /// 总时长属性（兼容旧接口，转发到PlaybackManager）
+        /// </summary>
+        public float totalDuration
+        {
+            get
+            {
+                if (PlaybackManager.Instance != null)
+                    return PlaybackManager.Instance.totalDuration;
+                return 0f;
+            }
+        }
+
+        /// <summary>
+        /// 当前活动音乐ID属性（兼容旧接口，应由PlaybackManager处理）
+        /// </summary>
+        public string currentActiveMusicId
+        {
+            get
+            {
+                Debug.LogWarning("currentActiveMusicId应该由PlaybackManager管理");
+                return "";
+            }
+        }
+
+        /// <summary>
+        /// 播放方法（兼容旧接口，转发到PlaybackManager）
+        /// </summary>
+        public void Play()
+        {
+            if (PlaybackManager.Instance != null)
+                PlaybackManager.Instance.Play();
+            else
+                Debug.LogWarning("PlaybackManager.Instance为空，无法播放");
+        }
+
+        /// <summary>
+        /// 暂停方法（兼容旧接口，转发到PlaybackManager）
+        /// </summary>
+        public void Pause()
+        {
+            if (PlaybackManager.Instance != null)
+                PlaybackManager.Instance.Pause();
+            else
+                Debug.LogWarning("PlaybackManager.Instance为空，无法暂停");
+        }
+
+        /// <summary>
+        /// 停止方法（兼容旧接口，转发到PlaybackManager）
+        /// </summary>
+        public void Stop()
+        {
+            if (PlaybackManager.Instance != null)
+                PlaybackManager.Instance.Stop();
+            else
+                Debug.LogWarning("PlaybackManager.Instance为空，无法停止");
+        }
+
+        // ==================== 基本别名方法（向后兼容） ====================
+        
+        /// <summary>
+        /// 添加模型（别名）
+        /// </summary>
+        public string AddModel(string filePath)
+        {
+            return LoadModel(filePath);
+        }
+
+        /// <summary>
+        /// 加载动作（别名）
+        /// </summary>
+        public string LoadMotion(string filePath)
+        {
+            return AddMotion(filePath);
+        }
+
+        /// <summary>
+        /// 移除音乐资源（别名）
+        /// </summary>
+        public void RemoveMusicResource(string musicId)
+        {
+            RemoveMusic(musicId);
+        }
+
+        /// <summary>
+        /// 移除动作资源（别名）
+        /// </summary>
+        public void RemoveMotionResource(string motionId)
+        {
+            RemoveMotion(motionId);
+        }
+
+        /// <summary>
+        /// 根据ID获取动作组件（别名）
+        /// </summary>
+        public MotionComponent GetMotionComponentById(string motionId)
+        {
+            return GetMotion(motionId);
+        }
+
+        /// <summary>
+        /// 测试用添加Actor（别名）
+        /// </summary>
+        public string AddActorForTesting(string filePath)
+        {
+            return LoadModel(filePath);
+        }
+
+        /// <summary>
+        /// 测试用添加动作（别名）
+        /// </summary>
+        public string AddMotionForTesting(string filePath)
+        {
+            return AddMotion(filePath);
+        }    }
+
+    /// <summary>
+    /// SceneStatesManager 别名 - 为了向后兼容
+    /// </summary>
+    public class SceneStatesManager : ResourceManager
+    {
+        // 空类，只是为了类型兼容性
     }
 }

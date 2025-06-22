@@ -1,30 +1,95 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using MMDVR.Scripts.UIInteraction; // 添加了正确的命名空间
 
 namespace MMDVR.Scripts.Managers
-{    /// <summary>
+{
+    /// <summary>
     /// 键盘输入管理器 - 集中管理所有键盘快捷键
-    /// 提供统一的输入处理和事件分发
+    /// 提供统一的输入处理和事件分发，支持Inspector配置按键映射
     /// 
     /// 支持功能：
-    /// - 快捷键管理（Tab=鼠标切换、H=UI切换、Space=播放、Ctrl+S=停止、R=重置、F11=全屏、F12=截图、V=VR）
+    /// - 可配置的快捷键管理
     /// - 摄像机移动控制（WSADQE + Shift加速）
-    /// - 与FreeCameraController和ToggleMouseButton集成
+    /// - 与CameraComponent和ToggleMouseButton集成
     /// </summary>
     public class KeyboardInputManager : MonoBehaviour
     {
         public static KeyboardInputManager Instance { get; private set; }
-          [Header("键盘快捷键设置")]
-        [SerializeField] private bool enableKeyboardInput = true;
-        [SerializeField] private bool controlCameraMovement = true; // 是否控制摄像机移动
+
+        [Header("UI控制")]
+        [Tooltip("切换UI显示/隐藏")]
+        public KeyCode toggleUI = KeyCode.H;
+        
+        [Tooltip("切换鼠标控制模式")]
+        public KeyCode toggleMouseMode = KeyCode.Tab;
+        
+        [Header("播放控制")]
+        [Tooltip("播放/暂停")]
+        public KeyCode playPause = KeyCode.Space;
+        
+        [Tooltip("停止播放")]
+        public KeyCode stop = KeyCode.S;
+        
+        [Tooltip("停止播放的修饰键")]
+        public bool stopRequireCtrl = true;
         
         [Header("摄像机控制")]
-        [SerializeField] private MMDVR.Scripts.Controls.FreeCameraController freeCameraController;
-        [SerializeField] private MMDVR.Scripts.Controls.ToggleMouseButton toggleMouseButton;
+        [Tooltip("重置摄像机")]
+        public KeyCode resetCamera = KeyCode.R;
         
+        [Tooltip("向前移动")]
+        public KeyCode moveForward = KeyCode.W;
+        
+        [Tooltip("向后移动")]
+        public KeyCode moveBackward = KeyCode.S;
+        
+        [Tooltip("向左移动")]
+        public KeyCode moveLeft = KeyCode.A;
+        
+        [Tooltip("向右移动")]
+        public KeyCode moveRight = KeyCode.D;
+        
+        [Tooltip("向上移动")]
+        public KeyCode moveUp = KeyCode.E;
+        
+        [Tooltip("向下移动")]
+        public KeyCode moveDown = KeyCode.Q;
+        
+        [Tooltip("快速移动修饰键")]
+        public KeyCode fastMovement = KeyCode.LeftShift;
+        
+        [Header("系统功能")]
+        [Tooltip("全屏切换")]
+        public KeyCode toggleFullscreen = KeyCode.F11;
+        
+        [Tooltip("截图")]
+        public KeyCode screenshot = KeyCode.F12;
+        
+        [Tooltip("VR模式切换")]
+        public KeyCode toggleVR = KeyCode.V;
+        
+        [Header("高级设置")]
+        [Tooltip("是否启用输入")]
+        public bool enableInput = true;
+        
+        [Tooltip("是否启用摄像机移动控制")]
+        public bool enableCameraMovement = true;
+        
+        [Tooltip("鼠标灵敏度")]
+        public float mouseSensitivity = 2.0f;
+        
+        [Tooltip("移动速度")]
+        public float movementSpeed = 10.0f;
+        
+        [Tooltip("快速移动倍数")]
+        public float fastMovementMultiplier = 3.0f;        [Header("组件引用")]
+        [SerializeField] private MMDVR.Scripts.Components.SceneItems.CameraComponent freeCameraController;
+        [SerializeField] private ToggleMouseButton toggleMouseButton;
+
         // 公共属性
-        public bool IsControllingMovement => controlCameraMovement && enableKeyboardInput;
+        public bool IsControllingMovement => enableCameraMovement && enableInput;
         
         // 键盘快捷键事件
         public static event Action OnToggleUI;
@@ -45,52 +110,56 @@ namespace MMDVR.Scripts.Managers
             Instance = this;
             DontDestroyOnLoad(this.gameObject);
         }
-          void Update()
+
+        void Update()
         {
-            if (!enableKeyboardInput) return;
+            if (!enableInput) return;
             
             CheckKeyboardInput();
             
             // 处理摄像机移动
-            if (controlCameraMovement && freeCameraController != null)
+            if (enableCameraMovement && freeCameraController != null)
             {
                 HandleCameraMovement();
             }
-        }        /// <summary>
+        }
+
+        /// <summary>
         /// 检查键盘输入
         /// </summary>
         private void CheckKeyboardInput()
         {
-            // Tab - 切换鼠标控制模式（只处理鼠标控制，不触发UI切换）
-            if (UnityEngine.Input.GetKeyDown(KeyCode.Tab))
+            // Tab - 切换鼠标控制模式
+            if (UnityEngine.Input.GetKeyDown(toggleMouseMode))
             {
                 if (toggleMouseButton != null)
                 {
                     toggleMouseButton.OnToggleMouseClicked();
                 }
-                // 移除UI切换，避免冲突
             }
             
-            // H - 切换UI显示/隐藏 (新增，替代Tab的UI功能)
-            if (UnityEngine.Input.GetKeyDown(KeyCode.H))
+            // H - 切换UI显示/隐藏
+            if (UnityEngine.Input.GetKeyDown(toggleUI))
             {
                 OnToggleUI?.Invoke();
             }
             
             // Space - 播放/暂停
-            if (UnityEngine.Input.GetKeyDown(KeyCode.Space))
+            if (UnityEngine.Input.GetKeyDown(playPause))
             {
                 OnPlayPause?.Invoke();
             }
             
             // S - 停止 (需要按住Ctrl)
-            if (UnityEngine.Input.GetKey(KeyCode.LeftControl) && UnityEngine.Input.GetKeyDown(KeyCode.S))
+            bool stopKeyPressed = UnityEngine.Input.GetKeyDown(stop);
+            bool ctrlPressed = UnityEngine.Input.GetKey(KeyCode.LeftControl) || UnityEngine.Input.GetKey(KeyCode.RightControl);
+            if (stopKeyPressed && (!stopRequireCtrl || ctrlPressed))
             {
                 OnStop?.Invoke();
             }
             
             // R - 重置相机
-            if (UnityEngine.Input.GetKeyDown(KeyCode.R))
+            if (UnityEngine.Input.GetKeyDown(resetCamera))
             {
                 OnResetCamera?.Invoke();
                 if (freeCameraController != null)
@@ -100,132 +169,46 @@ namespace MMDVR.Scripts.Managers
             }
             
             // F12 - 截图
-            if (UnityEngine.Input.GetKeyDown(KeyCode.F12))
+            if (UnityEngine.Input.GetKeyDown(screenshot))
             {
                 OnScreenshot?.Invoke();
             }
             
-            // F11 - 全屏切换
-            if (UnityEngine.Input.GetKeyDown(KeyCode.F11))
+            // F11 - 全屏
+            if (UnityEngine.Input.GetKeyDown(toggleFullscreen))
             {
                 OnToggleFullscreen?.Invoke();
             }
             
             // V - 切换VR模式
-            if (UnityEngine.Input.GetKeyDown(KeyCode.V))
+            if (UnityEngine.Input.GetKeyDown(toggleVR))
             {
                 OnToggleVR?.Invoke();
             }
         }
-        
+
         /// <summary>
-        /// 启用/禁用键盘输入
-        /// </summary>
-        public void SetKeyboardInputEnabled(bool enabled)
-        {
-            enableKeyboardInput = enabled;
-        }
-        
-        /// <summary>
-        /// 启用/禁用摄像机移动控制
-        /// </summary>
-        public void SetCameraMovementControlEnabled(bool enabled)
-        {
-            controlCameraMovement = enabled;
-        }
-        
-        /// <summary>
-        /// 截图功能
-        /// </summary>
-        private void TakeScreenshot()
-        {
-            string filename = $"Screenshot_{System.DateTime.Now:yyyy-MM-dd_HH-mm-ss}.png";
-            string path = System.IO.Path.Combine(Application.persistentDataPath, filename);
-            ScreenCapture.CaptureScreenshot(path);
-            Debug.Log($"截图已保存: {path}");
-        }        void Start()
-        {
-            // 自动查找组件（如果没有手动设置）
-            if (freeCameraController == null)
-            {
-                freeCameraController = FindObjectOfType<MMDVR.Scripts.Controls.FreeCameraController>();
-            }
-            if (toggleMouseButton == null)
-            {
-                toggleMouseButton = FindObjectOfType<MMDVR.Scripts.Controls.ToggleMouseButton>();
-            }
-            
-            // 绑定内部事件到具体功能
-            OnToggleUI += () => {
-                MMDVR.Events.InputEvents.TriggerUIToggle(MMDVR.Events.InputEvents.InputSource.Desktop);
-            };
-            
-            OnPlayPause += () => {
-                MMDVR.Scripts.Events.PlaybackEvents.TriggerPlayPauseToggle();
-            };
-            
-            OnStop += () => {
-                MMDVR.Scripts.Events.PlaybackEvents.TriggerStopRequested();
-            };
-            
-            OnResetCamera += () => {
-                MMDVR.Events.SystemEvents.TriggerCameraReset();
-            };
-            
-            OnScreenshot += TakeScreenshot;
-            
-            OnToggleFullscreen += () => {
-                Screen.fullScreen = !Screen.fullScreen;
-            };
-            
-            OnToggleVR += () => {
-                // 触发VR切换事件
-                var systemStateManager = MMDVR.Scripts.Managers.SystemStateManager.Instance;
-                if (systemStateManager != null)
-                {
-                    systemStateManager.ToggleVRMode();
-                }
-            };
-        }
-          void OnDestroy()
-        {
-            // 清理事件订阅
-            OnToggleUI = null;
-            OnPlayPause = null;
-            OnStop = null;
-            OnResetCamera = null;
-            OnScreenshot = null;
-            OnToggleFullscreen = null;
-            OnToggleVR = null;
-            
-            if (Instance == this)
-            {
-                Instance = null;
-            }
-        }
-        /// <summary>
-        /// 处理摄像机移动输入 - WSADQE + Shift加速
+        /// 处理摄像机移动
         /// </summary>
         private void HandleCameraMovement()
         {
-            // 检查移动输入
-            bool forward = UnityEngine.Input.GetKey(KeyCode.W);
-            bool back = UnityEngine.Input.GetKey(KeyCode.S);
-            bool left = UnityEngine.Input.GetKey(KeyCode.A);
-            bool right = UnityEngine.Input.GetKey(KeyCode.D);
-            bool up = UnityEngine.Input.GetKey(KeyCode.E);
-            bool down = UnityEngine.Input.GetKey(KeyCode.Q);
-            bool fastSpeed = UnityEngine.Input.GetKey(KeyCode.LeftShift);
-            
-            // 获取移动方向
-            Vector3 direction = MMDVR.Scripts.Controls.FreeCameraController.GetMovementDirection(
-                forward, back, left, right, up, down);
-            
-            // 应用移动
-            if (direction.magnitude > 0.1f)
+            if (freeCameraController == null || !freeCameraController.IsActive) return;
+
+            var move = Vector3.zero;
+            if (UnityEngine.Input.GetKey(moveForward)) move.z += 1;
+            if (UnityEngine.Input.GetKey(moveBackward)) move.z -= 1;
+            if (UnityEngine.Input.GetKey(moveLeft)) move.x -= 1;
+            if (UnityEngine.Input.GetKey(moveRight)) move.x += 1;
+            if (UnityEngine.Input.GetKey(moveUp)) move.y += 1;
+            if (UnityEngine.Input.GetKey(moveDown)) move.y -= 1;
+
+            float currentSpeed = movementSpeed;
+            if (UnityEngine.Input.GetKey(fastMovement))
             {
-                freeCameraController.ApplyMovement(direction, fastSpeed);
+                currentSpeed *= fastMovementMultiplier;
             }
+
+            freeCameraController.transform.Translate(move.normalized * currentSpeed * Time.deltaTime);
         }
     }
 }

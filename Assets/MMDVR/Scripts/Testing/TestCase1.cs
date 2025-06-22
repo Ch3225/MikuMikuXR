@@ -41,11 +41,10 @@ namespace MMDVR.Scripts.Testing
                 Debug.Log($"Len演员已添加: {lenPath}");
                 yield return new WaitForSeconds(1f);
             }
-            else
-            {
+            else            {
                 Debug.LogWarning($"Len模型文件不存在: {lenPath}");
                 // 使用测试方法创建占位符
-                SceneStatesManager.Instance.AddActorForTesting("len_test", "TDA Len (Test)");
+                ResourceManager.Instance.AddActorForTesting("len_test");
             }
             
             if (System.IO.File.Exists(rinPath))
@@ -57,8 +56,7 @@ namespace MMDVR.Scripts.Testing
             else
             {
                 Debug.LogWarning($"Rin模型文件不存在: {rinPath}");
-                // 使用测试方法创建占位符
-                SceneStatesManager.Instance.AddActorForTesting("rin_test", "TDA Rin (Test)");
+                // 使用测试方法创建占位符                ResourceManager.Instance.AddActorForTesting("rin_test");
             }
 
             // 加载动作
@@ -78,8 +76,7 @@ namespace MMDVR.Scripts.Testing
             else
             {
                 Debug.LogWarning($"动作1文件不存在: {motion1Path}");
-                motionId1 = "motion1_test";
-                SceneStatesManager.Instance.AddMotionForTesting(motionId1, "Dive to Blue (Len)");
+                motionId1 = "motion1_test";                ResourceManager.Instance.AddMotionForTesting(motionId1);
             }
             
             if (System.IO.File.Exists(motion2Path))
@@ -89,9 +86,8 @@ namespace MMDVR.Scripts.Testing
             }
             else
             {
-                Debug.LogWarning($"动作2文件不存在: {motion2Path}");
-                motionId2 = "motion2_test";
-                SceneStatesManager.Instance.AddMotionForTesting(motionId2, "Dive to Blue (Rin)");
+                Debug.LogWarning($"动作2文件不存在: {motion2Path}");                motionId2 = "motion2_test";
+                ResourceManager.Instance.AddMotionForTesting(motionId2);
             }
 
             yield return new WaitForSeconds(1f);

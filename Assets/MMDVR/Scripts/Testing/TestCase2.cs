@@ -27,37 +27,29 @@ namespace MMDVR.Scripts.Testing
                 StartCoroutine(LoadResources());
             }
         }        IEnumerator LoadResources()
-        {
-            Debug.Log("=== TestCase2 资源加载开始 ===");
+        {            Debug.Log("=== TestCase2 资源加载开始 ===");
             
-            // 等待SceneStatesManager加载完毕
-            while (SceneStatesManager.Instance == null)
+            // 等待UserActionManager加载完毕
+            while (UserActionManager.Instance == null)
             {
-                Debug.Log("等待SceneStatesManager初始化...");
+                Debug.Log("等待UserActionManager初始化...");
                 yield return new WaitForSeconds(0.5f);
             }
-            Debug.Log("SceneStatesManager已就绪");
+            Debug.Log("UserActionManager已就绪");
 
             // 分步骤加载，每步之间有视觉反馈
             yield return ResourceManager.Instance.StartGlobalCoroutine(LoadModelAndMotionWithProgress());
             
             yield return ResourceManager.Instance.StartGlobalCoroutine(LoadCamerasWithProgress());
             
-            yield return ResourceManager.Instance.StartGlobalCoroutine(LoadMusicWithProgress());
-
-            // 最后刷新UI
+            yield return ResourceManager.Instance.StartGlobalCoroutine(LoadMusicWithProgress());            // 最后刷新UI
             yield return new WaitForEndOfFrame();
-            var uiMgr = FindObjectOfType<DesktopUIManager>();
-            if (uiMgr != null)
-            {
-                Debug.Log("刷新所有UI下拉框");
-                uiMgr.RefreshAllDropdowns();
-            }
+            // 新UI架构通过事件系统自动更新，无需手动刷新
+            Debug.Log("资源加载完成，UI将通过事件系统自动更新");
             
             Debug.Log("=== TestCase2 资源加载完成 ===");
-        }
-          /// <summary>
-        /// 带进度的模型和动作加载
+        }        /// <summary>
+        /// 带进度的模型和动作加载 - 使用UserActionManager
         /// </summary>
         IEnumerator LoadModelAndMotionWithProgress()
         {
@@ -80,71 +72,34 @@ namespace MMDVR.Scripts.Testing
             }
 
             Debug.Log($"✓ 文件检查通过");
-            yield return new WaitForSeconds(0.2f); // 让用户看到检查结果
+            yield return new WaitForSeconds(0.2f);
+
+            // 使用UserActionManager一站式加载模型和动作
+            bool completed = false;
+            string finalModelId = null;
+            string finalMotionId = null;
             
-            Debug.Log($"📋 开始加载模型: {Path.GetFileName(modelPath)}");
-            
-            // 通过SceneStatesManager添加演员（模型）
-            bool modelLoadSuccess = false;
-            string motionId = null;
-            
-            try
+            UserActionManager.Instance.LoadModelAndMotion(modelPath, motionPath, (modelId, motionId) =>
             {
-                SceneStatesManager.Instance.AddActor(modelPath);
-                modelLoadSuccess = true;
+                finalModelId = modelId;
+                finalMotionId = motionId;
+                completed = true;
+            });
+            
+            // 等待完成
+            yield return new WaitUntil(() => completed);
+            
+            if (!string.IsNullOrEmpty(finalModelId) && !string.IsNullOrEmpty(finalMotionId))
+            {
+                Debug.Log($"✅ 模型和动作加载完成: {finalModelId}, {finalMotionId}");
             }
-            catch (System.Exception e)
+            else
             {
-                Debug.LogError($"❌ 加载模型时出错: {e.Message}");
-                yield break;
-            }
-            
-            yield return new WaitForSeconds(0.5f); // 等待模型加载
-            
-            if (modelLoadSuccess)
-            {
-                Debug.Log($"🎭 开始加载动作: {Path.GetFileName(motionPath)}");
-                
-                try
-                {
-                    // 通过SceneStatesManager添加动作
-                    motionId = SceneStatesManager.Instance.AddMotion(motionPath);
-                }
-                catch (System.Exception e)
-                {
-                    Debug.LogError($"❌ 加载动作时出错: {e.Message}");
-                    yield break;
-                }
-                
-                yield return new WaitForSeconds(0.3f); // 等待动作加载
-                
-                // 获取刚添加的演员并分配动作
-                var actorList = SceneStatesManager.Instance.GetActorList();
-                if (actorList.Count > 0)
-                {                    string actorId = actorList[actorList.Count - 1].id;
-                    
-                    Debug.Log($"🎪 分配动作给演员: {actorId}");
-                    try
-                    {
-                        SceneStatesManager.Instance.AssignMotionToActor(motionId, actorId);
-                        Debug.Log("✅ 模型和动作加载完成");
-                    }
-                    catch (System.Exception e)
-                    {
-                        Debug.LogError($"❌ 分配动作时出错: {e.Message}");
-                    }
-                    
-                    yield return new WaitForSeconds(0.2f);
-                }
-                else
-                {
-                    Debug.LogError("❌ 没有找到演员来分配动作");
-                }
+                Debug.LogError("❌ 模型和动作加载失败");
             }
         }
-        
-        /// <summary>
-        /// 带进度的摄像机加载
+          /// <summary>
+        /// 带进度的摄像机加载 - 使用UserActionManager
         /// </summary>
         IEnumerator LoadCamerasWithProgress()
         {
@@ -165,7 +120,14 @@ namespace MMDVR.Scripts.Testing
                 if (File.Exists(cameraPath))
                 {
                     Debug.Log($"📷 加载摄像机 {++loadedCount}/{cameraFiles.Length}: {cameraFile}");
-                    SceneStatesManager.Instance?.AddVMDCamera(cameraPath);
+                    
+                    bool cameraLoaded = false;
+                    UserActionManager.Instance.LoadVMDCamera(cameraPath, (cameraId) => 
+                    {
+                        cameraLoaded = true;
+                    });
+                    
+                    yield return new WaitUntil(() => cameraLoaded);
                     yield return new WaitForSeconds(0.1f); // 分帧加载
                 }
             }
@@ -181,16 +143,22 @@ namespace MMDVR.Scripts.Testing
                 foreach (string vmdFile in subDirVmdFiles)
                 {
                     Debug.Log($"📷 加载子目录摄像机: {Path.GetFileName(vmdFile)}");
-                    SceneStatesManager.Instance?.AddVMDCamera(vmdFile);
+                    
+                    bool cameraLoaded = false;
+                    UserActionManager.Instance.LoadVMDCamera(vmdFile, (cameraId) => 
+                    {
+                        cameraLoaded = true;
+                    });
+                    
+                    yield return new WaitUntil(() => cameraLoaded);
                     yield return new WaitForSeconds(0.1f);
                 }
             }
             
             Debug.Log("✅ 所有摄像机加载完成");
         }
-        
-        /// <summary>
-        /// 带进度的音乐加载
+          /// <summary>
+        /// 带进度的音乐加载 - 使用UserActionManager
         /// </summary>
         IEnumerator LoadMusicWithProgress()
         {
@@ -200,15 +168,21 @@ namespace MMDVR.Scripts.Testing
             if (File.Exists(musicPath))
             {
                 Debug.Log($"🎼 加载音乐文件: {Path.GetFileName(musicPath)}");
-                SceneStatesManager.Instance?.AddMusic(musicPath);
-                yield return new WaitForSeconds(0.3f);
+                
+                bool musicLoaded = false;
+                UserActionManager.Instance.LoadMusic(musicPath, (musicId) => 
+                {
+                    musicLoaded = true;
+                });
+                
+                yield return new WaitUntil(() => musicLoaded);
                 Debug.Log("✅ 音乐加载完成");
             }
             else
             {
                 Debug.LogWarning($"⚠️ 音乐文件不存在: {musicPath}");
             }
-        }        IEnumerator LoadModelAndMotion()
+        }IEnumerator LoadModelAndMotion()
         {
             // 这个方法已经被 LoadModelAndMotionWithProgress 替代
             // 保留用于兼容性，但实际不再使用

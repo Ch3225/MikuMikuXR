@@ -476,11 +476,53 @@ namespace MMDVR.Scripts.Managers
         {
             audioDelay = audio;
             motionDelay = motion;
-            cameraDelay = camera;        }
+            cameraDelay = camera;
+        }
+
+        // ==================== 音乐管理方法 ====================
+        
+        /// <summary>
+        /// 设置活动音乐
+        /// </summary>
+        public void SetActiveMusic(string musicId)
+        {
+            if (resourceManager == null)
+                resourceManager = ResourceManager.Instance;
+                
+            var musicComponent = resourceManager.GetMusic(musicId);
+            if (musicComponent != null)
+            {
+                Debug.Log($"PlaybackManager: 设置活动音乐 {musicId}");
+                // 这里可以添加设置当前播放音乐的逻辑
+                // 例如：currentMusicId = musicId;
+            }
+            else
+            {
+                Debug.LogError($"PlaybackManager: 音乐组件未找到 {musicId}");
+            }
+        }
+
+        /// <summary>
+        /// 检查指定音乐是否正在播放
+        /// </summary>
+        public bool IsPlayingMusic(string musicId)
+        {
+            // 简单实现：检查是否在播放状态且音乐ID匹配
+            // 在实际实现中，您可能需要跟踪当前播放的音乐ID
+            return isPlaying; // 这里可以添加更具体的逻辑
+        }
+
+        /// <summary>
+        /// 停止音乐播放
+        /// </summary>
+        public void StopMusic()
+        {
+            Stop(); // 使用现有的停止方法
+        }
 
         private void OnDestroy()
         {
-            // 取消事件订阅            // 取消事件订阅
+            // 取消事件订阅
             PlaybackEvents.OnPlayPauseToggle -= TogglePlayPause;
             PlaybackEvents.OnStopRequested -= Stop;
         }

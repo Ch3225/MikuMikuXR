@@ -2,7 +2,7 @@ using UnityEngine;
 using System.Collections.Generic;
 using TMPro;
 using MMDVR.Scripts.UIInteraction;
-using MMDVR.Scripts.Data; // 数据类型引用
+using MMDVR.Scripts.Model;
 using MMDVR.Scripts.Managers; // Manager类引用
 using UnityEngine.UI;
 
@@ -211,7 +211,7 @@ public class MusicListController : MonoBehaviour
             MusicData newTopMusic = internalResourceList[0] as MusicData;
             if (SceneStatesManager.Instance != null && newTopMusic != null)
             {
-                SceneStatesManager.Instance.SetActiveMusic(newTopMusic.ID);
+                SceneDisplayManager.Instance.SetActiveMusic(newTopMusic.ID);
             }
         }
 
@@ -234,21 +234,17 @@ public class MusicListController : MonoBehaviour
             return;
         }
         Debug.Log($"MusicListController: Preparing to delete music: ID={droppedMusicData.ID}, DisplayName={droppedMusicData.DisplayName}");
-        int beforeCount = internalResourceList.Count;
-        Debug.Log($"Before deletion: Internal list count = {beforeCount}, UI objects count = {uiListItemObjects.Count}");
-        if (SceneStatesManager.Instance != null && SceneStatesManager.Instance.currentActiveMusicId == droppedMusicData.ID)
+        
+        // 使用UserActionManager进行用户操作
+        if (UserActionManager.Instance != null)
         {
-            SceneStatesManager.Instance.Pause();
-        }
-        if (SceneStatesManager.Instance != null)
-        {
-            SceneStatesManager.Instance.RemoveMusicResource(droppedMusicData.ID);
-            Debug.Log($"MusicListController: Requested uninstall for Music: {droppedMusicData.DisplayName}");
-            Debug.Log("Music deletion request completed. UI should refresh via event system.");
+            UserActionManager.Instance.UnloadMusic(droppedMusicData.ID, () => {
+                Debug.Log($"MusicListController: 音乐卸载完成 {droppedMusicData.DisplayName}");
+            });
         }
         else
         {
-            Debug.LogError("SceneStatesManager.Instance is null!");
+            Debug.LogError("UserActionManager.Instance is null!");
         }
     }
 
@@ -262,11 +258,16 @@ public class MusicListController : MonoBehaviour
         if (droppedMusicData == null)
             return;
 
-        // 拖拽到Enable区域 = 激活该音乐
-        if (SceneStatesManager.Instance != null)
+        // 使用UserActionManager进行用户操作  
+        if (UserActionManager.Instance != null)
         {
-            SceneStatesManager.Instance.SetActiveMusic(droppedMusicData.ID);
-            Debug.Log($"Activated Music via Enable zone: {droppedMusicData.DisplayName}");
+            UserActionManager.Instance.ActivateMusic(droppedMusicData.ID, () => {
+                Debug.Log($"MusicListController: 音乐激活完成 {droppedMusicData.DisplayName}");
+            });
+        }
+        else
+        {
+            Debug.LogError("UserActionManager.Instance is null!");
         }
     }
 
@@ -291,20 +292,19 @@ public class MusicListController : MonoBehaviour
         
         if (SceneStatesManager.Instance != null)
         {
-            SceneStatesManager.Instance.SetActiveMusic(musicDataToActivate.ID);
+            SceneDisplayManager.Instance.SetActiveMusic(musicDataToActivate.ID);
         }
         else
         {
             Debug.LogError("SceneStatesManager.Instance is null!");
         }
-    }
-
-    void UpdateAllItemVisuals()
+    }    void UpdateAllItemVisuals()
     {
         string activeMusicId = null;
-        if (SceneStatesManager.Instance != null)
+        if (PlaybackManager.Instance != null)
         {
-            activeMusicId = SceneStatesManager.Instance.currentActiveMusicId;
+            // TODO: PlaybackManager需要提供当前活动音乐ID的属性
+            activeMusicId = ""; // 暂时为空，等待PlaybackManager实现
         }
 
         for (int i = 0; i < uiListItemObjects.Count; i++)

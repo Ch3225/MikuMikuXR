@@ -41,9 +41,15 @@ namespace MMDVR.Events
         
         /// <summary>音乐加载请求事件</summary>
         public static Action<string> OnMusicLoadRequest;
-        
-        /// <summary>摄像机加载请求事件</summary>
+          /// <summary>摄像机加载请求事件</summary>
         public static Action<string> OnCameraLoadRequest;
+
+        // ==================== 资源激活事件 ====================
+        /// <summary>音乐激活事件</summary>
+        public static Action<string> OnMusicActivated;
+        
+        /// <summary>摄像机激活事件</summary>
+        public static Action<string> OnCameraActivated;
 
         // ==================== 便捷触发方法 ====================
         public static void TriggerResourceLoaded(string resourceType, string resourceId)
@@ -102,8 +108,17 @@ namespace MMDVR.Events
         }
 
         public static void TriggerCameraLoadRequest(string cameraPath)
+        {            OnCameraLoadRequest?.Invoke(cameraPath);
+        }
+
+        public static void TriggerMusicActivated(string musicId)
         {
-            OnCameraLoadRequest?.Invoke(cameraPath);
+            OnMusicActivated?.Invoke(musicId);
+        }
+
+        public static void TriggerCameraActivated(string cameraId)
+        {
+            OnCameraActivated?.Invoke(cameraId);
         }
 
         /// <summary>
@@ -119,10 +134,11 @@ namespace MMDVR.Events
             OnMotionListChanged = null;
             OnMusicListChanged = null;
             OnCameraListChanged = null;
-            OnModelLoadRequest = null;
-            OnMotionLoadRequest = null;
+            OnModelLoadRequest = null;            OnMotionLoadRequest = null;
             OnMusicLoadRequest = null;
             OnCameraLoadRequest = null;
+            OnMusicActivated = null;
+            OnCameraActivated = null;
         }
     }
 }
