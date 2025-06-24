@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using MMDVR.Scripts.Components.SceneItems;
+using MMDVR.Scripts.Managers;
 
 namespace MMDVR.Scripts.UIInteraction
 {
@@ -48,24 +49,32 @@ namespace MMDVR.Scripts.UIInteraction
             HandleCameraControl();
         }
 
+        void OnEnable()
+        {
+            if (KeyboardInputManager.Instance != null)
+                KeyboardInputManager.OnToggleMouseMode += ToggleMouseMode;
+        }
+        void OnDisable()
+        {
+            if (KeyboardInputManager.Instance != null)
+                KeyboardInputManager.OnToggleMouseMode -= ToggleMouseMode;
+        }
+
         public void OnToggleMouseClicked()
         {
             ToggleMouseMode();
-        }        private void ToggleMouseMode()
+        }
+        private void ToggleMouseMode()
         {
             if (freeCamera != null && freeCamera.activeInHierarchy)
             {
                 isToggleMode = !isToggleMode;
                 Debug.Log($"ToggleMouseButton: 切换到 {(isToggleMode ? "Toggle模式（始终移动）" : "右键模式（按住右键移动）")}");
-                
                 if (cameraController != null)
                 {
                     cameraController.SetControlMode(isToggleMode ? CameraComponent.ControlMode.Always : CameraComponent.ControlMode.RightClickOnly);
-                    
-                    // 立即应用新模式的鼠标状态
                     if (!isToggleMode)
                     {
-                        // 切换到右键模式时，立即释放鼠标锁定
                         Cursor.lockState = CursorLockMode.None;
                         Cursor.visible = true;
                         cameraController.SetMouseLocked(false);

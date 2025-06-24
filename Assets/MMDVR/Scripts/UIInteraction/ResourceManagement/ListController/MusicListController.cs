@@ -16,7 +16,6 @@ namespace MMDVR.Scripts.UIInteraction.ResourceManagement.ListController
 
         [Header("UI References")]
         public GameObject listItemPrefab;    public Transform listContainer;
-        public DropZone listSortableAreaDropZone;
         public DropZone uninstallDropZone;
         public DropZone enableDropZone;
 
@@ -53,10 +52,6 @@ namespace MMDVR.Scripts.UIInteraction.ResourceManagement.ListController
                 }
             }
 
-            if (listSortableAreaDropZone != null)
-            {
-                listSortableAreaDropZone.onItemDropped.AddListener(HandleDropOnListArea);
-            }
             if (uninstallDropZone != null)
             {
                 uninstallDropZone.onItemDropped.AddListener(HandleDropOnUninstallZone);
@@ -79,10 +74,6 @@ namespace MMDVR.Scripts.UIInteraction.ResourceManagement.ListController
             EventManager.OnMusicListChanged -= NotifySceneDisplayManager;
             MMDVR.Events.ResourceEvents.OnMusicActivated -= OnMusicActivated;
             
-            if (listSortableAreaDropZone != null)
-            {
-                listSortableAreaDropZone.onItemDropped.RemoveListener(HandleDropOnListArea);
-            }
             if (uninstallDropZone != null)
             {
                 uninstallDropZone.onItemDropped.RemoveListener(HandleDropOnUninstallZone);
@@ -188,71 +179,7 @@ namespace MMDVR.Scripts.UIInteraction.ResourceManagement.ListController
             {
                 LayoutRebuilder.ForceRebuildLayoutImmediate(rect);
             }
-        }        public void HandleDropOnListArea(GameObject droppedGameObject)
-        {
-            // 添加空值检查，防止访问已销毁的GameObject
-            if (droppedGameObject == null)
-            {
-                Debug.LogWarning("MusicListController: droppedGameObject is null or destroyed in HandleDropOnListArea");
-                return;
-            }
-            
-            DraggableItem droppedItemComponent = droppedGameObject.GetComponent<DraggableItem>();
-            if (droppedItemComponent == null || droppedItemComponent.Data == null || !(droppedItemComponent.Data is MusicData)) 
-                return;
-
-            // 重新构建内部列表基于UI顺序
-            List<IResourceInfo> newOrderedInternalList = new List<IResourceInfo>();
-            for (int i = 0; i < listContainer.childCount; i++)
-            {
-                Transform child = listContainer.GetChild(i);
-                DraggableItem item = child.GetComponent<DraggableItem>();
-                if (item != null && item.Data != null)
-                {
-                    newOrderedInternalList.Add(item.Data);
-                }
-            }
-            internalResourceList = newOrderedInternalList;
-
-            // 检查是否为ListSortAndActivate模式，如果是则激活第一项
-            if (listSortableAreaDropZone != null && 
-                listSortableAreaDropZone.actionType == DropZone.DropActionType.ListSortAndActivate &&
-                internalResourceList.Count > 0)
-            {
-                MusicData newTopMusic = internalResourceList[0] as MusicData;
-                if (newTopMusic != null)
-                {
-                    Debug.Log($"MusicListController: ListSortAndActivate模式 - 激活第一项音乐: {newTopMusic.DisplayName}");
-                    
-                    // 使用UserActionManager进行用户操作
-                    if (UserActionManager.Instance != null)
-                    {
-                        UserActionManager.Instance.LoadMusic(newTopMusic.ID, id => {
-                            UserActionManager.Instance.StartPlayback();
-                            Debug.Log($"MusicListController: 音乐自动激活完成: {newTopMusic.DisplayName}");
-                        });
-                    }
-                    else
-                    {
-                        Debug.LogError("UserActionManager.Instance is null!");
-                    }
-                }
-            }
-            else
-            {
-                // 兼容旧的逻辑 - 直接设置激活音乐
-                if (internalResourceList.Count > 0)
-                {
-                    MusicData newTopMusic = internalResourceList[0] as MusicData;
-                    if (SceneStatesManager.Instance != null && newTopMusic != null)
-                    {
-                        SceneDisplayManager.Instance.SetActiveMusic(newTopMusic.ID);
-                    }
-                }
-            }
-
-            UpdateAllItemVisuals();
-        }public void HandleDropOnUninstallZone(GameObject droppedGameObject)
+        }        public void HandleDropOnUninstallZone(GameObject droppedGameObject)
         {
             // 添加空值检查，防止访问已销毁的GameObject
             if (droppedGameObject == null)
@@ -353,24 +280,12 @@ namespace MMDVR.Scripts.UIInteraction.ResourceManagement.ListController
         void UpdateAllItemVisuals()
         {
             string activeMusicId = null;
-            bool isListSortAndActivateMode = false;
             
-            // 检查是否为ListSortAndActivate模式
-            if (listSortableAreaDropZone != null && 
-                listSortableAreaDropZone.actionType == DropZone.DropActionType.ListSortAndActivate)
+            // 常规模式下，获取当前播放的音乐ID
+            if (PlaybackManager.Instance != null)
             {
-                isListSortAndActivateMode = true;
-                // 在ListSortAndActivate模式下，首项为激活项
-                activeMusicId = GetFirstMusicId();
-            }
-            else
-            {
-                // 常规模式下，获取当前播放的音乐ID
-                if (PlaybackManager.Instance != null)
-                {
-                    // TODO: PlaybackManager需要提供当前活动音乐ID的属性
-                    activeMusicId = ""; // 暂时为空，等待PlaybackManager实现
-                }
+                // TODO: PlaybackManager需要提供当前活动音乐ID的属性
+                activeMusicId = ""; // 暂时为空，等待PlaybackManager实现
             }
 
             for (int i = 0; i < uiListItemObjects.Count; i++)
@@ -382,17 +297,8 @@ namespace MMDVR.Scripts.UIInteraction.ResourceManagement.ListController
                     MusicData currentItemMusicData = draggable.Data as MusicData;
                     bool isActive = false;
                     
-                    if (isListSortAndActivateMode)
-                    {
-                        // ListSortAndActivate模式下，第一项为激活项
-                        isActive = (i == 0 && listContainer.childCount > 0 && 
-                                   listContainer.GetChild(0) == uiItemGO.transform);
-                    }
-                    else
-                    {
-                        // 常规模式下，按音乐ID匹配
-                        isActive = (activeMusicId != null && activeMusicId == currentItemMusicData.ID);
-                    }
+                    // 常规模式下，按音乐ID匹配
+                    isActive = (activeMusicId != null && activeMusicId == currentItemMusicData.ID);
                     
                     UpdateItemVisual(uiItemGO, currentItemMusicData, isActive);
                 }

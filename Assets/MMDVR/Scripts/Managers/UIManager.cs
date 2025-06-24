@@ -102,6 +102,18 @@ namespace MMDVR.Scripts.Managers
             InputEvents.OnUIToggleRequested -= OnUIToggleRequested;
         }
 
+        void OnEnable()
+        {
+            if (VRControllerInputManager.Instance != null)
+                VRControllerInputManager.OnMenuButtonPressed += OnVRMenuButtonPressed;
+        }
+
+        void OnDisable()
+        {
+            if (VRControllerInputManager.Instance != null)
+                VRControllerInputManager.OnMenuButtonPressed -= OnVRMenuButtonPressed;
+        }
+
         /// <summary>
         /// 初始化UI组件
         /// </summary>
@@ -221,6 +233,12 @@ namespace MMDVR.Scripts.Managers
         {
             UIShowSource uiSource = source == InputEvents.InputSource.VR ? UIShowSource.VR : UIShowSource.Desktop;
             ToggleUI(uiSource);
+        }
+
+        private void OnVRMenuButtonPressed()
+        {
+            // VR控制器菜单键切换UI
+            ToggleUI(UIShowSource.VR);
         }
 
         /// <summary>

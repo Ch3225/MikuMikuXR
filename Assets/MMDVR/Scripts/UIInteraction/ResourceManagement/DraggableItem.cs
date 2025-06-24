@@ -20,6 +20,9 @@ namespace MMDVR.Scripts.UIInteraction.ResourceManagement
 
         private Transform dragLayerToUse;
 
+        private GameObject dragGhostInstance;
+        private CanvasGroup dragGhostCanvasGroup;
+
         void Awake()
         {
             rectTransform = GetComponent<RectTransform>();
@@ -82,60 +85,46 @@ namespace MMDVR.Scripts.UIInteraction.ResourceManagement
         {
             if (rectTransform == null || canvas == null || dragLayerToUse == null)
             {
-                // Debug.LogError("DraggableItem: Missing references (rectTransform, canvas, or dragLayerToUse). Cannot begin drag.", this);
                 return;
             }
-
-            originalParent = transform.parent;
-            originalSiblingIndex = transform.GetSiblingIndex();
-
+            // 创建副本（Ghost）
+            dragGhostInstance = Instantiate(gameObject, dragLayerToUse);
+            dragGhostInstance.name = gameObject.name + "_DragGhost";
+            // 移除副本上的 DraggableItem 组件，避免递归拖拽
+            var ghostDraggable = dragGhostInstance.GetComponent<DraggableItem>();
+            if (ghostDraggable != null) Destroy(ghostDraggable);
+            // 设置半透明
+            dragGhostCanvasGroup = dragGhostInstance.GetComponent<CanvasGroup>();
+            if (dragGhostCanvasGroup == null) dragGhostCanvasGroup = dragGhostInstance.AddComponent<CanvasGroup>();
+            dragGhostCanvasGroup.alpha = 0.5f;
+            dragGhostCanvasGroup.blocksRaycasts = false;
+            // 跟随鼠标
+            RectTransform ghostRect = dragGhostInstance.GetComponent<RectTransform>();
             Vector3 globalMousePos;
             if (RectTransformUtility.ScreenPointToWorldPointInRectangle(canvas.transform as RectTransform, eventData.position, eventData.pressEventCamera, out globalMousePos))
             {
-                offsetToMouse = rectTransform.position - globalMousePos;
+                ghostRect.position = globalMousePos;
             }
-            else
-            {
-                offsetToMouse = Vector3.zero;
-            }
-
-            transform.SetParent(dragLayerToUse, true);
-            transform.SetAsLastSibling();
-
-            Vector3 newPos;
-            if (RectTransformUtility.ScreenPointToWorldPointInRectangle(canvas.transform as RectTransform, eventData.position, eventData.pressEventCamera, out newPos))
-            {
-                rectTransform.position = newPos + offsetToMouse;
-            }
-
-            canvasGroup.alpha = 0.7f;
-            canvasGroup.blocksRaycasts = false;
         }
 
         public void OnDrag(PointerEventData eventData)
         {
-            if (rectTransform == null || canvas == null || dragLayerToUse == null) return;
-
+            if (dragGhostInstance == null || canvas == null) return;
+            RectTransform ghostRect = dragGhostInstance.GetComponent<RectTransform>();
             Vector3 globalMousePos;
             if (RectTransformUtility.ScreenPointToWorldPointInRectangle(canvas.transform as RectTransform, eventData.position, eventData.pressEventCamera, out globalMousePos))
             {
-                rectTransform.position = globalMousePos + offsetToMouse;
+                ghostRect.position = globalMousePos;
             }
         }
 
         public void OnEndDrag(PointerEventData eventData)
         {
-            if (rectTransform == null || canvas == null || dragLayerToUse == null) return;
-
-            canvasGroup.alpha = 1f;
-            canvasGroup.blocksRaycasts = true;
-
-            if (transform.parent == dragLayerToUse)
+            if (dragGhostInstance != null)
             {
-                transform.SetParent(originalParent, false);
-                transform.SetSiblingIndex(originalSiblingIndex);
+                Destroy(dragGhostInstance);
+                dragGhostInstance = null;
             }
-            offsetToMouse = Vector3.zero;
         }
     }
 }

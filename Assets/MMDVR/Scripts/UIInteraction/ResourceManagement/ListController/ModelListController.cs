@@ -23,7 +23,6 @@ namespace MMDVR.Scripts.UIInteraction.ResourceManagement.ListController
     [Header("UI References")]
     public GameObject listItemPrefab;
     public Transform listContainer;
-    public DropZone listSortableAreaDropZone;
     public DropZone uninstallDropZone;
     public DropZone enableDropZone;
     public DropZone disableDropZone;
@@ -72,11 +71,7 @@ namespace MMDVR.Scripts.UIInteraction.ResourceManagement.ListController
         //         dz.onItemDropped.AddListener(HandleDropOnEnableZone);
         //         Debug.Log($"ModelListController: Bound HandleDropOnEnableZone to EnableDropZone: {dz.gameObject.name}");
         //     }
-        // }        if (listSortableAreaDropZone != null)
-        {
-            listSortableAreaDropZone.onItemDropped.AddListener(HandleDropOnListArea);
-        }
-        if (uninstallDropZone != null)
+        // }        if (uninstallDropZone != null)
         {
             uninstallDropZone.onItemDropped.AddListener(HandleDropOnUninstallZone);
         }        if (enableDropZone != null)
@@ -249,89 +244,28 @@ namespace MMDVR.Scripts.UIInteraction.ResourceManagement.ListController
         {
             LayoutRebuilder.ForceRebuildLayoutImmediate(rect);
         }
-    }    public void HandleDropOnListArea(GameObject droppedGameObject)
-    {
-        // 添加空值检查，防止访问已销毁的GameObject
-        if (droppedGameObject == null)
-        {
-            Debug.LogWarning("ModelListController: droppedGameObject is null or destroyed in HandleDropOnListArea");
-            return;
-        }
-        
-        DraggableItem droppedItemComponent = droppedGameObject.GetComponent<DraggableItem>();
-        if (droppedItemComponent == null || droppedItemComponent.Data == null) 
-            return;
-
-        // 支持模型列表内排序 和 动作拖到模型上建立关联
-        if (droppedItemComponent.Data is ModelData)
-        {
-            // 重新构建内部列表基于UI顺序（列表排序）
-            List<IResourceInfo> newOrderedInternalList = new List<IResourceInfo>();
-            for (int i = 0; i < listContainer.childCount; i++)
-            {
-                Transform child = listContainer.GetChild(i);
-                DraggableItem item = child.GetComponent<DraggableItem>();
-                if (item != null && item.Data != null)
-                {
-                    newOrderedInternalList.Add(item.Data);
-                }
-            }
-            internalResourceList = newOrderedInternalList;
-
-            Debug.Log("模型列表重新排序");
-            UpdateAllItemVisuals();
-        }
-        else if (droppedItemComponent.Data is MotionData)
-        {
-            // 动作拖到模型列表区域，需要确定具体拖到哪个模型上
-            // 这需要更精确的拖拽检测，暂时简化为拖到第一个模型            if (internalResourceList.Count > 0 && internalResourceList[0] is ModelData)
-            {
-                var motionData = droppedItemComponent.Data as MotionData;
-                var modelData = internalResourceList[0] as ModelData;
-                
-                // 使用UserActionManager进行用户操作，遵循正确的流程顺序
-                if (UserActionManager.Instance != null)
-                {
-                    UserActionManager.Instance.AssignMotionToModel(modelData.ID, motionData.ID, () => {
-                        Debug.Log($"ModelListController: 关联动作 {motionData.DisplayName} 到模型 {modelData.DisplayName} 完成");
-                    });
-                }
-                else
-                {
-                    Debug.LogError("UserActionManager.Instance is null!");
-                }
-            }
-        }
     }    public void HandleDropOnUninstallZone(GameObject droppedGameObject)
     {
-        // 先缓存数据，避免销毁后访问
-        DraggableItem draggableItem = droppedGameObject != null ? droppedGameObject.GetComponent<DraggableItem>() : null;
-        var data = draggableItem != null ? draggableItem.Data : null;
-        if (data == null)
-        {
-            Debug.LogWarning("ModelListController: DraggableItem or Data is null");
+        if (droppedGameObject == null || droppedGameObject.Equals(null)) return;
+        DraggableItem draggableItem = droppedGameObject.GetComponent<DraggableItem>();
+        if (draggableItem == null || draggableItem.Data == null) 
             return;
-        }
-        Debug.Log($"ModelListController: Processing item with type: {(data as IResourceInfo)?.Type}, id: {(data as IResourceInfo)?.ID}, 实际类型: {data.GetType().Name}");
-        ModelData droppedModelData = data as ModelData;
+        ModelData droppedModelData = draggableItem.Data as ModelData;
         if (droppedModelData == null)
-        {
-            Debug.LogWarning($"ModelListController: Dropped item is not a valid ModelData. Actual type: {data.GetType().Name}");
             return;
-        }
-        Debug.Log($"ModelListController: Dropped model data: {droppedModelData.DisplayName}, FilePath: {droppedModelData.FilePath}");
-        
         // 使用UserActionManager进行用户操作
         if (UserActionManager.Instance != null)
         {
             UserActionManager.Instance.UnloadModel(droppedModelData.ID, () => {
                 Debug.Log($"ModelListController: 模型卸载完成 {droppedModelData.DisplayName}");
+                // 其余刷新由 UserActionManager 保证
             });
         }
         else
         {
             Debug.LogError("UserActionManager.Instance is null!");
-        }    }    public void HandleDropOnToggleZone(GameObject droppedGameObject)
+        }
+    }    public void HandleDropOnToggleZone(GameObject droppedGameObject)
     {
         // 添加空值检查，防止访问已销毁的GameObject
         if (droppedGameObject == null)

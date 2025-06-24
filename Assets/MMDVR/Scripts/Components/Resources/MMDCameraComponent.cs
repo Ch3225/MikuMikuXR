@@ -230,6 +230,7 @@ namespace MMDVR.Scripts.Components
     public class CameraState
     {
         public Vector3 position;
-        public Quaternion rotation;        public float fieldOfView;
+        public Quaternion rotation;
+        public float fieldOfView;
     }
 }

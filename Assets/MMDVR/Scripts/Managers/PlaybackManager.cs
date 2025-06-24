@@ -653,7 +653,7 @@ namespace MMDVR.Scripts.Managers
             // 更新VMD摄像机（如果有的话）
             if (!string.IsNullOrEmpty(sceneDisplayManager.currentActiveCameraId) && 
                 sceneDisplayManager.currentActiveCameraId != "BUILTIN_FREE_CAMERA")
-            {
+            {   
                 var cameraData = resourceManager.GetCamera(sceneDisplayManager.currentActiveCameraId);
                 if (cameraData != null)
                 {

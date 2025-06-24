@@ -61,20 +61,31 @@ namespace MMDVR.Scripts.Managers
         }
 
         /// <summary>
-        /// 用户行为：卸载模型并从场景中移除
+        /// 用户行为：卸载模型并从场景中移除，并同步断开所有关联和连线
         /// </summary>
         public void UnloadModel(string modelId, System.Action onComplete = null)
         {
-            StartCoroutine(UnloadModelWithUnlinkCoroutine(modelId, onComplete));
+            StartCoroutine(UnloadModelWithUnlinkAndSyncCoroutine(modelId, onComplete));
         }
-        private IEnumerator UnloadModelWithUnlinkCoroutine(string modelId, System.Action onComplete)
+        private IEnumerator UnloadModelWithUnlinkAndSyncCoroutine(string modelId, System.Action onComplete)
         {
+            // 1. 断开所有关联
             AssociationManager.Instance.ClearModelAssociations(modelId);
             yield return new WaitForEndOfFrame();
+            // 2. 移除场景Actor
             SceneDisplayManager.Instance.RemoveActor(modelId);
             yield return new WaitForEndOfFrame();
+            // 3. 卸载资源
             ResourceManager.Instance.UnloadModel(modelId);
             yield return new WaitForEndOfFrame();
+            // 4. 刷新连线
+            if (MMDVR.Scripts.UIInteraction.ResourceManagement.ConnectionManagement.ConnectionManager.Instance != null)
+            {
+                MMDVR.Scripts.UIInteraction.ResourceManagement.ConnectionManagement.ConnectionManager.Instance.RebuildConnectionsForModel(modelId);
+                MMDVR.Scripts.UIInteraction.ResourceManagement.ConnectionManagement.ConnectionManager.Instance.RefreshConnectionEndPoints();
+            }
+            // 5. 刷新列表
+            MMDVR.Events.ResourceEvents.TriggerModelListChanged();
             onComplete?.Invoke();
         }
 
@@ -154,18 +165,26 @@ namespace MMDVR.Scripts.Managers
         // ==================== 动作管理用户行为 ====================
         
         /// <summary>
-        /// 卸载动作（先断开所有关联再卸载）
+        /// 卸载动作（先断开所有关联再卸载，并同步刷新连线和列表）
         /// </summary>
         public void UnloadMotion(string motionId, System.Action onComplete = null)
         {
-            StartCoroutine(UnloadMotionWithUnlinkCoroutine(motionId, onComplete));
+            StartCoroutine(UnloadMotionWithUnlinkAndSyncCoroutine(motionId, onComplete));
         }
-        private IEnumerator UnloadMotionWithUnlinkCoroutine(string motionId, System.Action onComplete)
+        private IEnumerator UnloadMotionWithUnlinkAndSyncCoroutine(string motionId, System.Action onComplete)
         {
             AssociationManager.Instance.ClearMotionAssociations(motionId);
             yield return new WaitForEndOfFrame();
             ResourceManager.Instance.RemoveMotion(motionId);
             yield return new WaitForEndOfFrame();
+            // 刷新连线
+            if (MMDVR.Scripts.UIInteraction.ResourceManagement.ConnectionManagement.ConnectionManager.Instance != null)
+            {
+                MMDVR.Scripts.UIInteraction.ResourceManagement.ConnectionManagement.ConnectionManager.Instance.RebuildConnectionsForMotion(motionId);
+                MMDVR.Scripts.UIInteraction.ResourceManagement.ConnectionManagement.ConnectionManager.Instance.RefreshConnectionEndPoints();
+            }
+            // 刷新列表
+            MMDVR.Events.ResourceEvents.TriggerMotionListChanged();
             onComplete?.Invoke();
         }
 

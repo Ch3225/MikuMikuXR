@@ -290,6 +290,16 @@ namespace MMDVR.Scripts.Components
         /// </summary>
         void Start()
         {
+            // 自动设置SkinnedMeshRenderer.UpdateWhenOffscreen = true
+            if (MmdGameObject != null)
+            {
+                var renderers = MmdGameObject.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+                foreach (var r in renderers)
+                {
+                    r.updateWhenOffscreen = true;
+                }
+            }
+            
             // 初始化时应用当前状态 - 使用GameObject当前状态
             SetVisibilityInternal(gameObject.activeInHierarchy);
             

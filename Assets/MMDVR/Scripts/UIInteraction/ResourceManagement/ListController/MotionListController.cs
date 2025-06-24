@@ -20,7 +20,6 @@ namespace MMDVR.Scripts.UIInteraction.ResourceManagement.ListController
         [Header("UI References")]
         public GameObject listItemPrefab;
         public Transform listContainer;
-        public DropZone listSortableAreaDropZone;
         public DropZone uninstallDropZone;
         public DropZone disconnectDropZone;
 
@@ -60,10 +59,6 @@ namespace MMDVR.Scripts.UIInteraction.ResourceManagement.ListController
                 }
             }
 
-            if (listSortableAreaDropZone != null)
-            {
-                listSortableAreaDropZone.onItemDropped.AddListener(HandleDropOnListArea);
-            }
             if (uninstallDropZone != null)
             {
                 uninstallDropZone.onItemDropped.AddListener(HandleDropOnUninstallZone);
@@ -216,62 +211,7 @@ namespace MMDVR.Scripts.UIInteraction.ResourceManagement.ListController
             {
                 LayoutRebuilder.ForceRebuildLayoutImmediate(rect);
             }
-        }        public void HandleDropOnListArea(GameObject droppedGameObject)
-        {
-            // 添加空值检查，防止访问已销毁的GameObject
-            if (droppedGameObject == null)
-            {
-                Debug.LogWarning("MotionListController: droppedGameObject is null or destroyed in HandleDropOnListArea");
-                return;
-            }
-            
-            DraggableItem droppedItemComponent = droppedGameObject.GetComponent<DraggableItem>();
-            if (droppedItemComponent == null || droppedItemComponent.Data == null) 
-                return;
-
-            // 支持动作列表内排序 和 模型拖到动作上建立关联
-            if (droppedItemComponent.Data is MotionData)
-            {
-                // 重新构建内部列表基于UI顺序（列表排序）
-                List<IResourceInfo> newOrderedInternalList = new List<IResourceInfo>();
-                for (int i = 0; i < listContainer.childCount; i++)
-                {
-                    Transform child = listContainer.GetChild(i);
-                    DraggableItem item = child.GetComponent<DraggableItem>();
-                    if (item != null && item.Data != null)
-                    {
-                        newOrderedInternalList.Add(item.Data);
-                    }
-                }
-                internalResourceList = newOrderedInternalList;
-
-                Debug.Log("动作列表重新排序");
-                UpdateAllItemVisuals();
-            }
-            else if (droppedItemComponent.Data is ModelData)
-            {
-                // 模型拖到动作列表区域，需要确定具体拖到哪个动作上
-                // 这需要更精确的拖拽检测，暂时简化为拖到第一个动作                if (internalResourceList.Count > 0 && internalResourceList[0] is MotionData)
-                {
-                    var modelData = droppedItemComponent.Data as ModelData;
-                    var motionData = internalResourceList[0] as MotionData;
-                    
-                    // 使用UserActionManager进行用户操作，遵循正确的流程顺序
-                    if (UserActionManager.Instance != null)
-                    {
-                        UserActionManager.Instance.AssignMotionToModel(modelData.ID, motionData.ID, () => {
-                            Debug.Log($"MotionListController: 关联模型 {modelData.DisplayName} 到动作 {motionData.DisplayName} 完成");
-                        });
-                    }
-                    else
-                    {
-                        Debug.LogError("UserActionManager.Instance is null!");
-                    }
-                }
-            }
-        }
-
-        public void HandleDropOnUninstallZone(GameObject droppedGameObject)
+        }        public void HandleDropOnUninstallZone(GameObject droppedGameObject)
         {
             // 先缓存数据，避免销毁后访问
             DraggableItem draggableItem = droppedGameObject != null ? droppedGameObject.GetComponent<DraggableItem>() : null;
@@ -287,13 +227,14 @@ namespace MMDVR.Scripts.UIInteraction.ResourceManagement.ListController
             {
                 Debug.LogWarning($"MotionListController: Dropped item is not a valid MotionData. Actual type: {data.GetType().Name}");
                 return;
-            }            Debug.Log($"MotionListController: Dropped motion data: {droppedMotionData.DisplayName}, FilePath: {droppedMotionData.FilePath}");
-            
+            }
+            Debug.Log($"MotionListController: Dropped motion data: {droppedMotionData.DisplayName}, FilePath: {droppedMotionData.FilePath}");
             // 使用UserActionManager进行用户操作 - 真正删除动作资源
             if (UserActionManager.Instance != null)
             {
                 UserActionManager.Instance.UnloadMotion(droppedMotionData.ID, () => {
                     Debug.Log($"MotionListController: 动作已删除 {droppedMotionData.DisplayName}");
+                    // 其余刷新由 UserActionManager 保证
                 });
             }
             else

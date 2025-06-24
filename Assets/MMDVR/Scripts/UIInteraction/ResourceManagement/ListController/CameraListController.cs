@@ -16,7 +16,6 @@ namespace MMDVR.Scripts.UIInteraction.ResourceManagement.ListController
     public static CameraListController Instance { get; private set; }    [Header("UI References")]
     public GameObject listItemPrefab;
     public Transform listContainer;
-    public DropZone listSortableAreaDropZone;
     public DropZone uninstallDropZone;
     public DropZone enableDropZone;
 
@@ -62,11 +61,6 @@ namespace MMDVR.Scripts.UIInteraction.ResourceManagement.ListController
             }
         }
         
-        if (listSortableAreaDropZone != null)
-        {
-            listSortableAreaDropZone.onItemDropped.AddListener(HandleDropOnListArea);
-            Debug.Log("CameraListController: Bound HandleDropOnListArea to listSortableAreaDropZone");
-        }
         if (uninstallDropZone != null)
         {
             uninstallDropZone.onItemDropped.AddListener(HandleDropOnUninstallZone);
@@ -90,10 +84,6 @@ namespace MMDVR.Scripts.UIInteraction.ResourceManagement.ListController
         EventManager.OnCameraListChanged -= NotifySceneDisplayManager;
         EventManager.OnCameraActivated -= OnCameraActivated;
         
-        if (listSortableAreaDropZone != null)
-        {
-            listSortableAreaDropZone.onItemDropped.RemoveListener(HandleDropOnListArea);
-        }
         if (uninstallDropZone != null)
         {
             uninstallDropZone.onItemDropped.RemoveListener(HandleDropOnUninstallZone);
@@ -199,63 +189,6 @@ namespace MMDVR.Scripts.UIInteraction.ResourceManagement.ListController
         {
             LayoutRebuilder.ForceRebuildLayoutImmediate(rect);
         }
-    }    public void HandleDropOnListArea(GameObject droppedGameObject)
-    {
-        // 添加空值检查，防止访问已销毁的GameObject
-        if (droppedGameObject == null)
-        {
-            Debug.LogWarning("CameraListController: droppedGameObject is null or destroyed in HandleDropOnListArea");
-            return;
-        }
-        
-        DraggableItem droppedItemComponent = droppedGameObject.GetComponent<DraggableItem>();
-        if (droppedItemComponent == null || droppedItemComponent.Data == null || !(droppedItemComponent.Data is CameraData)) 
-            return;
-
-        // 重新构建内部列表基于UI顺序
-        List<IResourceInfo> newOrderedInternalList = new List<IResourceInfo>();
-        for (int i = 0; i < listContainer.childCount; i++)
-        {
-            Transform child = listContainer.GetChild(i);
-            DraggableItem item = child.GetComponent<DraggableItem>();
-            if (item != null && item.Data != null)
-            {
-                newOrderedInternalList.Add(item.Data);
-            }
-        }
-        internalResourceList = newOrderedInternalList;
-
-        // 激活新的顶部项�?
-        if (internalResourceList.Count > 0)
-        {
-            CameraData newTopCamera = internalResourceList[0] as CameraData;            // 检查是否为ListSortAndActivate模式，如果是则激活第一项
-            if (listSortableAreaDropZone != null && 
-                listSortableAreaDropZone.actionType == DropZone.DropActionType.ListSortAndActivate &&
-                internalResourceList.Count > 0)
-            {
-                newTopCamera = internalResourceList[0] as CameraData;
-                if (newTopCamera != null)
-                {
-                    Debug.Log($"CameraListController: ListSortAndActivate模式 - 激活第一项摄像机: {newTopCamera.DisplayName}");
-                    
-                    // TODO: 切换相机，需调用CameraManager.Instance.SetActiveCamera(newTopCamera.ID)
-                }
-            }
-            else
-            {
-                // 兼容旧的逻辑
-                if (internalResourceList.Count > 0)
-                {
-                    newTopCamera = internalResourceList[0] as CameraData;
-                    if (ResourceManager.Instance != null && newTopCamera != null)
-                    {
-                        ResourceManager.Instance.SetActiveCamera(newTopCamera.ID);
-                    }
-                }
-            }
-        }
-
-        UpdateAllItemVisuals();
     }    public void HandleDropOnUninstallZone(GameObject droppedGameObject)
     {
         Debug.Log("=== CameraListController: HandleDropOnUninstallZone called ===");
@@ -362,27 +295,11 @@ namespace MMDVR.Scripts.UIInteraction.ResourceManagement.ListController
         UpdateAllItemVisuals();    }    void UpdateAllItemVisuals()
     {
         CameraData activeCamData = null;
-        bool isListSortAndActivateMode = false;
         
-        // 检查是否为ListSortAndActivate模式
-        if (listSortableAreaDropZone != null && 
-            listSortableAreaDropZone.actionType == DropZone.DropActionType.ListSortAndActivate)
+        // 常规模式下，获取当前激活的摄像机
+        if (SceneStatesManager.Instance != null)
         {
-            isListSortAndActivateMode = true;
-            // 在ListSortAndActivate模式下，首项为激活项
-            // 可以直接获取第一项的数据，或者从SceneDisplayManager获取当前激活的摄像机
-            if (SceneStatesManager.Instance != null)
-            {
-                activeCamData = SceneDisplayManager.Instance.GetActiveCameraData();
-            }
-        }
-        else
-        {
-            // 常规模式下，获取当前激活的摄像机
-            if (SceneStatesManager.Instance != null)
-            {
-                activeCamData = SceneDisplayManager.Instance.GetActiveCameraData();
-            }
+            activeCamData = SceneDisplayManager.Instance.GetActiveCameraData();
         }
 
         for (int i = 0; i < uiListItemObjects.Count; i++)
@@ -394,17 +311,8 @@ namespace MMDVR.Scripts.UIInteraction.ResourceManagement.ListController
                 CameraData currentItemCamData = draggable.Data as CameraData;
                 bool isActive = false;
                 
-                if (isListSortAndActivateMode)
-                {
-                    // ListSortAndActivate模式下，第一项为激活项
-                    isActive = (i == 0 && listContainer.childCount > 0 && 
-                               listContainer.GetChild(0) == uiItemGO.transform);
-                }
-                else
-                {
-                    // 常规模式下，按摄像机ID匹配
-                    isActive = (activeCamData != null && activeCamData.ID == currentItemCamData.ID);
-                }
+                // 常规模式下，按摄像机ID匹配
+                isActive = (activeCamData != null && activeCamData.ID == currentItemCamData.ID);
                 
                 UpdateItemVisual(uiItemGO, currentItemCamData, isActive);
             }

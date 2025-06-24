@@ -1,4 +1,5 @@
 using UnityEngine;
+using MMDVR.Scripts.Managers;
 
 namespace MMDVR.Scripts.Components.SceneItems
 {    /// <summary>
@@ -120,27 +121,32 @@ namespace MMDVR.Scripts.Components.SceneItems
         {
             m_TargetCameraState.SetFromTransform(transform);
             m_InterpolatingCameraState.SetFromTransform(transform);
+            if (KeyboardInputManager.Instance != null)
+            {
+                KeyboardInputManager.OnResetCamera += ResetToTransform;
+            }
         }
-
+        void OnDisable()
+        {
+            if (KeyboardInputManager.Instance != null)
+            {
+                KeyboardInputManager.OnResetCamera -= ResetToTransform;
+            }
+        }
         void Update()
         {
-            bool shouldProcessInput = ShouldProcessInput();
-            
-            if (shouldProcessInput)
-            {
-                // 处理旋转输入
-                ProcessRotationInput();
-                
-                // 处理移动输入
-                ProcessMovementInput();
-            }
-
-            // 平滑插值
+            // 只做插值和平滑，不再处理输入
             var positionLerpPct = 1f - Mathf.Exp((Mathf.Log(1f - 0.99f) / positionLerpTime) * Time.deltaTime);
             var rotationLerpPct = 1f - Mathf.Exp((Mathf.Log(1f - 0.99f) / rotationLerpTime) * Time.deltaTime);
-            
             m_InterpolatingCameraState.LerpTowards(m_TargetCameraState, positionLerpPct, rotationLerpPct);
             m_InterpolatingCameraState.UpdateTransform(transform);
+            // 用KeyboardInputManager单例配置处理移动/旋转
+            var km = KeyboardInputManager.Instance;
+            if (isActive && ShouldProcessInput() && km != null)
+            {
+                ProcessMovementInput_KeyboardManager(km);
+                ProcessRotationInput_KeyboardManager();
+            }
         }        private bool ShouldProcessInput()
         {
             switch (controlMode)
@@ -162,51 +168,35 @@ namespace MMDVR.Scripts.Components.SceneItems
             // 限制pitch角度，避免翻转
             m_TargetCameraState.pitch = Mathf.Clamp(m_TargetCameraState.pitch, -90f, 90f);
         }
-
-        private void ProcessMovementInput()
+        // 新增：用KeyboardInputManager配置处理移动
+        private void ProcessMovementInput_KeyboardManager(KeyboardInputManager km)
         {
-            Vector3 direction = GetInputTranslationDirection();
-              if (direction.magnitude > 0.1f)
+            Vector3 direction = Vector3.zero;
+            if (Input.GetKey(km.moveForward)) direction += Vector3.forward;
+            if (Input.GetKey(km.moveBackward)) direction += Vector3.back;
+            if (Input.GetKey(km.moveLeft)) direction += Vector3.left;
+            if (Input.GetKey(km.moveRight)) direction += Vector3.right;
+            if (Input.GetKey(km.moveUp)) direction += Vector3.up;
+            if (Input.GetKey(km.moveDown)) direction += Vector3.down;
+            if (direction.magnitude > 0.1f)
             {
                 direction = direction.normalized;
-                
                 float speed = movementSpeed;
-                if (UnityEngine.Input.GetKey(KeyCode.LeftShift))
-                {
-                    speed *= fastMovementSpeed;
-                }
-                
+                if (Input.GetKey(km.fastMovement)) speed *= fastMovementSpeed;
                 Vector3 translation = direction * speed * Time.deltaTime;
                 m_TargetCameraState.Translate(translation);
             }
-        }        private Vector3 GetInputTranslationDirection()
+        }
+        // 新增：用鼠标输入处理旋转
+        private void ProcessRotationInput_KeyboardManager()
         {
-            // 检查是否有外部输入管理器在控制
-            if (MMDVR.Scripts.Managers.KeyboardInputManager.Instance != null && 
-                MMDVR.Scripts.Managers.KeyboardInputManager.Instance.IsControllingMovement)
-            {
-                // 由外部输入管理器控制，这里不处理
-                return Vector3.zero;
-            }
-            
-            // 内部输入处理（向后兼容）
-            Vector3 direction = Vector3.zero;
-            
-            if (UnityEngine.Input.GetKey(KeyCode.W))
-                direction += Vector3.forward;
-            if (UnityEngine.Input.GetKey(KeyCode.S))
-                direction += Vector3.back;
-            if (UnityEngine.Input.GetKey(KeyCode.A))
-                direction += Vector3.left;
-            if (UnityEngine.Input.GetKey(KeyCode.D))
-                direction += Vector3.right;
-            if (UnityEngine.Input.GetKey(KeyCode.Q))
-                direction += Vector3.down;
-            if (UnityEngine.Input.GetKey(KeyCode.E))
-                direction += Vector3.up;
-                
-            return direction;
-        }// 公共方法
+            var mouseMovement = new Vector2(Input.GetAxis("Mouse X"), Input.GetAxis("Mouse Y") * (invertY ? 1 : -1));
+            m_TargetCameraState.yaw += mouseMovement.x * mouseSensitivity;
+            m_TargetCameraState.pitch += mouseMovement.y * mouseSensitivity;
+            m_TargetCameraState.pitch = Mathf.Clamp(m_TargetCameraState.pitch, -90f, 90f);
+        }
+
+        // 公共方法
         public void SetControlMode(ControlMode mode)
         {
             controlMode = mode;
@@ -224,19 +214,19 @@ namespace MMDVR.Scripts.Components.SceneItems
         /// <param name="useFastSpeed">是否使用快速移动</param>
         public void ApplyMovement(Vector3 direction, bool useFastSpeed = false)
         {
-            if (direction.magnitude > 0.1f)
-            {
-                direction = direction.normalized;
-                
-                float speed = movementSpeed;
-                if (useFastSpeed)
-                {
-                    speed *= fastMovementSpeed;
-                }
-                
-                Vector3 translation = direction * speed * Time.deltaTime;
-                m_TargetCameraState.Translate(translation);
-            }
+            if (!isActive || direction.sqrMagnitude < 1e-4f) return;
+            float speed = movementSpeed;
+            if (useFastSpeed) speed *= fastMovementSpeed;
+            Vector3 translation = direction.normalized * speed * Time.deltaTime;
+            m_TargetCameraState.Translate(translation);
+        }
+
+        public void ApplyRotation(float yawDelta, float pitchDelta)
+        {
+            if (!isActive) return;
+            m_TargetCameraState.yaw += yawDelta * mouseSensitivity;
+            m_TargetCameraState.pitch += pitchDelta * mouseSensitivity * (invertY ? 1 : -1);
+            m_TargetCameraState.pitch = Mathf.Clamp(m_TargetCameraState.pitch, -90f, 90f);
         }
 
         /// <summary>

@@ -138,31 +138,32 @@ namespace MMDVR.Scripts.UIInteraction.ResourceManagement
                 case ".pmx":
                 case ".pmd":
                     Debug.Log($"加载模型: {filePath}");
-                    SceneStatesManager.Instance?.AddActor(filePath);
+                    UserActionManager.Instance?.LoadAndShowModel(filePath, null);
                     break;
                 case ".vmd":
                     {
-                        // 使用新方法判断VMD文件类型
-                        var vmdType = GetVmdFileType(filePath);                        if (vmdType == VmdType.Camera)
+                        var vmdType = GetVmdFileType(filePath);
+                        if (vmdType == VmdType.Camera)
                         {
                             Debug.Log($"加载VMD相机: {filePath}");
-                            SceneStatesManager.Instance?.AddVMDCamera(filePath);
+                            UserActionManager.Instance?.LoadVMDCamera(filePath, null);
                         }
                         else if (vmdType == VmdType.Motion)
                         {
                             Debug.Log($"加载VMD动作: {filePath}");
-                            SceneStatesManager.Instance?.AddMotion(filePath);
+                            UserActionManager.Instance?.LoadMotion(filePath, null);
                         }
                         else
                         {
                             Debug.LogWarning($"无法识别的VMD文件类型或文件损坏: {filePath}");
                         }
                     }
-                    break;                case ".mp3":
+                    break;
+                case ".mp3":
                 case ".wav":
                 case ".ogg":
                     Debug.Log($"加载音乐: {filePath}");
-                    SceneStatesManager.Instance?.AddMusic(filePath);
+                    UserActionManager.Instance?.LoadMusic(filePath, null);
                     break;
             }
         }
