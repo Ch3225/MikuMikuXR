@@ -132,6 +132,7 @@ GameObject:
   - component: {fileID: 18433703}
   - component: {fileID: 18433701}
   - component: {fileID: 18433706}
+  - component: {fileID: 18433707}
   m_Layer: 0
   m_Name: Desktop Camera
   m_TagString: MainCamera
@@ -374,6 +375,25 @@ MonoBehaviour:
   isActive: 1
   id: 
   displayName: 
+--- !u!114 &18433707
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 18433700}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 37066045840e4a34b1391c88f317a95a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  vmdFile: {fileID: 0}
+  CameraCenter: {fileID: 1338166073}
+  MainCamera: {fileID: 18433704}
+  MMDModel: {fileID: 1338166073}
+  Playing: 0
+  PlaySpeed: 1
+  CurrentFrame: 0
 --- !u!1 &19366653 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 204267350228430908, guid: 84aa96edfc143ad47a8fa195fa47020d,
@@ -2593,6 +2613,7 @@ MonoBehaviour:
   musicAudioSource: {fileID: 377077355}
   currentActiveCameraId: BUILTIN_FREE_CAMERA
   currentActiveMusicId: 
+  desktopCameraObject: {fileID: 18433700}
 --- !u!1 &751959329
 GameObject:
   m_ObjectHideFlags: 0
@@ -4559,6 +4580,37 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3811d3b97b5d2a5459cbb731eab03479, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!1 &1338166073
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1338166074}
+  m_Layer: 0
+  m_Name: ZeroPositionReference
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1338166074
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1338166073}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &1347181541 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 2719928601537003086, guid: 84aa96edfc143ad47a8fa195fa47020d,
@@ -9088,6 +9140,7 @@ SceneRoots:
   - {fileID: 1758803423}
   - {fileID: 1471743365}
   - {fileID: 861232741}
+  - {fileID: 1338166074}
   - {fileID: 193248520}
   - {fileID: 67037102}
   - {fileID: 4806990670155426812}

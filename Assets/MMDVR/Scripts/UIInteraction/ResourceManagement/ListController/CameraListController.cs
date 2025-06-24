@@ -258,7 +258,7 @@ namespace MMDVR.Scripts.UIInteraction.ResourceManagement.ListController
             return;
 
         // 使用UserActionManager进行用户操作
-        // TODO: 切换相机，需调用CameraManager.Instance.SetActiveCamera(droppedCamData.ID)
+        UserActionManager.Instance?.ActivateCamera(droppedCamData.ID);
         Debug.Log($"CameraListController: 摄像机激活完毕 {droppedCamData.DisplayName}");
     }
 

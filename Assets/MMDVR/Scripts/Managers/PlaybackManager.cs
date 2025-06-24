@@ -2,6 +2,7 @@ using UnityEngine;
 using MMDVR.Scripts.Events;
 using MMDVR.Scripts.Managers;
 using MMDVR.Scripts.Components;
+using LibMMD.Unity3D;
 
 namespace MMDVR.Scripts.Managers
 {
@@ -243,6 +244,7 @@ namespace MMDVR.Scripts.Managers
             }
               // 触发播放状态事件
             PlaybackEvents.TriggerPlaybackStateChanged(isPlaying);
+            SyncCameraWithPlayback(playTime, true);
         }        public void Pause()
         {
             _isPlaying = false;
@@ -284,6 +286,7 @@ namespace MMDVR.Scripts.Managers
             }
               // 触发播放状态事件
             PlaybackEvents.TriggerPlaybackStateChanged(isPlaying);
+            SyncCameraWithPlayback(playTime, false);
         }
           public void Stop()
         {
@@ -341,6 +344,7 @@ namespace MMDVR.Scripts.Managers
             
             Debug.Log($"跳转到时间: {playTime:F2}s");
             PlaybackEvents.TriggerPlaybackTimeChanged(playTime);
+            SyncCameraWithPlayback(playTime, isPlaying);
         }
 
         // ===== 音乐控制方法 =====
@@ -509,10 +513,10 @@ namespace MMDVR.Scripts.Managers
             if (cameraData != null)
             {
                 var cameraComponent = cameraData.GetComponent<MMDCameraComponent>();
-                if (cameraComponent != null && cameraComponent.vmdCameraData != null)
+                var mmdCameraObject = cameraData.GetComponent<MmdCameraObject>();
+                if (mmdCameraObject != null)
                 {
-                    // 更新VMD摄像机位置和朝向
-                    cameraComponent.ApplyAtTime(playTime);
+                    mmdCameraObject.SetFrame(playTime);
                 }
             }
         }        // ===== 同步功能（集成自PlaybackSynchronizer）=====
@@ -658,13 +662,10 @@ namespace MMDVR.Scripts.Managers
                 if (cameraData != null)
                 {
                     var mmdCameraComponent = cameraData.GetComponent<MMDCameraComponent>();
-                    if (mmdCameraComponent != null && mmdCameraComponent.vmdCameraData != null)
+                    var mmdCameraObject = cameraData.GetComponent<MmdCameraObject>();
+                    if (mmdCameraObject != null)
                     {
-                        var cameraState = mmdCameraComponent.vmdCameraData.GetCameraStateAtTime(adjustedTime);
-                        if (cameraState != null)
-                        {
-                            sceneDisplayManager.ApplyCameraState(cameraState);
-                        }
+                        mmdCameraObject.SetFrame(playTime);
                     }
                 }
             }
@@ -803,6 +804,19 @@ namespace MMDVR.Scripts.Managers
         public SceneDisplayManager GetSceneDisplayManager()
         {
             return sceneDisplayManager;
+        }
+
+        private void SyncCameraWithPlayback(float time, bool playing)
+        {
+            if (sceneDisplayManager != null && sceneDisplayManager.desktopCameraObject != null)
+            {
+                var mmdCamera = sceneDisplayManager.desktopCameraObject.GetComponentInChildren<LibMMD.Unity3D.MmdCameraObject>(true);
+                if (mmdCamera != null)
+                {
+                    mmdCamera.CurrentFrame = time * 30f; // 假设30fps
+                    mmdCamera.Playing = playing;
+                }
+            }
         }
     }
 }

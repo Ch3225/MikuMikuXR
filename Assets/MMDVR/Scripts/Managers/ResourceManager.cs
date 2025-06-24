@@ -81,7 +81,7 @@ namespace MMDVR.Scripts.Managers
             freeCameraResource.transform.SetParent(freeCamerasObj.transform);
             
             // 添加Free Camera组件
-            var freeCamComponent = freeCameraResource.AddComponent<CameraComponent>();
+            var freeCamComponent = freeCameraResource.AddComponent<FreeCameraComponent>();
             freeCamComponent.id = "BUILTIN_FREE_CAMERA";
             freeCamComponent.displayName = "Free Camera";
             freeCamComponent.position = Vector3.zero;
@@ -347,24 +347,8 @@ namespace MMDVR.Scripts.Managers
             cameraComponent.cameraId = cameraId;
             cameraComponent.filePath = filePath;
             cameraComponent.displayName = System.IO.Path.GetFileNameWithoutExtension(filePath);
-
-            // 加载VMD数据
-            try
-            {
-                bool loadSuccess = cameraComponent.LoadVMDData(filePath);
-                if (!loadSuccess)
-                {
-                    Debug.LogError($"ResourceManager: VMD摄像机数据加载失败 {filePath}");
-                    Destroy(cameraObj);
-                    return null;
-                }
-            }
-            catch (System.Exception e)
-            {
-                Debug.LogError($"ResourceManager: VMD摄像机加载异常: {e.Message}");
-                Destroy(cameraObj);
-                return null;
-            }
+            // 只做资源记录，不再加载/解析/应用VMD数据
+            // VMD数据加载和播放由MmdCameraObject负责
 
             // 添加到数据列表
             var cameraData = new CameraData
@@ -373,7 +357,8 @@ namespace MMDVR.Scripts.Managers
                 displayName = cameraComponent.displayName,
                 filePath = filePath,
                 isMMDCamera = true,
-                isFreeCamera = false            };
+                isFreeCamera = false
+            };
             cameraList.Add(cameraData);
 
             Debug.Log($"ResourceManager: 添加VMD摄像机资源: {filePath} (ID: {cameraId})");

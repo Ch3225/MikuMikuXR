@@ -315,5 +315,14 @@ namespace MMDVR.Scripts.Managers
             PlaybackManager.Instance?.SetMusicMute(mute);
             onComplete?.Invoke();
         }
+
+        /// <summary>
+        /// 激活指定摄像机（拖拽到dropzone等场景调用）
+        /// </summary>
+        public void ActivateCamera(string cameraId, System.Action onComplete = null)
+        {
+            SceneDisplayManager.Instance?.ActivateCamera(cameraId);
+            onComplete?.Invoke();
+        }
     }
 }

@@ -2,18 +2,12 @@ using UnityEngine;
 using MMDVR.Scripts.Managers;
 
 namespace MMDVR.Scripts.Components.SceneItems
-{    /// <summary>
-    /// 摄像机组件
-    /// 支持两种控制模式：
-    /// 1. Always - 始终可以移动摄像机
-    /// 2. RightClickOnly - 只有按住右键时才能移动摄像机
-    /// 
-    /// 输入处理：
-    /// - 内部处理：直接读取Unity Input（向后兼容）
-    /// - 外部控制：通过KeyboardInputManager统一管理
+{
+    /// <summary>
+    /// 自由相机组件（仅自由相机模式下启用）
     /// </summary>
     [RequireComponent(typeof(Camera))]
-    public class CameraComponent : MonoBehaviour
+    public class FreeCameraComponent : MonoBehaviour
     {
         public enum ControlMode
         {

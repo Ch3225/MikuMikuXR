@@ -13,6 +13,7 @@ using MMDVR.Scripts.UIInteraction.ResourceManagement.ListController;
 using LibMMD.Unity3D;
 using UnityEngine.UI;
 using UnityEngine.Networking;
+using MMDVR.Scripts.Components.SceneItems;
 
 namespace MMDVR.Scripts.Managers
 {    /// <summary>
@@ -41,12 +42,22 @@ namespace MMDVR.Scripts.Managers
         private CameraListController cameraListController;
         private MusicListController musicListController;
 
+        [Header("Desktop Camera对象（自由/动作切换）")]
+        public GameObject desktopCameraObject; // 在Inspector拖拽或运行时查找
+        private FreeCameraComponent freeCamera;
+        private MmdCameraObject mmdCameraObject;
+
         private void Awake()
         {
             if (Instance == null)
             {
                 Instance = this;
                 DontDestroyOnLoad(gameObject);
+            }
+            if (desktopCameraObject != null)
+            {
+                freeCamera = desktopCameraObject.GetComponentInChildren<FreeCameraComponent>(true);
+                mmdCameraObject = desktopCameraObject.GetComponentInChildren<LibMMD.Unity3D.MmdCameraObject>(true);
             }
         }
         private void Start()
@@ -514,20 +525,46 @@ namespace MMDVR.Scripts.Managers
                 return;
             }
             currentActiveCameraId = cameraId;
+            // 1. 刷新UI高亮
+            cameraListController?.UpdateAllItemVisuals();
+            // 2. 激活/禁用DesktopCamera下的组件
+            if (desktopCameraObject != null)
+            {
+                if (cameraId == "BUILTIN_FREE_CAMERA")
+                {
+                    if (freeCamera != null) freeCamera.gameObject.SetActive(true);
+                    if (mmdCameraObject != null) mmdCameraObject.gameObject.SetActive(false);
+                }
+                else
+                {
+                    if (freeCamera != null) freeCamera.gameObject.SetActive(false);
+                    if (mmdCameraObject != null)
+                    {
+                        mmdCameraObject.gameObject.SetActive(true);
+                        // 自动加载VMD文件到MmdCameraObject
+                        var mmdCameraData = ResourceManager.Instance?.GetCamera(cameraId);
+                        if (mmdCameraData != null && !string.IsNullOrEmpty(mmdCameraData.filePath))
+                        {
+                            mmdCameraObject.LoadCameraMotion(mmdCameraData.filePath);
+                        }
+                    }
+                }
+            }
             SceneDisplayEvents.TriggerCameraActivated(cameraId);
-        }        /// <summary>
-        /// 应用摄像机状态
+        }        
+        /// <summary>
+        /// 应用摄像机状态（支持自由相机和MMD相机）
         /// </summary>
-        public void ApplyCameraState(MMDVR.Scripts.Components.CameraState cameraState)
+        public void ApplyCameraState(Vector3 position, Quaternion rotation, float fieldOfView)
         {
             if (currentActiveCameraId == "BUILTIN_FREE_CAMERA")
                 return;
             Camera activeCamera = SystemStateManager.Instance?.GetActiveCamera();
             if (activeCamera != null)
             {
-                activeCamera.transform.position = cameraState.position;
-                activeCamera.transform.rotation = cameraState.rotation;
-                activeCamera.fieldOfView = cameraState.fieldOfView;
+                activeCamera.transform.position = position;
+                activeCamera.transform.rotation = rotation;
+                activeCamera.fieldOfView = fieldOfView;
             }
         }        /// <summary>
         /// 获取当前活动摄像机
@@ -702,22 +739,15 @@ namespace MMDVR.Scripts.Managers
             {
                 try
                 {
-                    if (File.Exists(motionComponent.filePath))
+                    // 加载动作前先判断模型是否加载完成
+                    if (mmdGameObject.ModelPath != null && mmdGameObject.ModelPath != "")
                     {
-                        Debug.Log($"SceneDisplayManager: 加载VMD动作文件到演员 {actorId}: {motionComponent.filePath}");
                         mmdGameObject.LoadMotion(motionComponent.filePath);
-                        
-                        // 更新ActorComponent的动作关联
-                        if (currentActorComponent != null)
-                        {
-                            currentActorComponent.AddMotion(motionComponent.motionId);
-                        }
-                        
-                        Debug.Log($"SceneDisplayManager: 成功为演员 {actorId} 加载动作 {motionComponent.filePath}");
                     }
                     else
                     {
-                        Debug.LogError($"SceneDisplayManager: 动作文件不存在: {motionComponent.filePath}");
+                        // 如果模型未加载，等待模型加载完成后再分配动作
+                        StartCoroutine(WaitAndAssignMotion(mmdGameObject, motionComponent.filePath));
                     }
                 }
                 catch (Exception e)
@@ -1202,6 +1232,47 @@ namespace MMDVR.Scripts.Managers
             else
             {
                 Debug.LogWarning($"SceneDisplayManager: 找不到模型 {modelId} 对应的Actor，无法更新动作关联");
+            }
+        }
+
+        public void SetCameraMode(bool useMMD)
+        {
+            if (freeCamera != null) freeCamera.enabled = !useMMD;
+            if (mmdCameraObject != null) mmdCameraObject.enabled = useMMD;
+        }
+
+        public void ActivateMMDMotion(string vmdPath)
+        {
+            if (mmdCameraObject != null)
+            {
+                mmdCameraObject.LoadCameraMotion(vmdPath);
+                mmdCameraObject.Playing = true;
+            }
+            SetCameraMode(true);
+        }
+
+        public void ActivateFreeCamera()
+        {
+            SetCameraMode(false);
+        }
+
+        // 等待模型加载完成后再分配动作
+        private System.Collections.IEnumerator WaitAndAssignMotion(LibMMD.Unity3D.MmdGameObject mmdGameObject, string motionPath)
+        {
+            // 最多等待5秒，防止死循环
+            float timeout = 5f;
+            while ((mmdGameObject.ModelPath == null || mmdGameObject.ModelPath == "") && timeout > 0f)
+            {
+                yield return null;
+                timeout -= Time.deltaTime;
+            }
+            if (mmdGameObject.ModelPath != null && mmdGameObject.ModelPath != "")
+            {
+                mmdGameObject.LoadMotion(motionPath);
+            }
+            else
+            {
+                Debug.LogError("WaitAndAssignMotion: 等待模型加载超时，动作分配失败");
             }
         }
     }

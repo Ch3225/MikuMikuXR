@@ -14,7 +14,7 @@ namespace MMDVR.Scripts.UIInteraction
     {
         [SerializeField] private GameObject freeCamera;
         [SerializeField] private Button button; // 按钮本身
-        [SerializeField] private CameraComponent cameraController; // 摄像机控制器
+        [SerializeField] private FreeCameraComponent cameraController; // 摄像机控制器
         
         private bool isToggleMode = false; // 是否为Toggle模式（按下状态）
         private Color normalColor;
@@ -35,7 +35,7 @@ namespace MMDVR.Scripts.UIInteraction
             // 查找摄像机控制器
             if (cameraController == null && freeCamera != null)
             {
-                cameraController = freeCamera.GetComponent<CameraComponent>();
+                cameraController = freeCamera.GetComponent<FreeCameraComponent>();
             }
         }        void Update()
         {
@@ -72,7 +72,7 @@ namespace MMDVR.Scripts.UIInteraction
                 Debug.Log($"ToggleMouseButton: 切换到 {(isToggleMode ? "Toggle模式（始终移动）" : "右键模式（按住右键移动）")}");
                 if (cameraController != null)
                 {
-                    cameraController.SetControlMode(isToggleMode ? CameraComponent.ControlMode.Always : CameraComponent.ControlMode.RightClickOnly);
+                    cameraController.SetControlMode(isToggleMode ? FreeCameraComponent.ControlMode.Always : FreeCameraComponent.ControlMode.RightClickOnly);
                     if (!isToggleMode)
                     {
                         Cursor.lockState = CursorLockMode.None;
