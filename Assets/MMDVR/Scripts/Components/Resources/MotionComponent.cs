@@ -11,7 +11,6 @@ namespace MMDVR.Scripts.Components
         public string motionId;
         public string displayName;
         public string filePath;        [Header("动作状态")]
-        public bool isLoaded = false;
         
         private bool _isPlaying = false;
         /// <summary>
@@ -82,11 +81,6 @@ namespace MMDVR.Scripts.Components
         /// </summary>
         public System.Action<MotionComponent, string, string> OnModelAssignmentChanged; // (component, oldModelId, newModelId)
 
-        [Header("动作数据")]
-        public AnimationClip animationClip;
-        public float duration = 0f;
-        public float currentTime = 0f;
-
         private void Awake()
         {
             if (string.IsNullOrEmpty(motionId))
@@ -94,24 +88,6 @@ namespace MMDVR.Scripts.Components
             
             if (string.IsNullOrEmpty(displayName))
                 displayName = gameObject.name;
-        }
-
-        /// <summary>
-        /// 设置动画剪辑
-        /// </summary>
-        public void SetAnimationClip(AnimationClip clip)
-        {
-            animationClip = clip;
-            if (clip != null)
-            {
-                duration = clip.length;
-                isLoaded = true;
-            }
-            else
-            {
-                duration = 0f;
-                isLoaded = false;
-            }
         }
 
         /// <summary>
@@ -139,7 +115,6 @@ namespace MMDVR.Scripts.Components
         public void StartPlayback()
         {
             isPlaying = true;
-            currentTime = 0f;
         }
 
         /// <summary>
@@ -156,15 +131,6 @@ namespace MMDVR.Scripts.Components
         public void StopPlayback()
         {
             isPlaying = false;
-            currentTime = 0f;
-        }
-
-        /// <summary>
-        /// 设置播放时间
-        /// </summary>
-        public void SetPlaybackTime(float time)
-        {
-            currentTime = Mathf.Clamp(time, 0f, duration);
         }
 
         /// <summary>
@@ -172,14 +138,9 @@ namespace MMDVR.Scripts.Components
         /// </summary>
         public void UpdatePlayback(float deltaTime)
         {
-            if (isPlaying && isLoaded)
+            if (isPlaying)
             {
-                currentTime += deltaTime;
-                if (currentTime >= duration)
-                {
-                    currentTime = duration;
-                    isPlaying = false;
-                }
+                
             }
         }
     }

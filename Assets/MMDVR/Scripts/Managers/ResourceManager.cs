@@ -34,13 +34,11 @@ namespace MMDVR.Scripts.Managers
 
         private void Awake()
         {
-            if (Instance != null && Instance != this)
+            if (Instance == null)
             {
-                Destroy(gameObject);
-                return;
+                Instance = this;
+                DontDestroyOnLoad(gameObject);
             }
-            Instance = this;
-            DontDestroyOnLoad(gameObject);
         }        private void Start()
         {
             InitializeContainers();
@@ -90,8 +88,9 @@ namespace MMDVR.Scripts.Managers
             freeCamComponent.rotation = Quaternion.identity;
             freeCamComponent.fieldOfView = 60f;
             
-            Debug.Log("ResourceManager: 创建了摄像机子容器和内置Free Camera");
-        }        /// <summary>
+            Debug.Log("ResourceManager: 创建了摄像机子容器和内置Free Camera");        }
+        
+        /// <summary>
         /// 创建资源容器
         /// </summary>
         private Transform CreateResourceContainer(string containerName)
@@ -199,9 +198,7 @@ namespace MMDVR.Scripts.Managers
             return modelObj?.GetComponent<ModelComponent>();
         }
 
-        // ==================== 音乐资源管理 ====================
-
-        /// <summary>
+        // ==================== 音乐资源管理 ====================        /// <summary>
         /// 添加音乐资源
         /// </summary>
         public string AddMusic(string filePath)
@@ -210,29 +207,27 @@ namespace MMDVR.Scripts.Managers
             {
                 Debug.LogError("ResourceManager: 音乐路径为空");
                 return null;
-            }            // 创建音乐对象
+            }
+            
+            // 创建音乐对象
             string musicId = System.Guid.NewGuid().ToString(); // 完整GUID
             GameObject musicObj = new GameObject($"Music_{musicId}");
             musicObj.transform.SetParent(musicContainer);
-
-            // 添加音乐组件
+            
+            // 添加音乐组件（只管理音频数据，不包含AudioSource）
             var musicComponent = musicObj.AddComponent<MusicComponent>();
             musicComponent.filePath = filePath;
-            musicComponent.musicId = musicId;            // 添加到数据列表
-            var musicData = new MusicData
-            {
-                id = musicComponent.musicId,
-                displayName = System.IO.Path.GetFileNameWithoutExtension(filePath),
-                filePath = filePath
-            };
-            musicList.Add(musicData);
+            musicComponent.musicId = musicId;
+            musicComponent.displayName = System.IO.Path.GetFileNameWithoutExtension(filePath);
             
             Debug.Log($"ResourceManager: 添加音乐资源: {filePath}");
             ResourceEvents.TriggerResourceLoaded("music", musicComponent.musicId);
             ResourceEvents.TriggerMusicListChanged();
 
             return musicComponent.musicId;
-        }        /// <summary>
+        }
+        
+        /// <summary>
         /// 移除音乐资源
         /// </summary>
         public void RemoveMusic(string musicId)
@@ -240,9 +235,6 @@ namespace MMDVR.Scripts.Managers
             Transform musicObj = musicContainer.Find($"Music_{musicId}");
             if (musicObj != null)
             {
-                // 从数据列表中移除
-                musicList.RemoveAll(m => m.id == musicId);
-                
                 Debug.Log($"ResourceManager: 移除音乐资源: {musicId}");
                 
                 // 先销毁GameObject，然后延迟触发事件
@@ -280,7 +272,9 @@ namespace MMDVR.Scripts.Managers
             {
                 Debug.LogError("ResourceManager: 动作路径为空");
                 return null;
-            }            // 创建动作对象
+            }
+            
+            // 创建动作对象
             string motionId = System.Guid.NewGuid().ToString(); // 完整GUID
             GameObject motionObj = new GameObject($"Motion_{motionId}");
             motionObj.transform.SetParent(motionContainer);
@@ -289,6 +283,7 @@ namespace MMDVR.Scripts.Managers
             var motionComponent = motionObj.AddComponent<MotionComponent>();
             motionComponent.filePath = filePath;
             motionComponent.motionId = motionId;
+            motionComponent.displayName = System.IO.Path.GetFileNameWithoutExtension(filePath);
             
             Debug.Log($"ResourceManager: 添加动作资源: {filePath}");
             ResourceEvents.TriggerResourceLoaded("motion", motionComponent.motionId);
@@ -311,10 +306,9 @@ namespace MMDVR.Scripts.Managers
                 
                 Destroy(motionObj.gameObject);
             }
-        }
-
-        /// <summary>
-        /// 获取动作组件        /// </summary>
+        }        /// <summary>
+        /// 获取动作组件
+        /// </summary>
         public MotionComponent GetMotion(string motionId)
         {
             Transform motionObj = motionContainer.Find($"Motion_{motionId}");
@@ -486,14 +480,35 @@ namespace MMDVR.Scripts.Managers
             }
         }
 
-        // ==================== 资源列表获取方法 ====================
-
-        /// <summary>
+        // ==================== 资源列表获取方法 ====================        /// <summary>
         /// 获取音乐列表
         /// </summary>
         public List<MusicData> GetMusicList()
         {
-            return new List<MusicData>(musicList);
+            var musicList = new List<MusicData>();
+            
+            // 检查容器是否还存在
+            if (musicContainer == null)
+                return musicList;
+                
+            for (int i = 0; i < musicContainer.childCount; i++)
+            {
+                var child = musicContainer.GetChild(i);
+                if (child != null)
+                {
+                    var musicComponent = child.GetComponent<MusicComponent>();
+                    if (musicComponent != null)
+                    {
+                        musicList.Add(new MusicData
+                        {
+                            id = musicComponent.musicId,
+                            displayName = System.IO.Path.GetFileNameWithoutExtension(musicComponent.filePath),
+                            filePath = musicComponent.filePath
+                        });
+                    }
+                }
+            }
+            return musicList;
         }
 
         /// <summary>
@@ -565,6 +580,7 @@ namespace MMDVR.Scripts.Managers
             if (modelContainer == null)
                 return modelList;
                 
+            Debug.Log($"ResourceManager.GetModelList: 当前modelContainer下模型数量: {modelContainer.childCount}");
             for (int i = 0; i < modelContainer.childCount; i++)
             {
                 var child = modelContainer.GetChild(i);
@@ -763,42 +779,34 @@ namespace MMDVR.Scripts.Managers
             if (!string.IsNullOrEmpty(modelId))
             {
                 // 2. 再通过SceneDisplayManager添加演员展示
-                if (SceneDisplayManager.Instance != null)
-                {
-                    SceneDisplayManager.Instance.AddActor(modelId);
-                }
-                else
-                {
-                    Debug.LogError("ResourceManager: SceneDisplayManager.Instance未找到，无法添加演员展示");
-                }
+                // 移除直接依赖SceneDisplayManager.Instance
+                // if (SceneDisplayManager.Instance != null)
+                // {
+                //     SceneDisplayManager.Instance.AddActor(modelId);
+                // }
+                // else
+                // {
+                //     Debug.LogError("ResourceManager: SceneDisplayManager.Instance未找到，无法添加演员展示");
+                // }
             }
         }
 
         /// <summary>
-        /// 获取演员列表（兼容旧接口，转发到SceneDisplayManager）
+        /// 获取演员列表（兼容旧接口，建议通过事件/缓存获取）
         /// </summary>
         public List<ActorData> GetActorList()
         {
-            if (SceneDisplayManager.Instance != null)
-            {
-                return SceneDisplayManager.Instance.GetActorList();
-            }
+            // 兼容旧接口，建议业务层全部通过事件驱动，不再直接依赖SceneDisplayManager
             return new List<ActorData>();
         }
 
         /// <summary>
-        /// 分配动作给演员（兼容旧接口，转发到SceneDisplayManager）
+        /// 分配动作给演员（兼容旧接口，建议通过事件/缓存驱动）
         /// </summary>
         public void AssignMotionToActor(string motionId, string actorId)
         {
-            if (SceneDisplayManager.Instance != null)
-            {
-                SceneDisplayManager.Instance.AssignMotionToActor(actorId, motionId);
-            }
-            else
-            {
-                Debug.LogError("ResourceManager: SceneDisplayManager.Instance未找到，无法分配动作");
-            }
+            // 通过事件驱动，不再直接依赖 SceneDisplayManager
+            SceneDisplayEvents.TriggerModelMotionAssociationChanged(actorId, motionId, true);
         }        /// <summary>
         /// 获取模型数据列表（兼容旧接口）
         /// </summary>
@@ -863,11 +871,11 @@ namespace MMDVR.Scripts.Managers
         {
             Debug.Log($"ResourceManager: 设置活动摄像机: {cameraId}");
             
-            // 通知SceneDisplayManager设置活动摄像机
-            if (SceneDisplayManager.Instance != null)
-            {
-                SceneDisplayManager.Instance.ActivateCamera(cameraId);
-            }
+            // 通知SceneDisplayManager设置活动摄像机（解耦，建议通过事件驱动）
+            // if (SceneDisplayManager.Instance != null)
+            // {
+            //     SceneDisplayManager.Instance.ActivateCamera(cameraId);
+            // }
             
             // 触发EventManager的CameraActivated事件
             var cameraData = GetCameraData(cameraId);

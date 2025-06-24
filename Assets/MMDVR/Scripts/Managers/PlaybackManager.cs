@@ -64,13 +64,12 @@ namespace MMDVR.Scripts.Managers
 
         private void Awake()
         {
-            if (Instance != null && Instance != this)
+            if (Instance == null)
             {
-                Destroy(this.gameObject);
-                return;
+                Instance = this;
+                DontDestroyOnLoad(this.gameObject);
             }
-            Instance = this;
-            DontDestroyOnLoad(this.gameObject);            // 订阅播放事件
+            // 订阅播放事件
             PlaybackEvents.OnPlayPauseToggle += TogglePlayPause;
             PlaybackEvents.OnStopRequested += Stop;
         }
@@ -158,13 +157,10 @@ namespace MMDVR.Scripts.Managers
             }
         }
         // ===== 播放控制方法 =====
-        
-        public void Play()
+          public void Play()
         {
-            // 防止递归调用
-            if (_isPlaying) return;
-            _isPlaying = true;
             Debug.Log("PlaybackManager: Play() called");
+            _isPlaying = true;
             
             if (sceneDisplayManager == null)
             {
@@ -209,14 +205,11 @@ namespace MMDVR.Scripts.Managers
                 {
                     audioSourceToUse = musicAudioSource;
                 }
-                if (musicComponent != null && audioSourceToUse != null && musicComponent.audioClip != null)
+                if (musicComponent != null && audioSourceToUse != null)
                 {
-                    if (audioSourceToUse.clip != musicComponent.audioClip)
-                        audioSourceToUse.clip = musicComponent.audioClip;
                     audioSourceToUse.time = playTime;
                     if (!audioSourceToUse.isPlaying)
                         audioSourceToUse.Play();
-                    totalDuration = musicComponent.audioClip.length;
                 }
             }
             else
@@ -252,8 +245,6 @@ namespace MMDVR.Scripts.Managers
             PlaybackEvents.TriggerPlaybackStateChanged(isPlaying);
         }        public void Pause()
         {
-            // 防止递归调用
-            if (!_isPlaying) return;
             _isPlaying = false;
             if (sceneDisplayManager == null) return;
 

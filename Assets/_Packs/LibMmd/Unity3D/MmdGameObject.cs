@@ -289,13 +289,6 @@ namespace LibMMD.Unity3D
             {
                 return;
             }
-            
-            // 添加空值检查，避免没有动作时的空引用
-            if (_motionPlayer == null)
-            {
-                return;
-            }
-            
             var deltaTime = Time.deltaTime;
             _playTime += deltaTime;
             if (_bonePoseFileStorage != null)
@@ -316,23 +309,18 @@ namespace LibMMD.Unity3D
             }
             else
             {
-                // 添加空值检查
-                if (_motionPlayer != null && _poser != null)
+                _motionPlayer.SeekTime(_playTime);
+                _poser.PrePhysicsPosing(false);
+                _poser.PostPhysicsPosing();
+                if (PhysicsMode == PhysicsModeEnum.Unity)
                 {
-                    _motionPlayer.SeekTime(_playTime);
-                    _poser.PrePhysicsPosing(false);
-                    _poser.PostPhysicsPosing();
-                    if (PhysicsMode == PhysicsModeEnum.Unity)
-                    {
-                        UpdateBones(true);
-                    }
-                    else
-                    {
-                        UpdateBones();
-                    }
-                    UpdateMesh(_playTime);
+                    UpdateBones(true);
                 }
-            }
+                else
+                {
+                    UpdateBones();
+                }
+                UpdateMesh(_playTime);            }
         }
 
         private void OnDestroy()

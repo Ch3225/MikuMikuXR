@@ -5,107 +5,59 @@ using MMDVR.Scripts.Managers;
 
 namespace MMDVR.Scripts.Testing
 {
+    /// <summary>
+    /// TestCase3: 相机切换测试 - 只通过UserActionManager
+    /// </summary>
     public class TestCase3 : MonoBehaviour
     {
-        // 资源路径
+        private string projectRoot;
         private string model = "TMP/MMDTest/Models/mmd___halloween_miku___dl_by_mlekoduszek-dccfunl/ミクハロウィーン.pmx";
         private string motion = "TMP/MMDTest/Motions/アイマリンプロジェクト-内田彩&内田真礼&佐倉綾音 - Deep Blue Town へおいでよ/DeepBlueTown_he_Oideyo_dance.vmd";
         private string cameraVmd = "TMP/MMDTest/Motions/アイマリンプロジェクト-内田彩&内田真礼&佐倉綾音 - Deep Blue Town へおいでよ/Camera3 by do-mode.vmd";
         private string music = "TMP/MMDTest/Motions/アイマリンプロジェクト-内田彩&内田真礼&佐倉綾音 - Deep Blue Town へおいでよ/Deep Blue Town へおいでよ.wav";
-        private string projectRoot;        void Start()
+
+        void Start()
         {
             projectRoot = Directory.GetParent(Application.dataPath).FullName;
-            // 只通过UserActionManager进行操作
-            StartCoroutine(LoadResources());
-        }        IEnumerator LoadResources()
+            StartCoroutine(RunTest());
+        }
+
+        IEnumerator RunTest()
         {
-            Debug.Log("=== TestCase3 资源加载开始 ===");
+            Debug.Log("=== TestCase3: 相机切换测试 ===");
             
             // 等待UserActionManager初始化
-            while (UserActionManager.Instance == null)
-            {
-                Debug.Log("等待UserActionManager初始化...");
-                yield return new WaitForSeconds(0.5f);
-            }
-            Debug.Log("UserActionManager已就绪");
+            while (UserActionManager.Instance == null) yield return null;
 
-            string modelPath = Path.Combine(projectRoot, model);
-            string motionPath = Path.Combine(projectRoot, motion);
-              // 加载模型和动作
-            if (File.Exists(modelPath) && File.Exists(motionPath))
-            {
-                Debug.Log("开始加载模型和动作...");
-                bool completed = false;
-                string modelId = null;
-                string motionId = null;
-                
-                UserActionManager.Instance.LoadModelAndMotion(modelPath, motionPath, (mId, moId) =>
-                {
-                    modelId = mId;
-                    motionId = moId;
-                    completed = true;
-                });
-                
-                yield return new WaitUntil(() => completed);
-                Debug.Log($"✅ 模型和动作加载完成: {modelId}, {motionId}");
-                
-                // 显式地关联Motion到Model
-                if (!string.IsNullOrEmpty(modelId) && !string.IsNullOrEmpty(motionId))
-                {
-                    Debug.Log("🔗 开始关联动作到模型...");
-                    bool associationCompleted = false;
-                    UserActionManager.Instance.AssignMotionToModel(modelId, motionId, () =>
-                    {
-                        associationCompleted = true;
-                    });
-                    yield return new WaitUntil(() => associationCompleted);
-                    Debug.Log($"✅ 动作关联完成: {modelId} <-> {motionId}");
-                }
-            }
-            else
-            {
-                Debug.LogWarning($"模型或动作文件不存在: {modelPath}, {motionPath}");
-            }
-
-            yield return new WaitForSeconds(0.5f);
+            // 加载模型
+            string modelId = null;
+            bool modelLoaded = false;
+            UserActionManager.Instance.LoadAndShowModel(Path.Combine(projectRoot, model), id => { modelId = id; modelLoaded = true; });
+            yield return new WaitUntil(() => modelLoaded);
+            Debug.Log("✅ 模型加载完成");
             
-            // 加载相机
-            string cameraPath = Path.Combine(projectRoot, cameraVmd);
-            if (File.Exists(cameraPath))
-            {
-                bool cameraLoaded = false;
-                UserActionManager.Instance.LoadVMDCamera(cameraPath, (cameraId) => 
-                {
-                    cameraLoaded = true;
-                });
-                yield return new WaitUntil(() => cameraLoaded);
-                Debug.Log($"✅ 摄像机加载完成: {cameraPath}");
-            }
-            else
-            {
-                Debug.LogWarning($"摄像机文件不存在: {cameraPath}");
-            }
+            // 加载动作
+            string motionId = null;
+            bool motionLoaded = false;
+            UserActionManager.Instance.LoadMotion(Path.Combine(projectRoot, motion), id => { motionId = id; motionLoaded = true; });
+            yield return new WaitUntil(() => motionLoaded);
+            Debug.Log("✅ 动作加载完成");
+            
+            // 不做动作与模型的关联
 
-            yield return new WaitForSeconds(0.5f);
+            // 加载相机
+            bool camLoaded = false;
+            UserActionManager.Instance.LoadVMDCamera(Path.Combine(projectRoot, cameraVmd), id => { camLoaded = true; });
+            yield return new WaitUntil(() => camLoaded);
+            Debug.Log("✅ VMD相机加载完成");
             
             // 加载音乐
-            string musicPath = Path.Combine(projectRoot, music);
-            if (File.Exists(musicPath))
-            {
-                bool musicLoaded = false;
-                UserActionManager.Instance.LoadMusic(musicPath, (musicId) => 
-                {
-                    musicLoaded = true;
-                });
-                yield return new WaitUntil(() => musicLoaded);
-                Debug.Log($"✅ 音乐加载完成: {musicPath}");
-            }
-            else
-            {
-                Debug.LogWarning($"音乐文件不存在: {musicPath}");
-            }
+            bool musicLoaded = false;
+            UserActionManager.Instance.LoadMusic(Path.Combine(projectRoot, music), id => { musicLoaded = true; });
+            yield return new WaitUntil(() => musicLoaded);
+            Debug.Log("✅ 音乐加载完成");
 
-            Debug.Log("=== TestCase3 资源加载完成 ===");
+            Debug.Log("=== TestCase3 资源加载测试完成 ===");
         }
     }
 }

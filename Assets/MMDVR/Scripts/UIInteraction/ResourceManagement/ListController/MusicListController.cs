@@ -67,6 +67,8 @@ namespace MMDVR.Scripts.UIInteraction.ResourceManagement.ListController
             }            // 统一刷新机制：只通过事件刷新
             EventManager.OnMusicListChanged += RefreshResourceListUI;
             EventManager.OnMusicListChanged += NotifySceneDisplayManager;
+            // 新增：监听音乐激活事件，自动刷新UI
+            MMDVR.Events.ResourceEvents.OnMusicActivated += OnMusicActivated;
             // 启动时主动刷新一次
             RefreshResourceListUI();
         }
@@ -75,6 +77,7 @@ namespace MMDVR.Scripts.UIInteraction.ResourceManagement.ListController
         {
             EventManager.OnMusicListChanged -= RefreshResourceListUI;
             EventManager.OnMusicListChanged -= NotifySceneDisplayManager;
+            MMDVR.Events.ResourceEvents.OnMusicActivated -= OnMusicActivated;
             
             if (listSortableAreaDropZone != null)
             {
@@ -224,7 +227,8 @@ namespace MMDVR.Scripts.UIInteraction.ResourceManagement.ListController
                     // 使用UserActionManager进行用户操作
                     if (UserActionManager.Instance != null)
                     {
-                        UserActionManager.Instance.ActivateMusic(newTopMusic.ID, () => {
+                        UserActionManager.Instance.LoadMusic(newTopMusic.ID, id => {
+                            UserActionManager.Instance.StartPlayback();
                             Debug.Log($"MusicListController: 音乐自动激活完成: {newTopMusic.DisplayName}");
                         });
                     }
@@ -306,7 +310,8 @@ namespace MMDVR.Scripts.UIInteraction.ResourceManagement.ListController
             // 使用UserActionManager进行用户操作  
             if (UserActionManager.Instance != null)
             {
-                UserActionManager.Instance.ActivateMusic(droppedMusicData.ID, () => {
+                UserActionManager.Instance.LoadMusic(droppedMusicData.ID, id => {
+                    UserActionManager.Instance.StartPlayback();
                     Debug.Log($"MusicListController: 音乐激活完成 {droppedMusicData.DisplayName}");
                 });
             }
@@ -335,7 +340,9 @@ namespace MMDVR.Scripts.UIInteraction.ResourceManagement.ListController
             // 通过UserActionManager执行激活
             if (UserActionManager.Instance != null)
             {
-                UserActionManager.Instance.ActivateMusic(musicDataToActivate.ID);
+                UserActionManager.Instance.LoadMusic(musicDataToActivate.ID, id => {
+                    UserActionManager.Instance.StartPlayback();
+                });
             }
             else
             {
@@ -485,6 +492,12 @@ namespace MMDVR.Scripts.UIInteraction.ResourceManagement.ListController
             {
                 SceneDisplayManager.Instance.SyncActiveMusicWithList();
             }
+        }
+
+        // 音乐激活事件回调，刷新UI高亮
+        private void OnMusicActivated(string musicId)
+        {
+            UpdateAllItemVisuals();
         }
     }
 }

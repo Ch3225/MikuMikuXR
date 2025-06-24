@@ -13,9 +13,6 @@ namespace MMDVR.Scripts.Components
         public string displayName;
         public string filePath;
 
-        [Header("模型状态")]
-        public bool isLoaded = false;
-        
         // 移除了本地状态管理，改为与ActorComponent同步
         private ActorComponent _associatedActor;
           /// <summary>
@@ -28,11 +25,6 @@ namespace MMDVR.Scripts.Components
                 if (_associatedActor != value)
                 {
                     _associatedActor = value;
-                    // 建立关联
-                    if (value != null)
-                    {
-                        value.SetModelComponent(this);
-                    }
                 }
             }
         }/// <summary>
@@ -71,7 +63,7 @@ namespace MMDVR.Scripts.Components
         /// 模型启用状态变化事件
         /// </summary>
         public System.Action<ModelComponent, bool> OnEnabledStateChanged;        [Header("模型数据")]
-        public Renderer[] renderers;        // 向后兼容属性
+        // 向后兼容属性
         public string ID => id;
         public string DisplayName => displayName;
 
@@ -91,23 +83,12 @@ namespace MMDVR.Scripts.Components
         /// </summary>
         private void ApplyVisibility(bool visible)
         {
-            if (renderers != null)
+            // 如果没有缓存渲染器，尝试在当前GameObject中查找
+            var localRenderers = GetComponentsInChildren<Renderer>();
+            foreach (var renderer in localRenderers)
             {
-                foreach (var renderer in renderers)
-                {
-                    if (renderer != null)
-                        renderer.enabled = visible;
-                }
-            }
-            else
-            {
-                // 如果没有缓存渲染器，尝试在当前GameObject中查找
-                var localRenderers = GetComponentsInChildren<Renderer>();
-                foreach (var renderer in localRenderers)
-                {
-                    if (renderer != null)
-                        renderer.enabled = visible;
-                }
+                if (renderer != null)
+                    renderer.enabled = visible;
             }
         }/// <summary>
         /// 设置模型可见性（公共方法，会触发事件）
@@ -115,24 +96,17 @@ namespace MMDVR.Scripts.Components
         public void SetVisibility(bool visible)
         {
             IsVisible = visible; // 使用属性，会同步到ActorComponent
-        }        /// <summary>
-        /// 缓存渲染器组件
-        /// </summary>
-        public void CacheRenderers()
-        {
-            renderers = GetComponentsInChildren<Renderer>();
         }
 
         /// <summary>
-        /// 设置模型对象（用于建立关联和缓存渲染器）
+        /// 设置模型对象（用于建立关联）
         /// </summary>
         public void SetupModelReferences(GameObject model)
         {
             if (model != null)
             {
-                CacheRenderers();
-                isLoaded = true;
-                Debug.Log($"ModelComponent[{id}]: 建立模型引用并缓存渲染器");
+                // 加载状态直接用Actor对象的激活状态判断，无需isLoaded字段
+                Debug.Log($"ModelComponent[{id}]: 建立模型引用");
             }
         }
     }

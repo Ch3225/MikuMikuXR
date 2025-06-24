@@ -95,14 +95,26 @@ namespace MMDVR.Scripts.UIInteraction.ResourceManagement.ListController
         }        // 监听基础事件（保持原有逻辑）        EventManager.OnActorListChanged += RefreshList;
         EventManager.OnMotionListChanged += UpdateAllItemVisuals;
         ResourceEvents.OnModelListChanged += RefreshList; // 监听模型列表变化
-
+        // 预留：监听模型激活事件，后续如有高亮需求可直接刷新
+        // ResourceEvents.OnModelActivated += OnModelActivated;
         RefreshList();
-    }    void OnDestroy()
-    {        // 取消订阅基础事件
+    }
+
+    void OnDestroy()
+    {
+        // 取消订阅基础事件
         EventManager.OnActorListChanged -= RefreshList;
         EventManager.OnMotionListChanged -= UpdateAllItemVisuals;
         ResourceEvents.OnModelListChanged -= RefreshList; // 取消监听模型列表变化
-    }public void RefreshList()
+        // ResourceEvents.OnModelActivated -= OnModelActivated;
+    }
+
+    // 预留：模型激活事件回调
+    // private void OnModelActivated(string modelId)
+    // {
+    //     UpdateAllItemVisuals();
+    // }
+    public void RefreshList()
     {
         Debug.Log($"ModelListController: RefreshList called. Current UI items count: {uiListItemObjects.Count}");
         
@@ -312,7 +324,7 @@ namespace MMDVR.Scripts.UIInteraction.ResourceManagement.ListController
         // 使用UserActionManager进行用户操作
         if (UserActionManager.Instance != null)
         {
-            UserActionManager.Instance.UnloadAndHideModel(droppedModelData.ID, () => {
+            UserActionManager.Instance.UnloadModel(droppedModelData.ID, () => {
                 Debug.Log($"ModelListController: 模型卸载完成 {droppedModelData.DisplayName}");
             });
         }
@@ -339,9 +351,7 @@ namespace MMDVR.Scripts.UIInteraction.ResourceManagement.ListController
         // 使用UserActionManager进行用户操作
         if (UserActionManager.Instance != null)
         {
-            UserActionManager.Instance.ToggleModelVisibility(droppedModelData.ID, () => {
-                Debug.Log($"ModelListController: 模型可见性切换完成 {droppedModelData.DisplayName}");
-            });
+            SceneDisplayManager.Instance.ToggleActorVisibility(droppedModelData.ID);
         }
         else
         {
@@ -361,7 +371,7 @@ namespace MMDVR.Scripts.UIInteraction.ResourceManagement.ListController
         // 使用UserActionManager进行用户操作
         if (UserActionManager.Instance != null)
         {
-            UserActionManager.Instance.DisconnectModelAssociations(droppedModelData.ID, () => {
+            UserActionManager.Instance.UnlinkAllMotionsFromActor(droppedModelData.ID, () => {
                 Debug.Log($"ModelListController: 模型关联断开完成 {droppedModelData.DisplayName}");
                 
                 // 刷新UI和连线

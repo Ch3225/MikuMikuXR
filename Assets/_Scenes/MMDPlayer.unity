@@ -184,7 +184,7 @@ MonoBehaviour:
   flipYMode: 0
   xrRendering: 1
   fullscreenPassthrough: 0
-  allowDynamicResolution: 0
+  allowDynamicResolution: 1
   customRenderingSettings: 0
   invertFaceCulling: 0
   probeLayerMask:
@@ -332,7 +332,7 @@ Camera:
   m_TargetEye: 3
   m_HDR: 0
   m_AllowMSAA: 0
-  m_AllowDynamicResolution: 0
+  m_AllowDynamicResolution: 1
   m_ForceIntoRT: 0
   m_OcclusionCulling: 1
   m_StereoConvergence: 10
@@ -4223,7 +4223,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1264043662
 Transform:
   m_ObjectHideFlags: 0
@@ -4578,7 +4578,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &1611109276
 Transform:
   m_ObjectHideFlags: 0
@@ -4603,7 +4603,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 1611109275}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4a8dea4e81a30344998113560863c69f, type: 3}
+  m_Script: {fileID: 11500000, guid: a07ea6c097c9e364aae1ea7632bca326, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
 --- !u!1 &1612419782

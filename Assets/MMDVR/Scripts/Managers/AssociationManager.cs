@@ -35,10 +35,6 @@ namespace MMDVR.Scripts.Managers
         // 实际存储的关联数据
         private Dictionary<string, HashSet<string>> modelMotionAssociations = new Dictionary<string, HashSet<string>>();
 
-        // 关联变化事件
-        public static event Action<string, string> OnModelMotionAssociated; // modelId, motionId
-        public static event Action<string, string> OnModelMotionDisassociated; // modelId, motionId
-
         private void Awake()
         {
             if (Instance != null && Instance != this)
@@ -77,9 +73,10 @@ namespace MMDVR.Scripts.Managers
             if (!modelMotionAssociations.ContainsKey(modelId))
             {
                 modelMotionAssociations[modelId] = new HashSet<string>();
-            }            if (modelMotionAssociations[modelId].Add(motionId))
+            }
+            if (modelMotionAssociations[modelId].Add(motionId))
             {
-                OnModelMotionAssociated?.Invoke(modelId, motionId);
+                MMDVR.Events.SceneDisplayEvents.TriggerModelMotionAssociationChanged(modelId, motionId, true);
                 UpdateInspectorDisplay();
                 Debug.Log($"关联模型 {modelId} 与动作 {motionId}");
             }
@@ -95,7 +92,8 @@ namespace MMDVR.Scripts.Managers
 
             if (modelMotionAssociations.ContainsKey(modelId) && 
                 modelMotionAssociations[modelId].Remove(motionId))
-            {                OnModelMotionDisassociated?.Invoke(modelId, motionId);
+            {
+                MMDVR.Events.SceneDisplayEvents.TriggerModelMotionAssociationChanged(modelId, motionId, false);
                 UpdateInspectorDisplay();
                 Debug.Log($"取消关联模型 {modelId} 与动作 {motionId}");
 
@@ -129,8 +127,9 @@ namespace MMDVR.Scripts.Managers
             var motionIds = modelMotionAssociations[modelId].ToList();
             foreach (var motionId in motionIds)
             {
-                OnModelMotionDisassociated?.Invoke(modelId, motionId);
-            }            modelMotionAssociations.Remove(modelId);
+                MMDVR.Events.SceneDisplayEvents.TriggerModelMotionAssociationChanged(modelId, motionId, false);
+            }
+            modelMotionAssociations.Remove(modelId);
             UpdateInspectorDisplay();
             Debug.Log($"清除模型 {modelId} 的所有关联");
         }

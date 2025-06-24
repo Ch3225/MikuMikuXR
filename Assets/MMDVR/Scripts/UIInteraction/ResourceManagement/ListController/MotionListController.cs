@@ -73,12 +73,15 @@ namespace MMDVR.Scripts.UIInteraction.ResourceManagement.ListController
                 disconnectDropZone.onItemDropped.AddListener(HandleDropOnDisconnectZone);
             }        // 监听基础事件（保持原有逻辑）
             EventManager.OnMotionListChanged += RefreshList;
-
+            MMDVR.Events.ResourceEvents.OnMotionListChanged += RefreshList;
             RefreshList();
-        }    void OnDestroy()
+        }
+
+        void OnDestroy()
         {
             // 取消订阅基础事件
             EventManager.OnMotionListChanged -= RefreshList;
+            MMDVR.Events.ResourceEvents.OnMotionListChanged -= RefreshList;
         }public void RefreshList()
         {
             Debug.Log($"MotionListController: RefreshList called. Current UI items count: {uiListItemObjects.Count}");
@@ -313,7 +316,7 @@ namespace MMDVR.Scripts.UIInteraction.ResourceManagement.ListController
             // 使用UserActionManager进行用户操作
             if (UserActionManager.Instance != null)
             {
-                UserActionManager.Instance.DisconnectMotionAssociations(droppedMotionData.ID, () => {
+                UserActionManager.Instance.UnlinkMotionFromAllActors(droppedMotionData.ID, () => {
                     Debug.Log($"MotionListController: 动作关联断开完成 {droppedMotionData.DisplayName}");
                     
                     // 刷新UI和连线

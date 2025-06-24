@@ -16,11 +16,6 @@ namespace MMDVR.Scripts.Components
     {        [Header("演员标识")]
         [SerializeField] private string _actorId;
         [SerializeField] private string _displayName;
-        
-        [Header("关联资源ID")]
-        [SerializeField] private string _modelId;
-        [SerializeField] private List<string> _motionIds = new List<string>();
-        [SerializeField] private string _associatedMusicId;
 
         [Header("演员数据")]
         public ActorData actorData;
@@ -78,74 +73,42 @@ namespace MMDVR.Scripts.Components
         }
 
         /// <summary>
-        /// 关联的模型ID
+        /// 当前激活的动作ID（由AssociationManager管理）
         /// </summary>
-        public string ModelId 
-        { 
-            get => _modelId; 
-            set 
+        public string CurrentMotionId
+        {
+            get
             {
-                if (_modelId != value)
+                if (AssociationManager.Instance != null && !string.IsNullOrEmpty(ActorId))
                 {
-                    SetProperty(ref _modelId, value, nameof(ModelId));
-                    if (actorData != null) actorData.modelId = value;
+                    var motions = AssociationManager.Instance.GetModelAssociatedMotions(ActorId);
+                    return motions.Count > 0 ? motions[0] : null;
                 }
+                return null;
             }
-        }
-
-        /// <summary>
-        /// 关联的动作ID列表
-        /// </summary>
-        public List<string> MotionIds 
-        { 
-            get => _motionIds; 
-        }
-
-        /// <summary>
-        /// 当前激活的动作ID（列表中的第一个）
-        /// </summary>
-        public string CurrentMotionId 
-        { 
-            get => _motionIds.Count > 0 ? _motionIds[0] : null;
-            set 
+            set
             {
-                var oldValue = CurrentMotionId;
-                if (oldValue != value)
+                if (AssociationManager.Instance != null && !string.IsNullOrEmpty(ActorId))
                 {
-                    if (!string.IsNullOrEmpty(value))
+                    var oldValue = CurrentMotionId;
+                    if (oldValue != value)
                     {
-                        // 如果值不为空，将其设为第一个动作
-                        _motionIds.Remove(value); // 先移除（如果存在）
-                        _motionIds.Insert(0, value); // 插入到第一位
+                        // 先移除旧的
+                        if (!string.IsNullOrEmpty(oldValue))
+                            AssociationManager.Instance.DisassociateModelFromMotion(ActorId, oldValue);
+                        // 添加新的
+                        if (!string.IsNullOrEmpty(value))
+                            AssociationManager.Instance.AssociateModelWithMotion(ActorId, value);
+                        OnActorMotionChanged?.Invoke(_actorId, oldValue, value);
+                        LoadMotionToMMD(value);
+                        if (actorData != null)
+                            actorData.motionIds = AssociationManager.Instance.GetModelAssociatedMotions(ActorId);
                     }
-                    else if (_motionIds.Count > 0)
-                    {
-                        // 如果值为空，清除第一个动作
-                        _motionIds.RemoveAt(0);
-                    }
-                    
-                    OnActorMotionChanged?.Invoke(_actorId, oldValue, value);
-                    LoadMotionToMMD(value);
-                    
-                    if (actorData != null) actorData.motionIds = new List<string>(_motionIds);
                 }
             }
         }
 
         /// <summary>
-        /// 关联的音乐ID
-        /// </summary>
-        public string AssociatedMusicId 
-        { 
-            get => _associatedMusicId; 
-            set 
-            {
-                if (_associatedMusicId != value)
-                {
-                    SetProperty(ref _associatedMusicId, value, nameof(AssociatedMusicId));
-                }
-            }
-        }        /// <summary>
         /// 是否启用 - 通过GameObject的激活状态判断
         /// </summary>
         public bool IsEnabled 
@@ -169,11 +132,6 @@ namespace MMDVR.Scripts.Components
         { 
             get => DisplayName; 
             set => DisplayName = value; 
-        }
-        public string modelId 
-        { 
-            get => ModelId; 
-            set => ModelId = value; 
         }
 
         /// <summary>
@@ -201,29 +159,15 @@ namespace MMDVR.Scripts.Components
 
             // 初始化演员数据
             if (actorData == null)
-            {                actorData = new ActorData
+            {
+                actorData = new ActorData
                 {
                     id = _actorId,
                     displayName = _displayName,
-                    modelId = _modelId,
-                    motionIds = new List<string>(_motionIds),
+                    modelId = null, // 由AssociationManager管理
+                    motionIds = AssociationManager.Instance != null ? AssociationManager.Instance.GetModelAssociatedMotions(_actorId) : new List<string>(),
                     isVisible = gameObject.activeInHierarchy
                 };
-            }
-        }        /// <summary>
-        /// 设置模型组件
-        /// </summary>
-        public void SetModelComponent(ModelComponent model)
-        {
-            if (model != null)
-            {
-                ModelId = model.id;
-                
-                // 将模型对象设为子对象
-                if (model.transform.parent != transform)
-                {
-                    model.transform.SetParent(transform);
-                }
             }
         }
 
@@ -232,10 +176,10 @@ namespace MMDVR.Scripts.Components
         /// </summary>
         public void AddMotion(string motionId)
         {
-            if (!string.IsNullOrEmpty(motionId) && !_motionIds.Contains(motionId))
+            if (!string.IsNullOrEmpty(motionId) && AssociationManager.Instance != null && !AssociationManager.Instance.GetModelAssociatedMotions(_actorId).Contains(motionId))
             {
-                _motionIds.Add(motionId);
-                if (actorData != null) actorData.motionIds.Add(motionId);
+                AssociationManager.Instance.AssociateModelWithMotion(_actorId, motionId);
+                if (actorData != null) actorData.motionIds = AssociationManager.Instance.GetModelAssociatedMotions(_actorId);
             }
         }
 
@@ -244,8 +188,11 @@ namespace MMDVR.Scripts.Components
         /// </summary>
         public void RemoveMotion(string motionId)
         {
-            _motionIds.Remove(motionId);
-            if (actorData != null) actorData.motionIds.Remove(motionId);
+            if (AssociationManager.Instance != null)
+            {
+                AssociationManager.Instance.DisassociateModelFromMotion(_actorId, motionId);
+                if (actorData != null) actorData.motionIds = AssociationManager.Instance.GetModelAssociatedMotions(_actorId);
+            }
         }
 
         /// <summary>
@@ -253,8 +200,11 @@ namespace MMDVR.Scripts.Components
         /// </summary>
         public void ClearMotions()
         {
-            _motionIds.Clear();
-            if (actorData != null) actorData.motionIds.Clear();
+            if (AssociationManager.Instance != null)
+            {
+                AssociationManager.Instance.ClearModelAssociations(_actorId);
+                if (actorData != null) actorData.motionIds = new List<string>();
+            }
         }
 
         /// <summary>
@@ -262,7 +212,9 @@ namespace MMDVR.Scripts.Components
         /// </summary>
         public List<string> GetMotionIds()
         {
-            return new List<string>(_motionIds);
+            if (AssociationManager.Instance != null)
+                return AssociationManager.Instance.GetModelAssociatedMotions(_actorId);
+            return new List<string>();
         }        /// <summary>
         /// 设置可见性（内部方法）
         /// </summary>

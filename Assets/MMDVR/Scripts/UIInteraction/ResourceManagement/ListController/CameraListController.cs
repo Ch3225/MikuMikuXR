@@ -238,17 +238,7 @@ namespace MMDVR.Scripts.UIInteraction.ResourceManagement.ListController
                 {
                     Debug.Log($"CameraListController: ListSortAndActivate模式 - 激活第一项摄像机: {newTopCamera.DisplayName}");
                     
-                    // 使用UserActionManager进行用户操作
-                    if (UserActionManager.Instance != null)
-                    {
-                        UserActionManager.Instance.ActivateCamera(newTopCamera.ID, () => {
-                            Debug.Log($"CameraListController: 摄像机自动激活完成: {newTopCamera.DisplayName}");
-                        });
-                    }
-                    else
-                    {
-                        Debug.LogError("UserActionManager.Instance is null!");
-                    }
+                    // TODO: 切换相机，需调用CameraManager.Instance.SetActiveCamera(newTopCamera.ID)
                 }
             }
             else
@@ -335,16 +325,8 @@ namespace MMDVR.Scripts.UIInteraction.ResourceManagement.ListController
             return;
 
         // 使用UserActionManager进行用户操作
-        if (UserActionManager.Instance != null)
-        {
-            UserActionManager.Instance.ActivateCamera(droppedCamData.ID, () => {
-                Debug.Log($"CameraListController: 摄像机激活完�?{droppedCamData.DisplayName}");
-            });
-        }
-        else
-        {
-            Debug.LogError("UserActionManager.Instance is null!");
-        }
+        // TODO: 切换相机，需调用CameraManager.Instance.SetActiveCamera(droppedCamData.ID)
+        Debug.Log($"CameraListController: 摄像机激活完毕 {droppedCamData.DisplayName}");
     }
 
     // 通过索引获取资源信息，用于向后兼�?

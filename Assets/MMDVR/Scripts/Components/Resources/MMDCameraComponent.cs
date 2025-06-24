@@ -25,18 +25,9 @@ namespace MMDVR.Scripts.Components
     public class MMDCameraComponent : MonoBehaviour
     {        [Header("组件标识")]
         public string cameraId;
-        public string id;
         public string displayName;
         public string filePath;
         
-        [Header("VMD摄像机数据")]
-        public string vmdFilePath;
-        public bool isLoaded = false;
-        
-        [Header("当前状态")]
-        public Vector3 currentPosition;
-        public Quaternion currentRotation;
-        public float currentFieldOfView = 60f;
           // 内部数据结构（VMD帧数据）
         private VMDFrameData[] camFrames;
         private int totalFrames = 0;
@@ -51,15 +42,14 @@ namespace MMDVR.Scripts.Components
                 return false;
             }
             
-            vmdFilePath = filePath;
-              try
+            try
             {
-                // 复用MMDCameraManager的解析逻辑                ParseVMDFile(filePath);
+                // 复用MMDCameraManager的解析逻辑
+                ParseVMDFile(filePath);
                 
                 // 初始化vmdCameraData - 转换为正确的类型
                 vmdCameraData = new VMDCameraData(camFrames);
                 
-                isLoaded = true;
                 return true;
             }
             catch (System.Exception e)
@@ -71,7 +61,7 @@ namespace MMDVR.Scripts.Components
         
         public void ApplyAtTime(float timeInSeconds)
         {
-            if (!isLoaded || camFrames == null || camFrames.Length == 0)
+            if (camFrames == null || camFrames.Length == 0)
                 return;
                 
             if (totalFrames <= 0) return;
@@ -87,10 +77,11 @@ namespace MMDVR.Scripts.Components
             var data = camFrames[frame];
             // 统一缩放到与MMD模型一致（1/12.5）
             const float scale = 1f / 12.5f;
-            
-            currentPosition = new Vector3(data.Pos_x * scale, data.Pos_y * scale, (data.Pos_z + data.distans) * scale);
-            currentRotation = Quaternion.Euler(-data.Rot_x, -data.Rot_y, -data.Rot_z);
-            currentFieldOfView = data.viewAngle;
+            // 这里不再赋值到成员变量，仅做本地变量处理或直接用于相机控制
+            Vector3 position = new Vector3(data.Pos_x * scale, data.Pos_y * scale, (data.Pos_z + data.distans) * scale);
+            Quaternion rotation = Quaternion.Euler(-data.Rot_x, -data.Rot_y, -data.Rot_z);
+            float fov = data.viewAngle;
+            // 可在此处直接应用到目标相机对象
         }
         
         private void ParseVMDFile(string vmdPath)
