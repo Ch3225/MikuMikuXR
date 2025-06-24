@@ -345,17 +345,13 @@ namespace MMDVR.Scripts.UIInteraction.ResourceManagement.ListController
             UnityEngine.UI.Image bgImage = itemGO.GetComponent<UnityEngine.UI.Image>();
             if (bgImage != null)
             {
-                if (isAssociated)
-                {
-                    bgImage.color = Color.green; // 已关联的动作为绿色
-                }
-                else
-                {
-                    bgImage.color = Color.white; // 未关联的动作为白色
-                }            }
-              // 可以添加其他视觉指示器
+                // 动作不再高亮绿色，无论是否关联
+                bgImage.color = Color.white;
+            }
+            // 可以添加其他视觉指示器
             Transform associationIndicator = itemGO.transform.Find("AssociationIndicator");
-            if (associationIndicator != null)            {
+            if (associationIndicator != null)
+            {
                 associationIndicator.gameObject.SetActive(isAssociated);
             }
         }

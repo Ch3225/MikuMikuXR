@@ -403,8 +403,11 @@ namespace MMDVR.Scripts.Managers
             
             // 更新MainUI切换按钮状态
             UpdateMainUIToggleButtonState(true);
-
             Debug.Log($"UIManager: 显示UI ({source}模式)");
+            // 新增：UI显示后，刷新Musics、Cameras高亮，重建连线
+            MMDVR.Scripts.UIInteraction.ResourceManagement.ListController.MusicListController.Instance?.UpdateAllItemVisuals();
+            MMDVR.Scripts.UIInteraction.ResourceManagement.ListController.CameraListController.Instance?.UpdateAllItemVisuals();
+            MMDVR.Scripts.UIInteraction.ResourceManagement.ConnectionManagement.ConnectionManager.Instance?.RebuildAllConnections();
         }
 
         /// <summary>

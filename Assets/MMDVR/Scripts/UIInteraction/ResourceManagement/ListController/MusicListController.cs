@@ -225,22 +225,17 @@ namespace MMDVR.Scripts.UIInteraction.ResourceManagement.ListController
                 Debug.LogWarning("MusicListController: droppedGameObject is null or destroyed in HandleDropOnEnableZone");
                 return;
             }
-            
             DraggableItem draggableItem = droppedGameObject.GetComponent<DraggableItem>();
-            if (draggableItem == null || draggableItem.Data == null) 
+            if (draggableItem == null || draggableItem.Data == null)
                 return;
-
             MusicData droppedMusicData = draggableItem.Data as MusicData;
             if (droppedMusicData == null)
                 return;
-
-            // 使用UserActionManager进行用户操作  
+            // 正确做法：直接激活音乐，不再加载
             if (UserActionManager.Instance != null)
             {
-                UserActionManager.Instance.LoadMusic(droppedMusicData.ID, id => {
-                    UserActionManager.Instance.StartPlayback();
-                    Debug.Log($"MusicListController: 音乐激活完成 {droppedMusicData.DisplayName}");
-                });
+                UserActionManager.Instance.ActivateMusic(droppedMusicData.ID);
+                Debug.Log($"MusicListController: 音乐激活完成 {droppedMusicData.DisplayName}");
             }
             else
             {
@@ -277,17 +272,14 @@ namespace MMDVR.Scripts.UIInteraction.ResourceManagement.ListController
             }
         }
 
-        void UpdateAllItemVisuals()
+        public void UpdateAllItemVisuals()
         {
             string activeMusicId = null;
-            
-            // 常规模式下，获取当前播放的音乐ID
-            if (PlaybackManager.Instance != null)
+            // 获取当前播放的音乐ID
+            if (SceneDisplayManager.Instance != null)
             {
-                // TODO: PlaybackManager需要提供当前活动音乐ID的属性
-                activeMusicId = ""; // 暂时为空，等待PlaybackManager实现
+                activeMusicId = SceneDisplayManager.Instance.GetCurrentActiveMusicId();
             }
-
             for (int i = 0; i < uiListItemObjects.Count; i++)
             {
                 GameObject uiItemGO = uiListItemObjects[i];
@@ -296,10 +288,7 @@ namespace MMDVR.Scripts.UIInteraction.ResourceManagement.ListController
                 {
                     MusicData currentItemMusicData = draggable.Data as MusicData;
                     bool isActive = false;
-                    
-                    // 常规模式下，按音乐ID匹配
                     isActive = (activeMusicId != null && activeMusicId == currentItemMusicData.ID);
-                    
                     UpdateItemVisual(uiItemGO, currentItemMusicData, isActive);
                 }
             }

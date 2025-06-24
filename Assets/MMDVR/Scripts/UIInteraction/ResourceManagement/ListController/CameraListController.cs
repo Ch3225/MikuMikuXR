@@ -292,15 +292,17 @@ namespace MMDVR.Scripts.UIInteraction.ResourceManagement.ListController
     void OnCameraActivated(CameraData activatedCameraData)
     {
         Debug.Log($"CameraListController: OnCameraActivated - {activatedCameraData?.DisplayName}");
-        UpdateAllItemVisuals();    }    void UpdateAllItemVisuals()
+        UpdateAllItemVisuals();    }    public void UpdateAllItemVisuals()
     {
         CameraData activeCamData = null;
-        
-        // 常规模式下，获取当前激活的摄像机
         if (SceneStatesManager.Instance != null)
         {
             activeCamData = SceneDisplayManager.Instance.GetActiveCameraData();
         }
+
+        // 检查是否有激活相机
+        bool hasActive = (activeCamData != null);
+        int freeCameraIndex = -1;
 
         for (int i = 0; i < uiListItemObjects.Count; i++)
         {
@@ -310,11 +312,20 @@ namespace MMDVR.Scripts.UIInteraction.ResourceManagement.ListController
             {
                 CameraData currentItemCamData = draggable.Data as CameraData;
                 bool isActive = false;
-                
                 // 常规模式下，按摄像机ID匹配
                 isActive = (activeCamData != null && activeCamData.ID == currentItemCamData.ID);
-                
+                if (currentItemCamData.isFreeCamera) freeCameraIndex = i;
                 UpdateItemVisual(uiItemGO, currentItemCamData, isActive);
+            }
+        }
+        // 如果没有激活相机，FreeCamera高亮绿色
+        if (!hasActive && freeCameraIndex >= 0)
+        {
+            GameObject freeCamGO = uiListItemObjects[freeCameraIndex];
+            DraggableItem draggable = freeCamGO.GetComponent<DraggableItem>();
+            if (draggable != null && draggable.Data is CameraData)
+            {
+                UpdateItemVisual(freeCamGO, (CameraData)draggable.Data, true);
             }
         }
     }
@@ -326,14 +337,15 @@ namespace MMDVR.Scripts.UIInteraction.ResourceManagement.ListController
         {
             if (isActive)
             {
-                bgImage.color = Color.yellow; // 激活项为黄�?
+                bgImage.color = Color.green; // 激活项为绿色
             }
             else
             {
-                bgImage.color = Color.white; // 非激活项为白�?
+                bgImage.color = Color.white; // 非激活项为白色
             }
-        }        Transform activeIndicator = itemGO.transform.Find("ActiveIndicator");
-        if (activeIndicator != null)        
+        }
+        Transform activeIndicator = itemGO.transform.Find("ActiveIndicator");
+        if (activeIndicator != null)
         {
             activeIndicator.gameObject.SetActive(isActive);
         }

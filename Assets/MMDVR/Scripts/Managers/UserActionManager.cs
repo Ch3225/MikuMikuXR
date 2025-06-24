@@ -69,23 +69,19 @@ namespace MMDVR.Scripts.Managers
         }
         private IEnumerator UnloadModelWithUnlinkAndSyncCoroutine(string modelId, System.Action onComplete)
         {
-            // 1. 断开所有关联
             AssociationManager.Instance.ClearModelAssociations(modelId);
             yield return new WaitForEndOfFrame();
-            // 2. 移除场景Actor
             SceneDisplayManager.Instance.RemoveActor(modelId);
             yield return new WaitForEndOfFrame();
-            // 3. 卸载资源
             ResourceManager.Instance.UnloadModel(modelId);
             yield return new WaitForEndOfFrame();
-            // 4. 刷新连线
+            MMDVR.Events.ResourceEvents.TriggerModelListChanged();
+            yield return new WaitForEndOfFrame();
+            // 所有UI刷新后再重建连线
             if (MMDVR.Scripts.UIInteraction.ResourceManagement.ConnectionManagement.ConnectionManager.Instance != null)
             {
-                MMDVR.Scripts.UIInteraction.ResourceManagement.ConnectionManagement.ConnectionManager.Instance.RebuildConnectionsForModel(modelId);
-                MMDVR.Scripts.UIInteraction.ResourceManagement.ConnectionManagement.ConnectionManager.Instance.RefreshConnectionEndPoints();
+                MMDVR.Scripts.UIInteraction.ResourceManagement.ConnectionManagement.ConnectionManager.Instance.RebuildAllConnections();
             }
-            // 5. 刷新列表
-            MMDVR.Events.ResourceEvents.TriggerModelListChanged();
             onComplete?.Invoke();
         }
 
@@ -177,14 +173,13 @@ namespace MMDVR.Scripts.Managers
             yield return new WaitForEndOfFrame();
             ResourceManager.Instance.RemoveMotion(motionId);
             yield return new WaitForEndOfFrame();
-            // 刷新连线
+            MMDVR.Events.ResourceEvents.TriggerMotionListChanged();
+            yield return new WaitForEndOfFrame();
+            // 所有UI刷新后再重建连线
             if (MMDVR.Scripts.UIInteraction.ResourceManagement.ConnectionManagement.ConnectionManager.Instance != null)
             {
-                MMDVR.Scripts.UIInteraction.ResourceManagement.ConnectionManagement.ConnectionManager.Instance.RebuildConnectionsForMotion(motionId);
-                MMDVR.Scripts.UIInteraction.ResourceManagement.ConnectionManagement.ConnectionManager.Instance.RefreshConnectionEndPoints();
+                MMDVR.Scripts.UIInteraction.ResourceManagement.ConnectionManagement.ConnectionManager.Instance.RebuildAllConnections();
             }
-            // 刷新列表
-            MMDVR.Events.ResourceEvents.TriggerMotionListChanged();
             onComplete?.Invoke();
         }
 
