@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using MMDVR.Scripts.Managers;
+using LibMMD.Unity3D;
 
 namespace MMDVR.Scripts.UIInteraction
 {
@@ -29,20 +30,30 @@ namespace MMDVR.Scripts.UIInteraction
                 var eventTrigger = playSlider.GetComponent<UnityEngine.EventSystems.EventTrigger>();
                 if (eventTrigger == null)
                     eventTrigger = playSlider.gameObject.AddComponent<UnityEngine.EventSystems.EventTrigger>();
-                var entryDown = new UnityEngine.EventSystems.EventTrigger.Entry { eventID = UnityEngine.EventSystems.EventTriggerType.PointerDown };                entryDown.callback.AddListener((data) => {
+                var entryDown = new UnityEngine.EventSystems.EventTrigger.Entry { eventID = UnityEngine.EventSystems.EventTriggerType.PointerDown };
+                entryDown.callback.AddListener((data) => {
                     wasPlayingBeforeDrag = PlaybackManager.Instance.isPlaying;
                     PlaybackManager.Instance.Pause();
                     isSliderDragging = true;
                     float value = playSlider.value;
+                    // 拖拽开始时，所有MMD模型进入Playing+None物理模式
+                    SetAllMmdGameObjectState(true, MmdGameObject.PhysicsModeEnum.None, value);
                     PlaybackManager.Instance.SeekTo(value);
                     UpdateTimerText(value);
                 });
                 eventTrigger.triggers.Add(entryDown);
-                var entryUp = new UnityEngine.EventSystems.EventTrigger.Entry { eventID = UnityEngine.EventSystems.EventTriggerType.PointerUp };                entryUp.callback.AddListener((data) => {
+                var entryUp = new UnityEngine.EventSystems.EventTrigger.Entry { eventID = UnityEngine.EventSystems.EventTriggerType.PointerUp };
+                entryUp.callback.AddListener((data) => {
                     isSliderDragging = false;
                     float value = playSlider.value;
                     PlaybackManager.Instance.SeekTo(value);
-                    UpdateTimerText(value);                    if (wasPlayingBeforeDrag) {
+                    UpdateTimerText(value);
+                    // 拖拽结束时，恢复所有MMD模型的播放/暂停和物理模式
+                    if (wasPlayingBeforeDrag)
+                        SetAllMmdGameObjectState(true, MmdGameObject.PhysicsModeEnum.Bullet, value);
+                    else
+                        SetAllMmdGameObjectState(false, MmdGameObject.PhysicsModeEnum.Bullet, value);
+                    if (wasPlayingBeforeDrag) {
                         PlaybackManager.Instance.Play();
                     }
                 });
@@ -137,6 +148,23 @@ namespace MMDVR.Scripts.UIInteraction
             Debug.Log("静音功能需要在SceneStatesManager中实现");
         }        private void OnVolumeChanged(float value)        {
             PlaybackManager.Instance?.SetMusicVolume(value);
+        }
+        private void SetAllMmdGameObjectState(bool playing, MmdGameObject.PhysicsModeEnum physicsMode, float? seekTime = null)
+        {
+            var sceneDisplayManager = SceneDisplayManager.Instance;
+            if (sceneDisplayManager == null || sceneDisplayManager.actorContainer == null) return;
+            for (int i = 0; i < sceneDisplayManager.actorContainer.childCount; i++)
+            {
+                var actor = sceneDisplayManager.actorContainer.GetChild(i);
+                var mmd = actor.GetComponent<MmdGameObject>();
+                if (mmd != null)
+                {
+                    mmd.Playing = playing;
+                    mmd.PhysicsMode = physicsMode;
+                    if (seekTime.HasValue)
+                        mmd.SetMotionPos(seekTime.Value);
+                }
+            }
         }
     }
 }

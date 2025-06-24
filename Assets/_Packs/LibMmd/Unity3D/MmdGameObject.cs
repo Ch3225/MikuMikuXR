@@ -924,11 +924,17 @@ namespace LibMMD.Unity3D
             _playTime = pos;
             _restStepTime = 0.0f;
             _motionPlayer.SeekTime(_playTime);
-            _poser.PrePhysicsPosing();
-            _physicsReactor.Reset();
-            _poser.PostPhysicsPosing();
+            // 合并ForceUpdateToCurrentTime逻辑，确保立即刷新骨骼和物理
+            if (_poser != null)
+            {
+                _poser.PrePhysicsPosing();
+                _physicsReactor?.Reset();
+                _poser.PostPhysicsPosing();
+                UpdateMesh(_playTime);
+                UpdateBones();
+            }
             StartBonePoseCalculation(0.0, 1.0f / PhysicsFps);
-            //_poser.Deform();
+            // _poser.Deform();
         }
 
         private GameObject[] CreateBones(GameObject rootGameObject)
@@ -1456,6 +1462,20 @@ namespace LibMMD.Unity3D
 
             UpdateBones();
             ResetMesh();
+        }
+
+        /// <summary>
+        /// 强制刷新骨骼和物理状态，使模型立即到达当前_playTime对应的姿态。
+        /// 拖拽进度条或定位时调用，避免暂停状态下物理未即时同步。
+        /// </summary>
+        public void ForceUpdateToCurrentTime()
+        {
+            if (_poser == null) return;
+            _poser.PrePhysicsPosing();
+            _physicsReactor?.Reset();
+            _poser.PostPhysicsPosing();
+            UpdateMesh(_playTime);
+            UpdateBones();
         }
     }
 }

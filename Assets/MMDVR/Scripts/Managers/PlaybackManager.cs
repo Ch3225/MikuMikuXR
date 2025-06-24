@@ -380,6 +380,22 @@ namespace MMDVR.Scripts.Managers
             PlaybackEvents.TriggerVolumeChanged(volume);
         }
 
+        public void SetMusicMute(bool mute)
+        {
+            if (sceneDisplayManager == null) return;
+            AudioSource audioSourceToUse = sceneDisplayManager.GetActiveMusicAudioSource();
+            if (audioSourceToUse == null)
+            {
+                audioSourceToUse = musicAudioSource;
+            }
+            if (audioSourceToUse != null)
+            {
+                audioSourceToUse.mute = mute;
+            }
+            // 可选：触发事件
+            // PlaybackEvents.TriggerMuteChanged(mute);
+        }
+
         // ===== 动作同步方法 =====
           private void UpdateAllActorMotionStates(bool play)
         {
@@ -782,6 +798,11 @@ namespace MMDVR.Scripts.Managers
             // 取消事件订阅
             PlaybackEvents.OnPlayPauseToggle -= TogglePlayPause;
             PlaybackEvents.OnStopRequested -= Stop;
+        }
+
+        public SceneDisplayManager GetSceneDisplayManager()
+        {
+            return sceneDisplayManager;
         }
     }
 }

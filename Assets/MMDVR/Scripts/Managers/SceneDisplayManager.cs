@@ -165,11 +165,9 @@ namespace MMDVR.Scripts.Managers
         private System.Collections.IEnumerator CreateActorCoroutine(ModelComponent modelComponent, string actorId)
         {
             Debug.Log($"🎭 开始创建演员: {actorId}");
-            
             GameObject mmdObj = null;
             MmdGameObject mmdGameObject = null;
             bool creationSuccess = false;
-            
             // 创建MMD游戏对象
             try
             {
@@ -182,9 +180,34 @@ namespace MMDVR.Scripts.Managers
                 Debug.LogError($"❌ 创建MMD游戏对象时出错: {e.Message}");
                 yield break;
             }
-            
             yield return new WaitForEndOfFrame(); // 等待GameObject创建完成
-
+            // 先添加演员组件
+            ActorComponent actorComponent = null;
+            try
+            {
+                Debug.Log($"🎪 添加演员组件...");
+                actorComponent = mmdObj.AddComponent<ActorComponent>();
+                actorComponent.actorId = actorId;
+                actorComponent.displayName = Path.GetFileNameWithoutExtension(modelComponent.filePath);
+                // 添加到演员列表
+                var actorData = new ActorData
+                {
+                    id = actorId,
+                    displayName = Path.GetFileNameWithoutExtension(modelComponent.filePath),
+                    filePath = modelComponent.filePath,
+                    modelId = modelComponent.id,
+                    motionIds = new List<string>(),
+                    isVisible = true
+                };
+                actorList.Add(actorData);
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"❌ 添加演员组件时出错: {e.Message}");
+                if (mmdObj != null) Destroy(mmdObj);
+                yield break;
+            }
+            yield return new WaitForEndOfFrame(); // 等待组件添加完成
             // 获取MmdGameObject组件并配置
             try
             {
@@ -192,10 +215,6 @@ namespace MMDVR.Scripts.Managers
                 if (mmdGameObject != null)
                 {
                     Debug.Log($"⚙️ 配置MMD组件...");
-                    
-                    // 设置物理模式为无物理，避免物理相关错误
-                    mmdGameObject.PhysicsMode = MmdGameObject.PhysicsModeEnum.None;
-                    
                     // 配置HDRP材质设置
                     var config = new LibMMD.Unity3D.MmdUnityConfig
                     {
@@ -218,9 +237,7 @@ namespace MMDVR.Scripts.Managers
                 if (mmdObj != null) Destroy(mmdObj);
                 yield break;
             }
-            
             yield return new WaitForEndOfFrame(); // 等待配置完成
-            
             // 加载模型
             try
             {
@@ -233,44 +250,11 @@ namespace MMDVR.Scripts.Managers
                 if (mmdObj != null) Destroy(mmdObj);
                 yield break;
             }
-            
             yield return new WaitForSeconds(0.1f); // 等待模型加载初始化
-            
             Debug.Log($"✅ MMD模型加载完成: {mmdGameObject.ModelName}");
-            
             // 检查mesh是否正确加载
             yield return StartCoroutine(ValidateModelMesh(mmdObj));
-
-            yield return new WaitForEndOfFrame(); // 等待组件添加完成
-
-            // 添加演员组件
-            try
-            {
-                Debug.Log($"🎪 添加演员组件...");
-                  var actorComponent = mmdObj.AddComponent<ActorComponent>();
-                actorComponent.actorId = actorId;
-                actorComponent.displayName = Path.GetFileNameWithoutExtension(modelComponent.filePath);
-
-                // 添加到演员列表
-                var actorData = new ActorData
-                {
-                    id = actorId,
-                    displayName = Path.GetFileNameWithoutExtension(modelComponent.filePath),
-                    filePath = modelComponent.filePath,
-                    modelId = modelComponent.id,
-                    motionIds = new List<string>(),
-                    isVisible = true
-                };
-                actorList.Add(actorData);            }
-            catch (Exception e)
-            {
-                Debug.LogError($"❌ 添加演员组件时出错: {e.Message}");
-                if (mmdObj != null) Destroy(mmdObj);
-                yield break;
-            }
-            
-            yield return new WaitForEndOfFrame(); // 等待数据添加完成
-
+            yield return new WaitForEndOfFrame(); // 等待所有组件添加完成
             // 检查并应用关联的动作
             Debug.Log($"🔍 检查模型 {modelComponent.id} 的关联动作...");
             if (AssociationManager.Instance != null)
@@ -297,9 +281,7 @@ namespace MMDVR.Scripts.Managers
                     Debug.Log($"ℹ️ 模型 {modelComponent.id} 没有关联的动作");
                 }
             }
-
             Debug.Log($"🎉 演员创建完成: {actorId}");
-            
             // 触发事件
             try
             {
@@ -835,37 +817,30 @@ namespace MMDVR.Scripts.Managers
         private void ApplyMotionToActor(string actorId, string motionId)
         {
             Debug.Log($"🎬 应用动作 {motionId} 到演员 {actorId}");
-            
-            // 查找Actor GameObject
             Transform actorTransform = actorContainer.Find($"Actor_{actorId}");
             if (actorTransform == null)
             {
                 Debug.LogError($"❌ 找不到演员: Actor_{actorId}");
                 return;
             }
-            
-            // 获取MmdGameObject组件
             var mmdGameObject = actorTransform.GetComponent<MmdGameObject>();
             if (mmdGameObject == null)
             {
                 Debug.LogError($"❌ 演员 {actorId} 没有MmdGameObject组件");
                 return;
             }
-            
-            // 从ResourceManager获取动作组件，改为通过事件/缓存传递
-            var motionComponent = MMDVR.Scripts.Managers.ResourceManager.Instance?.GetMotion(motionId);
+            var motionComponent = ResourceManager.Instance?.GetMotion(motionId);
             if (motionComponent == null)
             {
                 Debug.LogError($"❌ 找不到动作资源: {motionId}");
                 return;
             }
-            
             try
             {
-                // 应用动作到MMD模型
                 Debug.Log($"🎭 加载VMD动作文件: {motionComponent.filePath}");
                 mmdGameObject.LoadMotion(motionComponent.filePath);
-                
+                // 加载动作后再设置物理模式
+                mmdGameObject.PhysicsMode = MmdGameObject.PhysicsModeEnum.Bullet;
                 // 更新Actor数据中的动作关联
                 var actorData = actorList.Find(a => a.id == actorId);
                 if (actorData != null)
@@ -879,7 +854,7 @@ namespace MMDVR.Scripts.Managers
             }
             catch (Exception e)
             {
-                Debug.LogError($"❌ 应用动作时出错: {e.Message}");
+                Debug.LogError($"❌ 应用动作 {motionId} 到演员 {actorId} 时出错: {e.Message}");
             }
         }
 

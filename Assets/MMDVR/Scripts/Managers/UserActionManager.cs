@@ -293,12 +293,12 @@ namespace MMDVR.Scripts.Managers
         }
         public void SetVolume(float volume, System.Action onComplete = null)
         {
-            // TODO: 实现音量控制功能
+            PlaybackManager.Instance?.SetMusicVolume(volume);
             onComplete?.Invoke();
         }
         public void SetMute(bool mute, System.Action onComplete = null)
         {
-            // TODO: 实现静音控制功能
+            PlaybackManager.Instance?.SetMusicMute(mute);
             onComplete?.Invoke();
         }
     }
